@@ -94,7 +94,10 @@ function FilterFields({ members, state }: { members: HeaderProps["members"]; sta
             <SelectItem value="all">Everyone</SelectItem>
             <SelectItem value="unassigned">Unassigned</SelectItem>
             {members.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
+              // `label` prop tells Base UI Select.Value what to show in the
+              // collapsed trigger — without it, Base UI falls back to the raw
+              // `value` (the user's UUID) when children is a complex JSX tree.
+              <SelectItem key={m.id} value={m.id} label={m.name}>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
                     {initials(m.name)}
