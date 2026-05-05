@@ -9,7 +9,7 @@ export interface TaskFilterParams {
   pillar?: Pillar | "all";
   priority?: Priority | "all";
   assignee?: string | "all" | "unassigned";
-  range?: "all" | "today" | "upcoming" | "overdue" | "custom";
+  range?: "all" | "today" | "upcoming" | "30d" | "60d" | "90d" | "overdue" | "custom";
   start?: string;
   end?: string;
   kind?: TaskKind;
@@ -43,11 +43,28 @@ export async function getTasks(projectId: string, filters: TaskFilterParams = {}
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const iso = (d: Date) => d.toISOString().slice(0, 10);
 
+  // Helper — returns ISO date N days from today (forward).
+  const daysAhead = (n: number) => {
+    const d = new Date(today); d.setDate(d.getDate() + n); return iso(d);
+  };
+
   if (filters.range === "today") {
     q = q.eq("scheduled_date", iso(today));
   } else if (filters.range === "upcoming") {
-    const weekAhead = new Date(today); weekAhead.setDate(weekAhead.getDate() + 7);
-    q = q.gte("scheduled_date", iso(today)).lte("scheduled_date", iso(weekAhead));
+    // "This week" — current calendar week (Mon to Sun of the week containing today).
+    // Sprint weeks are scheduled by week-of-month, so we want the whole week's
+    // tasks to show up regardless of which day "today" falls on.
+    const dow = today.getDay();              // 0=Sun, 1=Mon, ... 6=Sat
+    const offsetToMon = (dow + 6) % 7;       // days back to last Monday
+    const weekStart = new Date(today); weekStart.setDate(weekStart.getDate() - offsetToMon);
+    const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+    q = q.gte("scheduled_date", iso(weekStart)).lte("scheduled_date", iso(weekEnd));
+  } else if (filters.range === "30d") {
+    q = q.gte("scheduled_date", iso(today)).lte("scheduled_date", daysAhead(30));
+  } else if (filters.range === "60d") {
+    q = q.gte("scheduled_date", iso(today)).lte("scheduled_date", daysAhead(60));
+  } else if (filters.range === "90d") {
+    q = q.gte("scheduled_date", iso(today)).lte("scheduled_date", daysAhead(90));
   } else if (filters.range === "overdue") {
     q = q.lt("scheduled_date", iso(today)).eq("done", false);
   } else if (filters.range === "custom" && (filters.start || filters.end)) {

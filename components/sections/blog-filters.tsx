@@ -111,11 +111,14 @@ function FilterFields({ members, state }: { members: HeaderProps["members"]; sta
         <Select value={state.range} onValueChange={(v) => v && state.update("range", v)}>
           <SelectTrigger className="w-full h-8"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Any time</SelectItem>
+            <SelectItem value="all">All</SelectItem>
             <SelectItem value="today">Today</SelectItem>
             <SelectItem value="upcoming">This week</SelectItem>
+            <SelectItem value="30d">Next 30 days</SelectItem>
+            <SelectItem value="60d">Next 60 days</SelectItem>
+            <SelectItem value="90d">Next 90 days</SelectItem>
             <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="custom">Custom</SelectItem>
+            <SelectItem value="custom">Custom range</SelectItem>
           </SelectContent>
         </Select>
       </Field>

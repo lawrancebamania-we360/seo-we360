@@ -64,7 +64,8 @@
       "WebFetch(domain:www.insightful.io)",
       "Bash(npm ls *)",
       "Bash(npm install *)",
-      "Bash(node -e \"const e = require\\('exceljs'\\); console.log\\('exceljs', e.version || 'loaded'\\);\")"
+      "Bash(node -e \"const e = require\\('exceljs'\\); console.log\\('exceljs', e.version || 'loaded'\\);\")",
+      "Bash(git fetch *)"
     ]
   }
 }

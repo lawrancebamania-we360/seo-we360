@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
@@ -31,9 +32,16 @@ export function MobileNav({ canManageTeam }: { canManageTeam: boolean }) {
       <SheetTrigger render={(p) => <Button {...p} variant="ghost" size="icon" className="lg:hidden" aria-label="Open menu"><Menu className="size-5" /></Button>} />
       <SheetContent side="left" className="p-0 w-72">
         <div className="flex h-16 items-center gap-2 border-b border-border px-4">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-[#5B45E0] text-sm font-bold text-white">W</div>
-          <div className="font-semibold tracking-tight text-[#231D4F] dark:text-white">
-            SEO <span className="text-[#5B45E0]">we360</span>
+          <Image
+            src="/we360-logo.webp"
+            alt="we360.ai"
+            width={120}
+            height={24}
+            priority
+            className="h-6 w-auto dark:brightness-0 dark:invert"
+          />
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap ml-1">
+            Internal SEO
           </div>
         </div>
         <nav className="p-3 space-y-0.5">

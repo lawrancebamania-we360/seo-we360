@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import {
   DndContext,
   closestCenter,
@@ -27,7 +27,6 @@ import {
   PanelLeftClose, PanelLeftOpen, GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ProjectSwitcher } from "@/components/dashboard/project-switcher";
 import { UserMenu } from "@/components/dashboard/user-menu";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import { HealthCard } from "@/components/dashboard/health-card";
@@ -131,7 +130,7 @@ export function Sidebar(props: Props) {
   );
 }
 
-function SidebarInner({ profile, projects, activeProject, canManageTeam, canManageProjects, health }: Props) {
+function SidebarInner({ profile, activeProject, canManageTeam, canManageProjects, health }: Props) {
   const { collapsed, toggle } = useSidebar();
   const pathname = usePathname();
 
@@ -178,46 +177,11 @@ function SidebarInner({ profile, projects, activeProject, canManageTeam, canMana
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="hidden lg:flex shrink-0 flex-col border-r border-border bg-sidebar/50 backdrop-blur-sm sticky top-0 h-svh overflow-hidden"
     >
-      <div className={cn("flex h-16 items-center border-b border-border shrink-0", collapsed ? "justify-center px-2" : "gap-2 px-4")}>
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#5B45E0] text-sm font-bold text-white shadow-md shadow-[#5B45E0]/30">
-          W
-        </div>
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: "auto" }}
-              exit={{ opacity: 0, width: 0 }}
-              transition={{ duration: 0.15 }}
-              className="flex-1 min-w-0 overflow-hidden"
-            >
-              <div className="font-semibold tracking-tight leading-none text-[#231D4F] dark:text-white">
-                SEO <span className="text-[#5B45E0]">we360</span>
-              </div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5 whitespace-nowrap">
-                Internal Command
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <Button variant="ghost" size="icon-sm" onClick={toggle} aria-label={collapsed ? "Expand" : "Collapse"} className="shrink-0">
+      <div className={cn("flex h-12 items-center border-b border-border shrink-0 px-2", collapsed ? "justify-center" : "justify-end")}>
+        <Button variant="ghost" size="icon-sm" onClick={toggle} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
           {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
         </Button>
       </div>
-
-      <AnimatePresence initial={false}>
-        {!collapsed && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="p-3 overflow-hidden shrink-0"
-          >
-            <ProjectSwitcher projects={projects} activeProject={activeProject} canCreate={canManageProjects} />
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <nav className={cn("flex-1 overflow-y-auto min-h-0 we360-scroll", collapsed ? "px-2" : "px-3", "pb-3")}>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
