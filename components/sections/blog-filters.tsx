@@ -89,14 +89,26 @@ function FilterFields({ members, state }: { members: HeaderProps["members"]; sta
 
       <Field label="Assigned to">
         <Select value={state.assignee} onValueChange={(v) => v && state.update("assignee", v)}>
-          <SelectTrigger className="w-full h-8"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full h-8">
+            {/*
+              Base UI's Select.Value renders the selected value verbatim by
+              default — so member assignees show as raw UUIDs. Passing a
+              render-function child resolves the value to a human label.
+              `label` on each SelectItem (below) is for keyboard typeahead,
+              not for trigger display — that's a separate concern.
+             */}
+            <SelectValue>
+              {(value: string | null) => {
+                if (!value || value === "all") return "Everyone";
+                if (value === "unassigned") return "Unassigned";
+                return members.find((m) => m.id === value)?.name ?? value;
+              }}
+            </SelectValue>
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Everyone</SelectItem>
             <SelectItem value="unassigned">Unassigned</SelectItem>
             {members.map((m) => (
-              // `label` prop tells Base UI Select.Value what to show in the
-              // collapsed trigger — without it, Base UI falls back to the raw
-              // `value` (the user's UUID) when children is a complex JSX tree.
               <SelectItem key={m.id} value={m.id} label={m.name}>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
