@@ -2,8 +2,6 @@
   "permissions": {
     "allow": [
       "Bash(npm --version)",
-      "Bash(mv D:/personal-projects/klimb-temp/.git D:/personal-projects/klimb/.git)",
-      "Bash(rmdir D:/personal-projects/klimb-temp)",
       "Bash(rm -rf .next)",
       "Bash(npx next *)",
       "Bash(npx eslint *)",

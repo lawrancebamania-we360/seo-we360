@@ -144,7 +144,7 @@ function BlogTaskContent({
   };
 
   const onCopyPrompt = async () => {
-    const prompt = briefToMarkdownPrompt(draft, "SkyHigh India", "skyhighindia.com");
+    const prompt = briefToMarkdownPrompt(draft, "We360.ai", "we360.ai");
     try {
       await navigator.clipboard.writeText(prompt);
       toast.success("Full brief + 5-pillar prompt copied — paste into any LLM");

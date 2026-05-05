@@ -19,7 +19,7 @@ begin
 
   -- Role: default 'member' unless email is the bootstrap super_admin
   v_role := case
-    when new.email = 'sakshi@goodlives.in' then 'super_admin'
+    when new.email = 'lawrance.bamania@we360.ai' then 'super_admin'
     else coalesce(new.raw_user_meta_data->>'role', 'member')
   end;
 

@@ -12,8 +12,8 @@
  *   npx tsx scripts/screenshot-audit.ts
  *
  * Public pages shoot unauthenticated. Authed pages require a valid Supabase
- * session cookie — set KLIMB_TEST_COOKIE to the sb-<project>-auth-token value
- * from an existing browser session before running.
+ * session cookie — set SEO_WE360_TEST_COOKIE to the sb-<project>-auth-token
+ * value from an existing browser session before running.
  */
 
 import { chromium, type Browser, type Page } from "playwright";
@@ -21,8 +21,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-const BASE = process.env.KLIMB_BASE ?? "http://localhost:3000";
-const AUTH_COOKIE = process.env.KLIMB_TEST_COOKIE ?? "";
+const BASE = process.env.SEO_WE360_BASE ?? "http://localhost:3000";
+const AUTH_COOKIE = process.env.SEO_WE360_TEST_COOKIE ?? "";
 const OUT_DIR = path.resolve(process.cwd(), "visual-audit");
 
 const VIEWPORTS = [

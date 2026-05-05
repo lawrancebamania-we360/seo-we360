@@ -109,7 +109,7 @@ export function SettingsEditor({ settings }: { settings: Settings }) {
           <Input
             value={form.internal_email_domains}
             onChange={(e) => setForm({ ...form, internal_email_domains: e.target.value })}
-            placeholder="goodlives.in, trusted-partner.com"
+            placeholder="we360.ai, trusted-partner.com"
           />
           <p className="text-xs text-muted-foreground">
             Comma-separated list. Anyone signing up with one of these domains skips trial and gets

@@ -25,11 +25,11 @@ alter table public.projects drop column if exists org_id;
 drop index if exists idx_projects_org;
 
 -- ----------------------------------------------------------------
--- 4. Purge legacy demo project (SkyHigh India) if it was seeded.
+-- 4. Purge legacy demo project if it was seeded.
 --    Child rows cascade via existing FKs on project_id.
 -- ----------------------------------------------------------------
 delete from public.projects where id = '00000000-0000-4000-8000-000000000001';
-delete from public.projects where domain = 'skyhighindia.com';
+delete from public.projects where domain = 'we360.ai';
 
 -- ----------------------------------------------------------------
 -- 5. Re-add platform_admin column on profiles.

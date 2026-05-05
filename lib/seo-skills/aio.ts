@@ -15,7 +15,7 @@ export const aioSkill: Skill = {
 
     // llms.txt — we can't fetch it from here (no side effects), but we can hint
     // Note: the orchestrator fetches /llms.txt separately and feeds result in responseHeaders meta
-    if (responseHeaders["x-klimb-llmstxt"] !== "present") {
+    if (responseHeaders["x-w360-llmstxt"] !== "present") {
       findings.push({
         skill: "aio",
         check: "llms_txt",
@@ -28,7 +28,7 @@ export const aioSkill: Skill = {
     }
 
     // AI bot access (from robots.txt — fed via responseHeaders)
-    const botsBlocked: string[] = JSON.parse(responseHeaders["x-klimb-bots-blocked"] ?? "[]");
+    const botsBlocked: string[] = JSON.parse(responseHeaders["x-w360-bots-blocked"] ?? "[]");
     if (botsBlocked.length > 0) {
       findings.push({
         skill: "aio",

@@ -128,11 +128,11 @@ export async function auditUrl(url: string, project: Project, domainCtx: DomainC
       industry: project.industry,
     });
     // Inject domain-level data into responseHeaders so skills can read it
-    ctx.responseHeaders["x-klimb-llmstxt"] = domainCtx.llmsTxtPresent ? "present" : "missing";
-    ctx.responseHeaders["x-klimb-bots-blocked"] = JSON.stringify(domainCtx.botsBlocked);
-    ctx.responseHeaders["x-klimb-sitemap-status"] = domainCtx.sitemapStatus;
-    ctx.responseHeaders["x-klimb-sitemap-url-count"] = String(domainCtx.sitemapUrlCount);
-    ctx.responseHeaders["x-klimb-robots-has-sitemap"] = domainCtx.robotsHasSitemap ? "yes" : "no";
+    ctx.responseHeaders["x-w360-llmstxt"] = domainCtx.llmsTxtPresent ? "present" : "missing";
+    ctx.responseHeaders["x-w360-bots-blocked"] = JSON.stringify(domainCtx.botsBlocked);
+    ctx.responseHeaders["x-w360-sitemap-status"] = domainCtx.sitemapStatus;
+    ctx.responseHeaders["x-w360-sitemap-url-count"] = String(domainCtx.sitemapUrlCount);
+    ctx.responseHeaders["x-w360-robots-has-sitemap"] = domainCtx.robotsHasSitemap ? "yes" : "no";
 
     const findings: Finding[] = [];
     for (const skill of ALL_SKILLS) {

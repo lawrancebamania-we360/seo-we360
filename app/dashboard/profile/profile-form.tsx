@@ -297,7 +297,7 @@ function DataRightsCard({ email }: { email: string }) {
         a.href = url;
         const today = new Date().toISOString().slice(0, 10);
         const safe = email.replace(/[^a-zA-Z0-9._-]/g, "_");
-        a.download = `klimb-export-${safe}-${today}.json`;
+        a.download = `seo-we360-export-${safe}-${today}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

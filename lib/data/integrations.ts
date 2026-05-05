@@ -98,7 +98,7 @@ const CATALOG: Record<Exclude<IntegrationProvider, "supabase">, Omit<Integration
     iconBg: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
     envVars: ["GOOGLE_SERVICE_ACCOUNT_JSON"],
     fields: [
-      { key: "property_url", label: "GSC Property URL", placeholder: "sc-domain:skyhighindia.com or https://skyhighindia.com/" },
+      { key: "property_url", label: "GSC Property URL", placeholder: "sc-domain:we360.ai or https://we360.ai/" },
       { key: "service_account_json", label: "Service Account JSON (same as GA4)", placeholder: `{"type": "service_account", ...}`, type: "textarea", envVar: "GOOGLE_SERVICE_ACCOUNT_JSON" },
     ],
     howToConnect: [

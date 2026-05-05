@@ -71,7 +71,7 @@ export function PublishUrlDialog({ open, onOpenChange, taskId, taskTitle, initia
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://skyhighindia.com/blog/..."
+            placeholder="https://we360.ai/blog/..."
             autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter" && isValid && !pending) save();

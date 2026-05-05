@@ -1,6 +1,9 @@
-# Klimb — SEO Command Dashboard
+# SEO-We360 — Internal SEO Command Dashboard
 
-Agency-managed, multi-tenant SEO dashboard with a 5-pillar optimization health model (SEO, AEO, GEO, SXO, AIO). Built for GoodLives to track client sites like [skyhighindia.com](https://skyhighindia.com).
+The internal SEO ops dashboard for **[we360.ai](https://we360.ai)** — a 5-pillar
+optimization health model (SEO, AEO, GEO, SXO, AIO) that tracks the
+we360.ai marketing site, runs daily audits, and drives the 100K-organic-traffic
+content plan.
 
 ## Stack
 
@@ -8,7 +11,7 @@ Agency-managed, multi-tenant SEO dashboard with a 5-pillar optimization health m
 - **Tailwind v4** + **shadcn/ui** (Base UI primitives)
 - **motion** (motion.dev/react) for animations
 - **Supabase** (Postgres, Auth, Storage) — multi-tenant via `project_id` + RLS
-- **Vercel Hobby** for hosting + daily cron (free tier)
+- **Vercel** for hosting + scheduled cron
 
 ## First-time setup
 
@@ -20,7 +23,7 @@ npm install
 
 ### 2. Supabase — create project & run migrations
 
-1. Supabase project is already provisioned. Copy the `service_role` key from **Dashboard → Project Settings → API → Secret keys**.
+1. Create a Supabase project, then copy the `service_role` key from **Dashboard → Project Settings → API → Secret keys**.
 2. Copy `.env.local.example` → `.env.local` and fill in `SUPABASE_SERVICE_ROLE_KEY` (anon key is pre-filled).
 3. Run the migrations in order via the Supabase SQL editor:
    - `supabase/migrations/20260418000001_initial_schema.sql`
@@ -36,13 +39,15 @@ npm install
 https://<your-supabase-ref>.supabase.co/auth/v1/callback
 ```
 
-### 4. First super admin (sakshi@goodlives.in)
+The app domain-gates auth — only `@we360.ai` accounts can sign in.
 
-Two ways:
+### 4. First super admin
 
-**Option A (recommended):** Sign up via the login screen using the password `GoodLives@123` (or Google with a `@goodlives.in` workspace account). The DB trigger `handle_new_user()` automatically assigns `role = 'super_admin'` when the email matches `sakshi@goodlives.in`.
-
-**Option B:** Insert directly via Supabase dashboard if you want a pre-set password.
+The DB trigger `handle_new_user()` automatically assigns `role = 'super_admin'`
+when the email matches the bootstrap address configured in
+`supabase/migrations/20260418000003_triggers_and_functions.sql`. Sign up via
+Google with a `@we360.ai` workspace account that matches that address and
+you'll land in the dashboard as super admin.
 
 ### 5. Run dev
 
@@ -52,11 +57,17 @@ npm run dev
 
 Visit [http://localhost:3000](http://localhost:3000).
 
-## Daily cron (Vercel)
+## Scheduled cron (Vercel)
 
-`vercel.json` schedules `/api/cron/daily-audit` at **5:30 UTC = 11:00 AM IST**, every day.
+`vercel.json` schedules three jobs:
 
-The cron runs 8 phases per project:
+| Path | Schedule | Purpose |
+|------|----------|---------|
+| `/api/cron/daily-audit` | `30 5 * * *` (05:30 UTC ≈ 11:00 IST) | 8-phase site audit |
+| `/api/cron/blog-discovery` | `30 3 * * 1` (Mondays) | Apify keyword discovery |
+| `/api/cron/monthly-intelligence` | `0 3 1 * *` (1st of month) | Competitor + SERP refresh |
+
+The daily cron runs 8 phases per project:
 
 | Phase | What it does | When |
 |-------|--------------|------|
@@ -93,11 +104,11 @@ Every row in every data table carries `project_id`. RLS policies enforce:
 - **Super admins & admins** see everything across all projects.
 - **Members** see only projects they're in `project_memberships` for, and only for sections they have `member_permissions` enabled for (app layer check).
 
-Project switching in the sidebar writes a cookie (`klimb.active_project_id`) + updates `profiles.active_project_id` so it persists across devices.
+Project switching in the sidebar writes a cookie (`seo-we360.active_project_id`) + updates `profiles.active_project_id` so it persists across devices.
 
 ## Article generation (BYOK)
 
-Klimb **never stores AI API keys**. When a user clicks "Generate article":
+The dashboard **never stores AI API keys**. When a user clicks "Generate article":
 
 1. A modal asks for their Claude or OpenAI key.
 2. The key is sent to `/api/articles/generate` for that single request only.
@@ -126,54 +137,52 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 CRON_SECRET
 APIFY_TOKEN
+APIFY_ACTOR_ID
 GOOGLE_SERVICE_ACCOUNT_JSON
 PAGESPEED_API_KEY
 NEXT_PUBLIC_APP_URL
+NEXT_PUBLIC_APP_NAME
+NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED
 ```
 
 ## Free-tier constraints
 
-- **Vercel Hobby**: 1 cron/day, 60s function timeout. Phase 1 caps at 30 URLs per run; longer audits move to Supabase Edge Functions.
+- **Vercel Hobby**: 1 cron/day on free tier, 60s function timeout. Phase 1 caps at 30 URLs per run; longer audits move to Supabase Edge Functions.
 - **Supabase Free**: 500MB DB, 2GB bandwidth. `prune_cwv_snapshots()` and `prune_pillar_scores()` keep history bounded (30 and 90 days respectively).
-- **Apify**: $5/month → 5–6 keywords/Monday run max.
+- **Apify**: ~$5/month → 5–6 keywords/Monday run max.
 
 ## Directory guide
 
 ```
 app/
-  (dashboard)/        → protected section group
-    layout.tsx        → sidebar + main shell
-    page.tsx          → Overview (pillar cards + radar)
-    tasks/            → task management
-    keywords/         → tracked + GKP upload
-    seo-gaps/         → per-page audit results
-    technical/        → CWV mobile vs desktop
-    competitors/      → competitor cards
-    sprint/           → weekly schedule
-    wins/             → milestone feed
-    articles/         → article writer with BYOK
-    team/             → admin-only team management
-    projects/         → admin-only project list
-    profile/          → user settings
+  dashboard/          → protected dashboard pages (overview, tasks, keywords, sprint, wins…)
+  admin/              → super-admin views (users, projects, settings, audit-trail)
   auth/               → login, forgot password, OAuth callback
   api/
-    cron/daily-audit  → 8-phase cron endpoint
+    cron/             → daily-audit, blog-discovery, monthly-intelligence
     articles/generate → BYOK AI proxy (Claude or OpenAI)
 
 components/
   ui/                 → shadcn/Base UI primitives
   dashboard/          → sidebar, project switcher, user menu, theme toggle
-  sections/           → section-specific components (pillar-card, task-row, ...)
+  sections/           → section-specific components (pillar-card, task-row, …)
 
 lib/
   supabase/           → client, server, admin, middleware
   auth/               → getUserContext, permissions
   actions/            → server actions (auth, project, tasks, team, articles, profile)
-  cron/               → 8 phase modules
+  cron/               → cron phase modules
   data/               → server-side data loaders
-  ui-helpers.ts       → color/formatting helpers
-  utils.ts            → shadcn `cn` helper
-  types/database.ts   → handwritten Supabase types
+  seo-skills/         → orchestrator + per-pillar skill modules
+  ai/                 → BYOK AI client wrappers
 
+scripts/              → standalone TS scripts (keyword analysis, content brief generator)
+seo-data/             → CSV / JSON inputs for content planning scripts
 supabase/migrations/  → SQL schema, RLS, triggers, seed
 ```
+
+## Brand
+
+Visual specs live in `BRAND_GUIDELINES.md` — palette, typography, motion, and
+component canon. Anything in `app/`, `components/`, or `lib/` should match
+that doc. If a component disagrees with the guide, the component is wrong.

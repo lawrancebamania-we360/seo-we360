@@ -12,8 +12,8 @@ export const sitemapSkill: Skill = {
     if (urlPath !== "/") return findings;
 
     // The orchestrator injects cached sitemap status via response headers
-    const status = ctx.responseHeaders["x-klimb-sitemap-status"];
-    const urlCount = parseInt(ctx.responseHeaders["x-klimb-sitemap-url-count"] ?? "0", 10);
+    const status = ctx.responseHeaders["x-w360-sitemap-status"];
+    const urlCount = parseInt(ctx.responseHeaders["x-w360-sitemap-url-count"] ?? "0", 10);
 
     if (status === "missing") {
       findings.push({
@@ -60,7 +60,7 @@ export const sitemapSkill: Skill = {
     }
 
     // robots.txt referencing the sitemap
-    const robotsHasSitemap = ctx.responseHeaders["x-klimb-robots-has-sitemap"] === "yes";
+    const robotsHasSitemap = ctx.responseHeaders["x-w360-robots-has-sitemap"] === "yes";
     if (status === "ok" && !robotsHasSitemap) {
       findings.push({
         skill: "sitemap",

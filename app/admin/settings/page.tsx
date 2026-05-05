@@ -18,7 +18,7 @@ export default async function SettingsPage() {
   };
   const settings = (data as Settings) ?? {
     id: 1, trial_enabled: true, trial_days: 15, signup_open: true,
-    maintenance_mode: false, internal_email_domains: ["goodlives.in"], updated_at: new Date().toISOString(),
+    maintenance_mode: false, internal_email_domains: ["we360.ai"], updated_at: new Date().toISOString(),
   };
 
   return (

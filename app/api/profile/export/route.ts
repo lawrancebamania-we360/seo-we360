@@ -88,7 +88,7 @@ export async function GET() {
     status: 200,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "content-disposition": `attachment; filename="klimb-export-${safeEmail}-${dateStr}.json"`,
+      "content-disposition": `attachment; filename="seo-we360-export-${safeEmail}-${dateStr}.json"`,
       "cache-control": "no-store, max-age=0",
     },
   });

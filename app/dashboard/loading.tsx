@@ -23,15 +23,15 @@ export default function DashboardLoading() {
               <path
                 d="M32 4 a28 28 0 0 1 28 28"
                 fill="none"
-                stroke="url(#klimbGradient)"
+                stroke="url(#we360Gradient)"
                 strokeWidth="4"
                 strokeLinecap="round"
               />
               <defs>
-                <linearGradient id="klimbGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#10b981" />
-                  <stop offset="50%" stopColor="#0ea5e9" />
-                  <stop offset="100%" stopColor="#8b5cf6" />
+                <linearGradient id="we360Gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#5B45E0" />
+                  <stop offset="50%" stopColor="#7B62FF" />
+                  <stop offset="100%" stopColor="#FEB800" />
                 </linearGradient>
               </defs>
             </svg>
@@ -46,14 +46,14 @@ export default function DashboardLoading() {
               <path
                 d="M24 4 a20 20 0 0 1 0 40"
                 fill="none"
-                stroke="url(#klimbGradient2)"
+                stroke="url(#we360Gradient2)"
                 strokeWidth="3"
                 strokeLinecap="round"
               />
               <defs>
-                <linearGradient id="klimbGradient2" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#8b5cf6" />
-                  <stop offset="100%" stopColor="#10b981" />
+                <linearGradient id="we360Gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#7B62FF" />
+                  <stop offset="100%" stopColor="#5B45E0" />
                 </linearGradient>
               </defs>
             </svg>
