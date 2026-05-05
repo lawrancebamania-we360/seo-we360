@@ -64,6 +64,13 @@ const monthAhead = (() => {
 const START = args.get("start") ?? today;
 const END = args.get("end") ?? monthAhead;
 const KEYS = args.get("keys")?.split(",").map((s) => s.trim()).filter(Boolean) ?? null;
+// New flags for the master-brief enrichment pass:
+//   --only-new        skip "Update existing X" tasks (they need GSC/GA4 backing,
+//                     not fresh SERP scrape)
+//   --skip-enriched   skip tasks whose brief.recommended_h2s is already populated
+//                     (idempotent re-runs don't waste Apify credits)
+const ONLY_NEW = args.has("only-new");
+const SKIP_ENRICHED = args.has("skip-enriched");
 
 // ----------------------------- types ------------------------------------
 
@@ -118,7 +125,18 @@ async function fetchTargetTasks(): Promise<TaskRow[]> {
 
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as TaskRow[];
+  let rows = (data ?? []) as TaskRow[];
+
+  if (ONLY_NEW) {
+    // Skip "Update existing blog/page/landing" tasks — those want GSC/GA4
+    // backing, not a fresh SERP scrape.
+    rows = rows.filter((r) => !/^update\b/i.test(r.title));
+  }
+  if (SKIP_ENRICHED) {
+    // Brief already has H2s from a prior Apify run — don't burn credits again.
+    rows = rows.filter((r) => !(r.brief?.recommended_h2s && r.brief.recommended_h2s.length >= 3));
+  }
+  return rows;
 }
 
 function dedupe(arr: unknown[]): string[] {

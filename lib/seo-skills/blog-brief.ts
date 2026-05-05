@@ -272,7 +272,17 @@ export function generateBlogBrief(input: BriefInput): BlogBrief {
   };
 }
 
-export function briefToMarkdownPrompt(brief: BlogBrief, projectName: string, projectDomain: string): string {
+export function briefToMarkdownPrompt(
+  brief: BlogBrief,
+  projectName: string,
+  projectDomain: string,
+  // Optional GSC/GA4 backing text — when provided, it's pasted at the top
+  // of the prompt so the LLM understands WHY this article matters and what
+  // its current SERP / engagement reality looks like. The backing text is
+  // already human-formatted ("GSC 28d: 5,420 imp · 67 clk · pos 14.3 …")
+  // so we just embed it as-is. Leave undefined for new tasks (no history).
+  dataBacking?: string | null,
+): string {
   const wt = brief.word_count_target;
   const lengthBand =
     wt >= 2500 ? "2500+ words" : wt >= 1800 ? "1800–2200 words" : "1200–1500 words";
@@ -280,10 +290,14 @@ export function briefToMarkdownPrompt(brief: BlogBrief, projectName: string, pro
   const list = (arr: string[]) => arr.map((x, i) => `${i + 1}. ${x}`).join("\n");
   const bullets = (arr: string[]) => arr.map((x) => `- ${x}`).join("\n");
 
+  const backingBlock = dataBacking && dataBacking.trim().length > 0
+    ? `\n## Why this article matters (live SEO + analytics)\n${dataBacking.trim()}\n\nUse the GSC/GA4 numbers above to prioritize: target the queries that already drive impressions, fix the engagement gaps the data exposes.\n`
+    : "";
+
   return `# Blog Article Brief
 
 Write a complete, publish-ready article for **${projectName}** (${projectDomain}).
-
+${backingBlock}
 ## Core
 - **Target keyword**: ${brief.target_keyword}
 - **Search intent**: ${brief.intent}

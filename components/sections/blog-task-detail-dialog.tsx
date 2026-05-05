@@ -144,7 +144,10 @@ function BlogTaskContent({
   };
 
   const onCopyPrompt = async () => {
-    const prompt = briefToMarkdownPrompt(draft, "We360.ai", "we360.ai");
+    // Pass data_backing through so the AI prompt includes the GSC/GA4
+    // backing block — this is what tells the LLM WHY the article exists
+    // and which queries already have momentum to build on.
+    const prompt = briefToMarkdownPrompt(draft, "We360.ai", "we360.ai", task.data_backing);
     try {
       await navigator.clipboard.writeText(prompt);
       toast.success("Full brief + 5-pillar prompt copied — paste into any LLM");
