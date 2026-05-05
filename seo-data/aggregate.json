@@ -1,0 +1,3362 @@
+{
+  "generated_at": "2026-04-29T06:36:14.315Z",
+  "competitors": [
+    {
+      "competitor": "timechamp",
+      "domain": "timechamp.io",
+      "rows": 3649
+    },
+    {
+      "competitor": "insightful",
+      "domain": "insightful.io",
+      "rows": 4783
+    },
+    {
+      "competitor": "prohance",
+      "domain": "prohance.ai",
+      "rows": 1454
+    },
+    {
+      "competitor": "flowace",
+      "domain": "flowace.ai",
+      "rows": 2001
+    },
+    {
+      "competitor": "activtrak",
+      "domain": "activtrak.com",
+      "rows": 6161
+    }
+  ],
+  "moz_pa_competitors": [
+    {
+      "competitor": "activtrak",
+      "page_rows": 500
+    }
+  ],
+  "buckets": [
+    {
+      "bucket": "vs-page",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 12,
+          "total_volume": 945
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 9,
+          "total_volume": 773
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 4,
+          "total_volume": 308
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 7,
+          "total_volume": 296
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 8,
+          "total_volume": 4814
+        }
+      ],
+      "total_competitor_pages": 40,
+      "total_competitor_volume": 7136,
+      "top_subjects": [
+        {
+          "subject": "productivity-vs-efficiency",
+          "competitors": [
+            "insightful",
+            "activtrak"
+          ],
+          "combined_volume": 3725
+        },
+        {
+          "subject": "timechamp-vs-worksnaps",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 715
+        },
+        {
+          "subject": "qualitative-vs-quantitative",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 511
+        },
+        {
+          "subject": "remote-work-vs-office-productivity",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 394
+        },
+        {
+          "subject": "employee-productivity-vs-hours-worked",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 316
+        },
+        {
+          "subject": "unlocking-business-potential-exploring-the-definitions-and-advantages-of-outsourcing-vs-offshoring",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 256
+        },
+        {
+          "subject": "workforce-management-vs-workforce-optimization",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 185
+        },
+        {
+          "subject": "hybrid-vs-remote-work",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 108
+        },
+        {
+          "subject": "toggl-track-vs-clockify",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 103
+        },
+        {
+          "subject": "planned-vs-actual-hours",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 94
+        },
+        {
+          "subject": "remote-vs-office-productivity-analysis",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 90
+        },
+        {
+          "subject": "employee-monitoring-vs-performance-management",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 87
+        },
+        {
+          "subject": "harvest-vs-flowace-pricing",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 87
+        },
+        {
+          "subject": "surveillance-vs-monitoring",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 77
+        },
+        {
+          "subject": "bpo-vs-kpo",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 59
+        },
+        {
+          "subject": "timechamp-vs-timecamp",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 58
+        },
+        {
+          "subject": "billable-vs-non-billable-hours",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 47
+        },
+        {
+          "subject": "accuracy-vs-precision-in-business",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 46
+        },
+        {
+          "subject": "monitoring-vs-tracking",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 37
+        },
+        {
+          "subject": "clockify-pricing-free-tier-vs-enterprises",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 28
+        },
+        {
+          "subject": "remote-vs-work-from-home",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 27
+        },
+        {
+          "subject": "workforce-analytics-vs-employee-monitoring",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 19
+        },
+        {
+          "subject": "harvest-vs-toggl-track",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 12
+        },
+        {
+          "subject": "job-specification-vs-job-description",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 11
+        },
+        {
+          "subject": "workforce-vs-hr-analytics",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 11
+        },
+        {
+          "subject": "timechamp-vs-theonespy",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 6
+        },
+        {
+          "subject": "office-vs-work-from-home-productivity",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 6
+        },
+        {
+          "subject": "activtrak-vs-hubstaff",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 6
+        },
+        {
+          "subject": "timechamp-vs-hubstaff",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 5
+        },
+        {
+          "subject": "remote-vs-in-office-work",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 5
+        }
+      ],
+      "top_urls_by_volume": [
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/productivity-management/productivity-vs-efficiency/",
+          "total_volume": 3688,
+          "keyword_count": 40
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/timechamp-vs-worksnaps",
+          "total_volume": 715,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/blog/qualitative-vs-quantitative",
+          "total_volume": 511,
+          "keyword_count": 8
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/remote-work-vs-office-productivity/",
+          "total_volume": 394,
+          "keyword_count": 27
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/employee-productivity-vs-hours-worked/",
+          "total_volume": 316,
+          "keyword_count": 23
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/blog/unlocking-business-potential-exploring-the-definitions-and-advantages-of-outsourcing-vs-offshoring/",
+          "total_volume": 256,
+          "keyword_count": 10
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/workforce-management-vs-workforce-optimization/",
+          "total_volume": 185,
+          "keyword_count": 10
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/hybrid-vs-remote-work/",
+          "total_volume": 108,
+          "keyword_count": 5
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/toggl-track-vs-clockify/",
+          "total_volume": 103,
+          "keyword_count": 4
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/planned-vs-actual-hours",
+          "total_volume": 94,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/blog/remote-vs-office-productivity-analysis",
+          "total_volume": 90,
+          "keyword_count": 6
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/blog/employee-monitoring-vs-performance-management",
+          "total_volume": 87,
+          "keyword_count": 6
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/harvest-vs-flowace-pricing/",
+          "total_volume": 87,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/surveillance-vs-monitoring/",
+          "total_volume": 77,
+          "keyword_count": 7
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/bpo-vs-kpo/",
+          "total_volume": 59,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/timechamp-vs-timecamp",
+          "total_volume": 58,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/billable-vs-non-billable-hours/",
+          "total_volume": 47,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/blog/accuracy-vs-precision-in-business/",
+          "total_volume": 46,
+          "keyword_count": 5
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/blog/monitoring-vs-tracking",
+          "total_volume": 37,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/blog/productivity-vs-efficiency",
+          "total_volume": 36,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/clockify-pricing-free-tier-vs-enterprises/",
+          "total_volume": 28,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/remote-vs-work-from-home/",
+          "total_volume": 27,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/workforce-analytics-vs-employee-monitoring/",
+          "total_volume": 19,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/harvest-vs-toggl-track/",
+          "total_volume": 12,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/job-specification-vs-job-description/",
+          "total_volume": 11,
+          "keyword_count": 1
+        }
+      ]
+    },
+    {
+      "bucket": "alternative-page",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 3,
+          "total_volume": 303
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 3,
+          "total_volume": 236
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 22,
+          "total_volume": 1029
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 28,
+      "total_competitor_volume": 1568,
+      "top_subjects": [
+        {
+          "subject": "toggl-track",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 256
+        },
+        {
+          "subject": "hubstaff",
+          "competitors": [
+            "timechamp",
+            "flowace"
+          ],
+          "combined_volume": 197
+        },
+        {
+          "subject": "best-time-doctor",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 160
+        },
+        {
+          "subject": "timely",
+          "competitors": [
+            "timechamp",
+            "flowace"
+          ],
+          "combined_volume": 140
+        },
+        {
+          "subject": "insightful-best-time-doctor",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 126
+        },
+        {
+          "subject": "time-doctor",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 120
+        },
+        {
+          "subject": "rescuetime",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 104
+        },
+        {
+          "subject": "hubstaff-alternative",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 98
+        },
+        {
+          "subject": "replicon",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 60
+        },
+        {
+          "subject": "deputy",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 42
+        },
+        {
+          "subject": "activtrak",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 32
+        },
+        {
+          "subject": "timechamp",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 32
+        },
+        {
+          "subject": "trackolap",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 31
+        },
+        {
+          "subject": "tempo",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 29
+        },
+        {
+          "subject": "timecamp",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 26
+        },
+        {
+          "subject": "harvest",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 24
+        },
+        {
+          "subject": "tsheets",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 23
+        },
+        {
+          "subject": "my-hours",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 17
+        },
+        {
+          "subject": "flowtime-pomodoro",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 12
+        },
+        {
+          "subject": "timeular",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 12
+        },
+        {
+          "subject": "best-apploye",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 11
+        },
+        {
+          "subject": "prohance",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 5
+        },
+        {
+          "subject": "desktime",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 5
+        },
+        {
+          "subject": "quickbooks-time-tracking",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 3
+        },
+        {
+          "subject": "hive-time-tracking",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 3
+        },
+        {
+          "subject": "handdy-timesheet",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 1
+        }
+      ],
+      "top_urls_by_volume": [
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/toggl-track-alternatives/",
+          "total_volume": 256,
+          "keyword_count": 13
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/best-time-doctor-alternatives/",
+          "total_volume": 160,
+          "keyword_count": 4
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/blog/insightful-best-time-doctor-alternative",
+          "total_volume": 126,
+          "keyword_count": 5
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/time-doctor-alternatives/",
+          "total_volume": 120,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/rescuetime-alternatives/",
+          "total_volume": 104,
+          "keyword_count": 7
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/hubstaff-alternatives/",
+          "total_volume": 99,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/hubstaff-alternatives",
+          "total_volume": 98,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/alternatives/hubstaff-alternative",
+          "total_volume": 98,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/timely-alternatives",
+          "total_volume": 85,
+          "keyword_count": 4
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/replicon-alternatives/",
+          "total_volume": 60,
+          "keyword_count": 8
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/timely-alternatives/",
+          "total_volume": 55,
+          "keyword_count": 4
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/deputy-alternative/",
+          "total_volume": 42,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/activtrak-alternative/",
+          "total_volume": 32,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/timechamp-alternatives/",
+          "total_volume": 32,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/trackolap-alternative/",
+          "total_volume": 31,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/tempo-alternatives/",
+          "total_volume": 29,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/timecamp-alternatives/",
+          "total_volume": 26,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/harvest-alternatives/",
+          "total_volume": 24,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/tsheets-alternatives/",
+          "total_volume": 23,
+          "keyword_count": 4
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/my-hours-alternative/",
+          "total_volume": 17,
+          "keyword_count": 6
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/blog/flowtime-pomodoro-alternative",
+          "total_volume": 12,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/timeular-alternatives/",
+          "total_volume": 12,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/best-apploye-alternatives/",
+          "total_volume": 11,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/prohance-alternatives/",
+          "total_volume": 5,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/desktime-alternative/",
+          "total_volume": 5,
+          "keyword_count": 1
+        }
+      ]
+    },
+    {
+      "bucket": "case-study",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 1,
+          "total_volume": 59
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 1,
+          "total_volume": 1
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 1,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 3,
+          "total_volume": 1087
+        }
+      ],
+      "total_competitor_pages": 6,
+      "total_competitor_volume": 1147,
+      "top_subjects": [
+        {
+          "subject": "fam-brand",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 931
+        },
+        {
+          "subject": "echo",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 156
+        },
+        {
+          "subject": "sensiple-gain",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 59
+        },
+        {
+          "subject": "trib-total-media",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 1
+        },
+        {
+          "subject": "wipro-annual-savings-healthcare",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 0
+        },
+        {
+          "subject": "healthcare-strategic-workforce-analytics",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 0
+        }
+      ],
+      "top_urls_by_volume": [
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/customers/fam-brand/",
+          "total_volume": 931,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/customers/echo/",
+          "total_volume": 156,
+          "keyword_count": 4
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/case-studies/sensiple-gain",
+          "total_volume": 59,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/customers/trib-total-media",
+          "total_volume": 1,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/case-study/wipro-annual-savings-healthcare",
+          "total_volume": 0,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/customers/healthcare-strategic-workforce-analytics/",
+          "total_volume": 0,
+          "keyword_count": 2
+        }
+      ]
+    },
+    {
+      "bucket": "use-case",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 4,
+          "total_volume": 255
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 4,
+      "total_competitor_volume": 255,
+      "top_subjects": [
+        {
+          "subject": "workload-management",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 198
+        },
+        {
+          "subject": "capacity-planning",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 49
+        },
+        {
+          "subject": "billable-hours",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 6
+        },
+        {
+          "subject": "software-utilization",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 2
+        }
+      ],
+      "top_urls_by_volume": [
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/use-cases/workload-management",
+          "total_volume": 198,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/use-cases/capacity-planning",
+          "total_volume": 49,
+          "keyword_count": 5
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/use-cases/billable-hours",
+          "total_volume": 6,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/use-cases/software-utilization",
+          "total_volume": 2,
+          "keyword_count": 3
+        }
+      ]
+    },
+    {
+      "bucket": "solution-page",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 5,
+          "total_volume": 176
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 1,
+          "total_volume": 6255
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 50,
+          "total_volume": 34427
+        }
+      ],
+      "total_competitor_pages": 56,
+      "total_competitor_volume": 40858,
+      "top_subjects": [
+        {
+          "subject": "employee-monitoring",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 14673
+        },
+        {
+          "subject": "workforce-management",
+          "competitors": [
+            "timechamp",
+            "activtrak"
+          ],
+          "combined_volume": 10603
+        },
+        {
+          "subject": "call-center",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 6255
+        },
+        {
+          "subject": "productivity-management",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 2921
+        },
+        {
+          "subject": "employee-engagement",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 2180
+        },
+        {
+          "subject": "operational-efficiency",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 1456
+        },
+        {
+          "subject": "workforce-planning",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 1264
+        },
+        {
+          "subject": "workforce-optimization",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 258
+        },
+        {
+          "subject": "burnout",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 162
+        },
+        {
+          "subject": "saas-management",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 136
+        },
+        {
+          "subject": "workload-management-software",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 46
+        },
+        {
+          "subject": "recruitment-staffing-timesheet-software",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 28
+        },
+        {
+          "subject": "field-workforce-management-software",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 15
+        },
+        {
+          "subject": "operational-efficiency-software",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 4
+        }
+      ],
+      "top_urls_by_volume": [
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/employee-monitoring/",
+          "total_volume": 12336,
+          "keyword_count": 264
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/workforce-management/",
+          "total_volume": 7652,
+          "keyword_count": 62
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/solutions/call-center",
+          "total_volume": 6255,
+          "keyword_count": 135
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/workforce-management/remote-work-monitoring/",
+          "total_volume": 2714,
+          "keyword_count": 79
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/productivity-management/employee-productivity/",
+          "total_volume": 1559,
+          "keyword_count": 41
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/operational-efficiency/employee-effiency/",
+          "total_volume": 1456,
+          "keyword_count": 26
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/workforce-planning/",
+          "total_volume": 1264,
+          "keyword_count": 51
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/employee-monitoring/what-is/",
+          "total_volume": 748,
+          "keyword_count": 27
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/employee-engagement/",
+          "total_volume": 748,
+          "keyword_count": 4
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/employee-engagement/measure/",
+          "total_volume": 535,
+          "keyword_count": 7
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/employee-monitoring/tracking-employee-performance/",
+          "total_volume": 502,
+          "keyword_count": 11
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/employee-monitoring/pros-cons/",
+          "total_volume": 500,
+          "keyword_count": 25
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/employee-engagement/metrics/",
+          "total_volume": 478,
+          "keyword_count": 23
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/productivity-management/productivity-measurement/",
+          "total_volume": 454,
+          "keyword_count": 7
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/productivity-management/productivity-metrics/",
+          "total_volume": 428,
+          "keyword_count": 11
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/productivity-management/workplace-productivity-statistics/",
+          "total_volume": 339,
+          "keyword_count": 17
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/employee-monitoring/types/",
+          "total_volume": 298,
+          "keyword_count": 13
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/employee-engagement/workforce-engagement-management/",
+          "total_volume": 291,
+          "keyword_count": 13
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/workforce-optimization/",
+          "total_volume": 258,
+          "keyword_count": 21
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/burnout/employee-burnout-signs/",
+          "total_volume": 162,
+          "keyword_count": 9
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/workforce-management/remote-work-impact-on-productivity-levels/",
+          "total_volume": 155,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/employee-monitoring/ethical-considerations/",
+          "total_volume": 146,
+          "keyword_count": 13
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/employee-monitoring/employee-computer-monitoring/",
+          "total_volume": 143,
+          "keyword_count": 6
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/productivity-management/",
+          "total_volume": 142,
+          "keyword_count": 18
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/solutions/saas-management/",
+          "total_volume": 136,
+          "keyword_count": 14
+        }
+      ]
+    },
+    {
+      "bucket": "industry-page",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 1,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 2,
+          "total_volume": 713
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 3,
+      "total_competitor_volume": 713,
+      "top_subjects": [
+        {
+          "subject": "lawyers-time-tracking",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 658
+        },
+        {
+          "subject": "bpo-time-tracking-tools",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 55
+        },
+        {
+          "subject": "state-of-the-shared-services-outsourcing-industry-global-market-report-2025",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 0
+        }
+      ],
+      "top_urls_by_volume": [
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/industries/lawyers-time-tracking/",
+          "total_volume": 658,
+          "keyword_count": 16
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/industries/bpo-time-tracking-tools/",
+          "total_volume": 55,
+          "keyword_count": 4
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/industry-reports/state-of-the-shared-services-outsourcing-industry-global-market-report-2025",
+          "total_volume": 0,
+          "keyword_count": 1
+        }
+      ]
+    },
+    {
+      "bucket": "feature-page",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 6,
+          "total_volume": 533
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 1,
+          "total_volume": 27
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 12,
+          "total_volume": 3274
+        }
+      ],
+      "total_competitor_pages": 19,
+      "total_competitor_volume": 3834,
+      "top_subjects": [
+        {
+          "subject": "activtrak-difference",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 1605
+        },
+        {
+          "subject": "workforce-analytics",
+          "competitors": [
+            "insightful",
+            "activtrak"
+          ],
+          "combined_volume": 1361
+        },
+        {
+          "subject": "insider-threat-detection",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 99
+        },
+        {
+          "subject": "dashboards",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 99
+        },
+        {
+          "subject": "productivity",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 74
+        },
+        {
+          "subject": "integrations",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 74
+        },
+        {
+          "subject": "ai-feature",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 44
+        },
+        {
+          "subject": "project-management-software",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 27
+        },
+        {
+          "subject": "workforce-planning",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 27
+        },
+        {
+          "subject": "location-insights",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 10
+        },
+        {
+          "subject": "workforce-management",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 0
+        },
+        {
+          "subject": "executive-insights",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 0
+        }
+      ],
+      "top_urls_by_volume": [
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/product/activtrak-difference/prohance/",
+          "total_volume": 1146,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/product/workforce-analytics/",
+          "total_volume": 1082,
+          "keyword_count": 39
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/product/activtrak-difference/veriato/",
+          "total_volume": 375,
+          "keyword_count": 8
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/productivity-monitoring/",
+          "total_volume": 362,
+          "keyword_count": 18
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/product/workforce-analytics",
+          "total_volume": 279,
+          "keyword_count": 12
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/products/insider-threat-detection",
+          "total_volume": 99,
+          "keyword_count": 11
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/product/dashboards/",
+          "total_volume": 99,
+          "keyword_count": 9
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/product/activtrak-difference/time-doctor/",
+          "total_volume": 79,
+          "keyword_count": 5
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/product/productivity",
+          "total_volume": 74,
+          "keyword_count": 9
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/product/integrations/",
+          "total_volume": 74,
+          "keyword_count": 4
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/products/ai-feature",
+          "total_volume": 44,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/productivity",
+          "total_volume": 27,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/features/project-management-software/",
+          "total_volume": 27,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/product/workforce-planning/",
+          "total_volume": 27,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/product/",
+          "total_volume": 24,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/products/location-insights",
+          "total_volume": 10,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/product/activtrak-difference/hubstaff/",
+          "total_volume": 5,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/product/workforce-management/",
+          "total_volume": 0,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/product/executive-insights/",
+          "total_volume": 0,
+          "keyword_count": 1
+        }
+      ]
+    },
+    {
+      "bucket": "integration-page",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 17,
+          "total_volume": 355
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 1,
+          "total_volume": 206
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 18,
+      "total_competitor_volume": 561,
+      "top_subjects": [
+        {
+          "subject": "ukg-pro-workforce-management",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 115
+        },
+        {
+          "subject": "ukg-ready",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 69
+        },
+        {
+          "subject": "wrike",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 60
+        },
+        {
+          "subject": "adp-workforce-now",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 27
+        },
+        {
+          "subject": "bigquery",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 22
+        },
+        {
+          "subject": "bitbucket",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 15
+        },
+        {
+          "subject": "trinet",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 10
+        },
+        {
+          "subject": "ukg-pro",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 8
+        },
+        {
+          "subject": "pivotal-tracker",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 6
+        },
+        {
+          "subject": "ceridian-dayforce",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 5
+        },
+        {
+          "subject": "height",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 2
+        },
+        {
+          "subject": "rally",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 1
+        },
+        {
+          "subject": "csv-import",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 1
+        },
+        {
+          "subject": "trello",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 1
+        },
+        {
+          "subject": "hive",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 0
+        },
+        {
+          "subject": "github",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 0
+        }
+      ],
+      "top_urls_by_volume": [
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/apps-websites-monitoring/",
+          "total_volume": 206,
+          "keyword_count": 13
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/ukg-pro-workforce-management",
+          "total_volume": 115,
+          "keyword_count": 4
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/ukg-ready",
+          "total_volume": 69,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/wrike",
+          "total_volume": 60,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/adp-workforce-now",
+          "total_volume": 27,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/bigquery",
+          "total_volume": 22,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/bitbucket",
+          "total_volume": 15,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations-directory",
+          "total_volume": 13,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/trinet",
+          "total_volume": 10,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/ukg-pro",
+          "total_volume": 8,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/pivotal-tracker",
+          "total_volume": 6,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/ceridian-dayforce",
+          "total_volume": 5,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/height",
+          "total_volume": 2,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/rally",
+          "total_volume": 1,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/csv-import",
+          "total_volume": 1,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/trello",
+          "total_volume": 1,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/hive",
+          "total_volume": 0,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/integrations/github",
+          "total_volume": 0,
+          "keyword_count": 1
+        }
+      ]
+    },
+    {
+      "bucket": "reviews-page",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 0,
+      "total_competitor_volume": 0,
+      "top_subjects": [],
+      "top_urls_by_volume": []
+    },
+    {
+      "bucket": "how-it-works",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 0,
+      "total_competitor_volume": 0,
+      "top_subjects": [],
+      "top_urls_by_volume": []
+    },
+    {
+      "bucket": "write-for-us",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 1,
+          "total_volume": 33
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 1,
+      "total_competitor_volume": 33,
+      "top_subjects": [],
+      "top_urls_by_volume": [
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/write-for-us/",
+          "total_volume": 33,
+          "keyword_count": 2
+        }
+      ]
+    },
+    {
+      "bucket": "round-table",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 4,
+          "total_volume": 28
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 4,
+      "total_competitor_volume": 28,
+      "top_subjects": [
+        {
+          "subject": "himap-himscon",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 27
+        },
+        {
+          "subject": "hfma-annual-conference-2023",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 1
+        },
+        {
+          "subject": "hfma-annual-conference",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 0
+        },
+        {
+          "subject": "ssow-asia-2025-singapore",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 0
+        }
+      ],
+      "top_urls_by_volume": [
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/events/himap-himscon",
+          "total_volume": 27,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/events/HFMA-annual-conference-2023",
+          "total_volume": 1,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/events/hfma-annual-conference",
+          "total_volume": 0,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/events/ssow-asia-2025-singapore",
+          "total_volume": 0,
+          "keyword_count": 1
+        }
+      ]
+    },
+    {
+      "bucket": "talk-show",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 1,
+          "total_volume": 5
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 1,
+      "total_competitor_volume": 5,
+      "top_subjects": [],
+      "top_urls_by_volume": [
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/webinar",
+          "total_volume": 5,
+          "keyword_count": 1
+        }
+      ]
+    },
+    {
+      "bucket": "expertise-blog",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 0,
+      "total_competitor_volume": 0,
+      "top_subjects": [],
+      "top_urls_by_volume": []
+    },
+    {
+      "bucket": "blog",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 353,
+          "total_volume": 569197
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 502,
+          "total_volume": 89454
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 87,
+          "total_volume": 10094
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 133,
+          "total_volume": 137221
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 351,
+          "total_volume": 175701
+        }
+      ],
+      "total_competitor_pages": 1426,
+      "total_competitor_volume": 981667,
+      "top_subjects": [
+        {
+          "subject": "the-100-best-and-most-famous-quotes-of-all-time",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 357108
+        },
+        {
+          "subject": "employment-inspirational-quotes",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 64259
+        },
+        {
+          "subject": "employee-termination-letter-samples",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 15398
+        },
+        {
+          "subject": "average-salary-in-mexico",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 13943
+        },
+        {
+          "subject": "what-is-competency-meaning-and-definition",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 12481
+        },
+        {
+          "subject": "best-remote-computer-monitoring-software",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 10706
+        },
+        {
+          "subject": "what-is-productivity-software",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 9876
+        },
+        {
+          "subject": "top-computer-monitoring-software",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 8569
+        },
+        {
+          "subject": "average-salary-in-japan",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 7978
+        },
+        {
+          "subject": "budget",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 7747
+        },
+        {
+          "subject": "how-to-calculate-productivity",
+          "competitors": [
+            "insightful",
+            "activtrak"
+          ],
+          "combined_volume": 7713
+        },
+        {
+          "subject": "free-timesheet-templates",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 7679
+        },
+        {
+          "subject": "how-to-prevent-quiet-quitting",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 6985
+        },
+        {
+          "subject": "ways-to-improve-work-performance",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 6927
+        },
+        {
+          "subject": "how-interruptions-affect-productivity",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 6764
+        },
+        {
+          "subject": "explore-the-top-10-freelance-graphic-design-websites",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 6763
+        },
+        {
+          "subject": "stages-of-employee-disengagement",
+          "competitors": [
+            "activtrak"
+          ],
+          "combined_volume": 6717
+        },
+        {
+          "subject": "average-salary-in-philippines",
+          "competitors": [
+            "timechamp",
+            "flowace"
+          ],
+          "combined_volume": 6505
+        },
+        {
+          "subject": "timesheet-memes",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 6239
+        },
+        {
+          "subject": "what-is-signatory-meaning-definition",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 6053
+        },
+        {
+          "subject": "honest-guide-time-doctor",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 5782
+        },
+        {
+          "subject": "20-hilarious-timesheet-memes",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 5563
+        },
+        {
+          "subject": "what-is-timekeeping-why-does-it-matter",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 5505
+        },
+        {
+          "subject": "the-average-salary-in-russia-and-salary-comparisons",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 5225
+        },
+        {
+          "subject": "annuity",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 5154
+        },
+        {
+          "subject": "how-to-increase-productivity",
+          "competitors": [
+            "insightful"
+          ],
+          "combined_volume": 4796
+        },
+        {
+          "subject": "average-salary-in-india-factors-and-comparision",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 4667
+        },
+        {
+          "subject": "aptitude-test",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 4430
+        },
+        {
+          "subject": "pc-monitoring-software",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 4362
+        },
+        {
+          "subject": "bpo-companies-in-the-world",
+          "competitors": [
+            "flowace"
+          ],
+          "combined_volume": 4350
+        }
+      ],
+      "top_urls_by_volume": [
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/the-100-best-and-most-famous-quotes-of-all-time/",
+          "total_volume": 357108,
+          "keyword_count": 313
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/employment-inspirational-quotes/",
+          "total_volume": 64259,
+          "keyword_count": 202
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/employee-termination-letter-samples/",
+          "total_volume": 15398,
+          "keyword_count": 97
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/average-salary-in-mexico/",
+          "total_volume": 13943,
+          "keyword_count": 70
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/what-is-competency-meaning-and-definition/",
+          "total_volume": 12481,
+          "keyword_count": 5
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/best-remote-computer-monitoring-software/",
+          "total_volume": 10706,
+          "keyword_count": 251
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/what-is-productivity-software/",
+          "total_volume": 9876,
+          "keyword_count": 19
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/top-computer-monitoring-software/",
+          "total_volume": 8569,
+          "keyword_count": 201
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/blog/average-salary-in-japan/",
+          "total_volume": 7978,
+          "keyword_count": 39
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/budget/",
+          "total_volume": 7747,
+          "keyword_count": 8
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/blog/free-timesheet-templates",
+          "total_volume": 7679,
+          "keyword_count": 51
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/how-to-prevent-quiet-quitting/",
+          "total_volume": 6985,
+          "keyword_count": 4
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/ways-to-improve-work-performance/",
+          "total_volume": 6927,
+          "keyword_count": 168
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/how-interruptions-affect-productivity/",
+          "total_volume": 6764,
+          "keyword_count": 6
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/explore-the-top-10-freelance-graphic-design-websites/",
+          "total_volume": 6763,
+          "keyword_count": 137
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/stages-of-employee-disengagement/",
+          "total_volume": 6717,
+          "keyword_count": 6
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/timesheet-memes/",
+          "total_volume": 6239,
+          "keyword_count": 32
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/what-is-signatory-meaning-definition/",
+          "total_volume": 6053,
+          "keyword_count": 6
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/blog/honest-guide-time-doctor",
+          "total_volume": 5782,
+          "keyword_count": 8
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/blog/how-to-calculate-productivity/",
+          "total_volume": 5741,
+          "keyword_count": 86
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/blog/20-hilarious-timesheet-memes",
+          "total_volume": 5563,
+          "keyword_count": 27
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/what-is-timekeeping-why-does-it-matter/",
+          "total_volume": 5505,
+          "keyword_count": 9
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/the-average-salary-in-russia-and-salary-comparisons/",
+          "total_volume": 5225,
+          "keyword_count": 43
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/blogs/annuity/",
+          "total_volume": 5154,
+          "keyword_count": 6
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/blog/how-to-increase-productivity",
+          "total_volume": 4796,
+          "keyword_count": 41
+        }
+      ]
+    },
+    {
+      "bucket": "glossary",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 128,
+          "total_volume": 93071
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 466,
+          "total_volume": 157574
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 594,
+      "total_competitor_volume": 250645,
+      "top_subjects": [
+        {
+          "subject": "what-is-attendance.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 46035
+        },
+        {
+          "subject": "what-is-workplace.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 20439
+        },
+        {
+          "subject": "break-time",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 19027
+        },
+        {
+          "subject": "what-is-oracle.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 12438
+        },
+        {
+          "subject": "timestamp",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 10278
+        },
+        {
+          "subject": "leave-of-absence-loa",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 9505
+        },
+        {
+          "subject": "time-and-a-half",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 8089
+        },
+        {
+          "subject": "what-is-reporting.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 7691
+        },
+        {
+          "subject": "what-is-timeline.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 5069
+        },
+        {
+          "subject": "what-is-timekeeping.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 4931
+        },
+        {
+          "subject": "work-hours",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 4674
+        },
+        {
+          "subject": "what-is-resource-reallocation.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 3791
+        },
+        {
+          "subject": "what-is-skill-set.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 3774
+        },
+        {
+          "subject": "pay-grade",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 3405
+        },
+        {
+          "subject": "business-hours",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 3239
+        },
+        {
+          "subject": "flexible-time-off",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 3087
+        },
+        {
+          "subject": "secondment",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 2900
+        },
+        {
+          "subject": "furlough",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 2850
+        },
+        {
+          "subject": "what-is-fto-full-time-in-office.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 2616
+        },
+        {
+          "subject": "shift-work",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 2476
+        },
+        {
+          "subject": "retraining",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 2141
+        },
+        {
+          "subject": "group-dynamics",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 2101
+        },
+        {
+          "subject": "what-is-computer-monitoring.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 1831
+        },
+        {
+          "subject": "what-is-resource-allocation.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 1411
+        },
+        {
+          "subject": "time-sync",
+          "competitors": [
+            "timechamp"
+          ],
+          "combined_volume": 1389
+        },
+        {
+          "subject": "what-is-key-metrics.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 1317
+        },
+        {
+          "subject": "what-is-executive-management.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 1125
+        },
+        {
+          "subject": "what-is-work-life-balance.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 1034
+        },
+        {
+          "subject": "what-is-turn-around-time.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 1003
+        },
+        {
+          "subject": "what-is-aht.php",
+          "competitors": [
+            "prohance"
+          ],
+          "combined_volume": 952
+        }
+      ],
+      "top_urls_by_volume": [
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/glossary/what-is-attendance.php",
+          "total_volume": 46035,
+          "keyword_count": 5
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/glossary/what-is-workplace.php",
+          "total_volume": 20439,
+          "keyword_count": 11
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/break-time",
+          "total_volume": 19027,
+          "keyword_count": 6
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/glossary/what-is-oracle.php",
+          "total_volume": 12438,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/timestamp",
+          "total_volume": 10278,
+          "keyword_count": 11
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/leave-of-absence-loa",
+          "total_volume": 9505,
+          "keyword_count": 21
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/time-and-a-half",
+          "total_volume": 8089,
+          "keyword_count": 11
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/glossary/what-is-reporting.php",
+          "total_volume": 7691,
+          "keyword_count": 11
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/glossary/what-is-timeline.php",
+          "total_volume": 5069,
+          "keyword_count": 11
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/glossary/what-is-timekeeping.php",
+          "total_volume": 4931,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/work-hours",
+          "total_volume": 4674,
+          "keyword_count": 24
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/glossary/what-is-resource-reallocation.php",
+          "total_volume": 3791,
+          "keyword_count": 6
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/glossary/what-is-skill-set.php",
+          "total_volume": 3774,
+          "keyword_count": 16
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/pay-grade",
+          "total_volume": 3405,
+          "keyword_count": 14
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/business-hours",
+          "total_volume": 3239,
+          "keyword_count": 11
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/flexible-time-off",
+          "total_volume": 3087,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/secondment",
+          "total_volume": 2900,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/furlough",
+          "total_volume": 2850,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/glossary/what-is-fto-full-time-in-office.php",
+          "total_volume": 2616,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/shift-work",
+          "total_volume": 2476,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/retraining",
+          "total_volume": 2141,
+          "keyword_count": 9
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/group-dynamics",
+          "total_volume": 2101,
+          "keyword_count": 7
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/glossary/what-is-computer-monitoring.php",
+          "total_volume": 1831,
+          "keyword_count": 7
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/glossary/what-is-resource-allocation.php",
+          "total_volume": 1411,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/glossary/time-sync",
+          "total_volume": 1389,
+          "keyword_count": 11
+        }
+      ]
+    },
+    {
+      "bucket": "tool-template",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 0,
+      "total_competitor_volume": 0,
+      "top_subjects": [],
+      "top_urls_by_volume": []
+    },
+    {
+      "bucket": "job-description",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 0,
+          "total_volume": 0
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 0,
+          "total_volume": 0
+        }
+      ],
+      "total_competitor_pages": 0,
+      "total_competitor_volume": 0,
+      "top_subjects": [],
+      "top_urls_by_volume": []
+    },
+    {
+      "bucket": "core",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 2,
+          "total_volume": 1663
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 8,
+          "total_volume": 101226
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 1,
+          "total_volume": 1151
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 2,
+          "total_volume": 12
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 13,
+          "total_volume": 24356
+        }
+      ],
+      "total_competitor_pages": 26,
+      "total_competitor_volume": 128408,
+      "top_subjects": [],
+      "top_urls_by_volume": [
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/",
+          "total_volume": 98599,
+          "keyword_count": 540
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/",
+          "total_volume": 21947,
+          "keyword_count": 469
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://app.insightful.io/",
+          "total_volume": 2332,
+          "keyword_count": 7
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://app.activtrak.com/",
+          "total_volume": 2161,
+          "keyword_count": 16
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/",
+          "total_volume": 1662,
+          "keyword_count": 11
+        },
+        {
+          "competitor": "prohance",
+          "url": "https://www.prohance.ai/",
+          "total_volume": 1151,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://status.insightful.io/",
+          "total_volume": 114,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/support/",
+          "total_volume": 89,
+          "keyword_count": 5
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://developers.insightful.io/",
+          "total_volume": 53,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/pricing",
+          "total_volume": 47,
+          "keyword_count": 5
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/contact-us",
+          "total_volume": 41,
+          "keyword_count": 5
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/about",
+          "total_volume": 40,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/careers/",
+          "total_volume": 36,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/news/press-release-inc-5000-ranking/",
+          "total_volume": 27,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/pricing/",
+          "total_volume": 27,
+          "keyword_count": 5
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/news/press-release-fortune-best-workplaces-technology/",
+          "total_volume": 22,
+          "keyword_count": 3
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/news/state-of-the-workplace-ai-accelerating-work/",
+          "total_volume": 21,
+          "keyword_count": 2
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/pricing/",
+          "total_volume": 11,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/news/press-release-inc-regional-2025-2/",
+          "total_volume": 11,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/news/activtrak-wins-trustradius-2020-tech-cares-award/",
+          "total_volume": 6,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/security/",
+          "total_volume": 6,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/news/activtrak-editors-choice-best-employee-monitoring/",
+          "total_volume": 3,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/pricing",
+          "total_volume": 1,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/",
+          "total_volume": 1,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/news/activtrak-named-a-finalist-for-two-tech-in-motion-timmy-awards/",
+          "total_volume": 1,
+          "keyword_count": 1
+        }
+      ]
+    },
+    {
+      "bucket": "other",
+      "competitor_coverage": [
+        {
+          "competitor": "timechamp",
+          "page_count": 37,
+          "total_volume": 13782
+        },
+        {
+          "competitor": "insightful",
+          "page_count": 177,
+          "total_volume": 57223
+        },
+        {
+          "competitor": "prohance",
+          "page_count": 5,
+          "total_volume": 84
+        },
+        {
+          "competitor": "flowace",
+          "page_count": 24,
+          "total_volume": 2099
+        },
+        {
+          "competitor": "activtrak",
+          "page_count": 99,
+          "total_volume": 19311
+        }
+      ],
+      "total_competitor_pages": 342,
+      "total_competitor_volume": 92499,
+      "top_subjects": [],
+      "top_urls_by_volume": [
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/employee-monitoring",
+          "total_volume": 14358,
+          "keyword_count": 423
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/time-tracking",
+          "total_volume": 10142,
+          "keyword_count": 289
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/track/time-card-calculator",
+          "total_volume": 5429,
+          "keyword_count": 26
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/workforce-management/",
+          "total_volume": 4874,
+          "keyword_count": 28
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/time-and-attendance",
+          "total_volume": 4680,
+          "keyword_count": 131
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://source.insightful.io/es/blog/guide-federal-holidays-2024",
+          "total_volume": 4331,
+          "keyword_count": 18
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/remote-workers",
+          "total_volume": 4048,
+          "keyword_count": 119
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://support.activtrak.com/hc/en-us/articles/360032795191-Activity-Log",
+          "total_volume": 3359,
+          "keyword_count": 16
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/free-employee-monitoring-software/",
+          "total_volume": 2989,
+          "keyword_count": 179
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/computer-monitoring",
+          "total_volume": 2967,
+          "keyword_count": 64
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://help.insightful.io/en/collections/2353153-time-and-attendance",
+          "total_volume": 2773,
+          "keyword_count": 1
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/operational-efficiency/",
+          "total_volume": 2761,
+          "keyword_count": 35
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://help.insightful.io/en/articles/4641289-activity-logs",
+          "total_volume": 1983,
+          "keyword_count": 7
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/computer-screen-monitoring",
+          "total_volume": 1870,
+          "keyword_count": 28
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/screen-monitoring",
+          "total_volume": 1843,
+          "keyword_count": 31
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://help.insightful.io/en/articles/3859112-screenshots-or-screen-recording-not-being-captured-macos",
+          "total_volume": 1756,
+          "keyword_count": 32
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/keystroke-loggers",
+          "total_volume": 1275,
+          "keyword_count": 23
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://www.insightful.io/user-activity-monitoring",
+          "total_volume": 1203,
+          "keyword_count": 69
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/user-behavior-analytics/",
+          "total_volume": 1144,
+          "keyword_count": 51
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/time-tracking",
+          "total_volume": 906,
+          "keyword_count": 44
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/timesheet-app",
+          "total_volume": 818,
+          "keyword_count": 4
+        },
+        {
+          "competitor": "activtrak",
+          "url": "https://www.activtrak.com/user-activity-monitoring/",
+          "total_volume": 783,
+          "keyword_count": 43
+        },
+        {
+          "competitor": "timechamp",
+          "url": "https://www.timechamp.io/time-tracking-software/gps-time-clock",
+          "total_volume": 755,
+          "keyword_count": 28
+        },
+        {
+          "competitor": "insightful",
+          "url": "https://help.insightful.io/en/articles/2121192-user-roles-and-permissions-introduction",
+          "total_volume": 674,
+          "keyword_count": 8
+        },
+        {
+          "competitor": "flowace",
+          "url": "https://flowace.ai/web-stories/funny-time-management-memes/",
+          "total_volume": 518,
+          "keyword_count": 5
+        }
+      ]
+    }
+  ]
+}

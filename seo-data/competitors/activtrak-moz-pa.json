@@ -1,0 +1,4714 @@
+{
+  "competitor": "activtrak",
+  "source": "moz-pa",
+  "rows": 500,
+  "page_rows": [
+    {
+      "url": "https://www.activtrak.com/",
+      "title": "",
+      "page_authority": 53,
+      "total_links": 9683,
+      "linking_domains": 2747,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/",
+      "title": "",
+      "page_authority": 52,
+      "total_links": 7557,
+      "linking_domains": 1718,
+      "bucket": "core"
+    },
+    {
+      "url": "https://app.activtrak.com/",
+      "title": "Login | Team Behavior Analytics | ActivTrak",
+      "page_authority": 47,
+      "total_links": 3225,
+      "linking_domains": 279,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/state-of-the-workplace/",
+      "title": "",
+      "page_authority": 44,
+      "total_links": 259,
+      "linking_domains": 163,
+      "bucket": "blog",
+      "subject": "state-of-the-workplace"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/ai-for-hr/",
+      "title": "",
+      "page_authority": 44,
+      "total_links": 206,
+      "linking_domains": 115,
+      "bucket": "blog",
+      "subject": "ai-for-hr"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employee-monitoring/",
+      "title": "",
+      "page_authority": 44,
+      "total_links": 223,
+      "linking_domains": 115,
+      "bucket": "solution-page",
+      "subject": "employee-monitoring"
+    },
+    {
+      "url": "https://www.activtrak.com/product/",
+      "title": "",
+      "page_authority": 44,
+      "total_links": 414,
+      "linking_domains": 142,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us",
+      "title": "ActivTrak Help Center",
+      "page_authority": 43,
+      "total_links": 1727,
+      "linking_domains": 76,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/operational-efficiency/",
+      "title": "",
+      "page_authority": 42,
+      "total_links": 102,
+      "linking_domains": 54,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/remote-work-vs-office-productivity/",
+      "title": "",
+      "page_authority": 42,
+      "total_links": 99,
+      "linking_domains": 65,
+      "bucket": "vs-page",
+      "subject": "remote-work-vs-office-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/reports/state-of-the-workplace/",
+      "title": "",
+      "page_authority": 42,
+      "total_links": 105,
+      "linking_domains": 64,
+      "bucket": "blog",
+      "subject": "state-of-the-workplace"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/workforce-management/",
+      "title": "",
+      "page_authority": 42,
+      "total_links": 176,
+      "linking_domains": 58,
+      "bucket": "solution-page",
+      "subject": "workforce-management"
+    },
+    {
+      "url": "https://www.activtrak.com/pricing/",
+      "title": "",
+      "page_authority": 42,
+      "total_links": 562,
+      "linking_domains": 72,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360043358032-Connect-your-SSO-account-with-ActivTrak",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 44,
+      "linking_domains": 38,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/product/",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 80,
+      "linking_domains": 40,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://www.activtrak.com/customers/",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 180,
+      "linking_domains": 42,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360033418691-Sign-Up-Login",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 116,
+      "linking_domains": 48,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/flexible-work-arrangement-examples/",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 57,
+      "linking_domains": 36,
+      "bucket": "blog",
+      "subject": "flexible-work-arrangement-examples"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/productivity-management/",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 119,
+      "linking_domains": 40,
+      "bucket": "solution-page",
+      "subject": "productivity-management"
+    },
+    {
+      "url": "https://www.activtrak.com/user-activity-monitoring/",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 130,
+      "linking_domains": 46,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/free-employee-monitoring-software/",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 88,
+      "linking_domains": 39,
+      "bucket": "other"
+    },
+    {
+      "url": "https://status.activtrak.com/",
+      "title": "ActivTrak Status",
+      "page_authority": 40,
+      "total_links": 67,
+      "linking_domains": 33,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employee-monitoring/what-is/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 83,
+      "linking_domains": 28,
+      "bucket": "solution-page",
+      "subject": "employee-monitoring"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 108,
+      "linking_domains": 44,
+      "bucket": "blog",
+      "subject": "blog"
+    },
+    {
+      "url": "https://activtrak.com/security/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 50,
+      "linking_domains": 33,
+      "bucket": "core"
+    },
+    {
+      "url": "https://resellers.activtrak.com/",
+      "title": "Page Redirection",
+      "page_authority": 40,
+      "total_links": 80,
+      "linking_domains": 29,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/business-cost-savings/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 42,
+      "linking_domains": 27,
+      "bucket": "blog",
+      "subject": "business-cost-savings"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360026795412-Uninstall-the-Agent",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 52,
+      "linking_domains": 33,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/demo-experience/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 77,
+      "linking_domains": 33,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/hybrid-work-policy/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 39,
+      "linking_domains": 33,
+      "bucket": "blog",
+      "subject": "hybrid-work-policy"
+    },
+    {
+      "url": "https://www.activtrak.com/cdn-cgi/image/quality=80,width=1320,format=auto/wp-content/uploads/2021/02/Dashboard-new-wide-2.png",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 34,
+      "linking_domains": 32,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/benchmarks/productivity-benchmarks-cross-industry/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 31,
+      "linking_domains": 28,
+      "bucket": "blog",
+      "subject": "productivity-benchmarks-cross-industry"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/benefits-of-increased-productivity-in-the-workplace/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 209,
+      "linking_domains": 28,
+      "bucket": "blog",
+      "subject": "benefits-of-increased-productivity-in-the-workplace"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/reports/2023-state-of-the-workplace/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 37,
+      "linking_domains": 30,
+      "bucket": "blog",
+      "subject": "2023-state-of-the-workplace"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 102,
+      "linking_domains": 43,
+      "bucket": "blog",
+      "subject": "resources"
+    },
+    {
+      "url": "https://signup.activtrak.com/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 1627,
+      "linking_domains": 22,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/employee-monitoring-statistics/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 35,
+      "linking_domains": 24,
+      "bucket": "blog",
+      "subject": "employee-monitoring-statistics"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/productivity-management/employee-productivity/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 78,
+      "linking_domains": 25,
+      "bucket": "solution-page",
+      "subject": "productivity-management"
+    },
+    {
+      "url": "https://www.activtrak.com/product/dashboard/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 100,
+      "linking_domains": 43,
+      "bucket": "feature-page",
+      "subject": "dashboard"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/remote-workforce-survey-results/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 25,
+      "linking_domains": 22,
+      "bucket": "blog",
+      "subject": "remote-workforce-survey-results"
+    },
+    {
+      "url": "https://www.activtrak.com/news/state-of-the-workplace-ai-accelerating-work/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 22,
+      "linking_domains": 20,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360034617552-Setting-up-Google-Authentication",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 22,
+      "linking_domains": 21,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/features/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 104,
+      "linking_domains": 25,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://www.activtrak.com/workforce-management/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 75,
+      "linking_domains": 31,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/solutions/activtrak-for-workforce-management/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 41,
+      "linking_domains": 25,
+      "bucket": "solution-page",
+      "subject": "activtrak-for-workforce-management"
+    },
+    {
+      "url": "https://www.activtrak.com/product/dashboards/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 61,
+      "linking_domains": 23,
+      "bucket": "feature-page",
+      "subject": "dashboards"
+    },
+    {
+      "url": "https://www.activtrak.com/welcome-to-activtrak/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 70,
+      "linking_domains": 34,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/security/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 114,
+      "linking_domains": 55,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/partners/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 34,
+      "linking_domains": 20,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/productivity-lab/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 76,
+      "linking_domains": 22,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://www.activtrak.com/productivity-monitoring/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 92,
+      "linking_domains": 28,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/productivity-benchmarks/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 29,
+      "linking_domains": 22,
+      "bucket": "blog",
+      "subject": "productivity-benchmarks"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/ways-of-working-team-discussion/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 21,
+      "linking_domains": 20,
+      "bucket": "blog",
+      "subject": "ways-of-working-team-discussion"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-can-technology-improve-productivity/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 35,
+      "linking_domains": 23,
+      "bucket": "blog",
+      "subject": "how-can-technology-improve-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-is-productivity-affected-when-employees-multitask/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 30,
+      "linking_domains": 16,
+      "bucket": "blog",
+      "subject": "how-is-productivity-affected-when-employees-multitask"
+    },
+    {
+      "url": "https://www.activtrak.com/contact/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 97,
+      "linking_domains": 32,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/remote-work-productivity-statistics/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 33,
+      "linking_domains": 17,
+      "bucket": "blog",
+      "subject": "remote-work-productivity-statistics"
+    },
+    {
+      "url": "https://www.activtrak.com/how-it-works/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 65,
+      "linking_domains": 21,
+      "bucket": "how-it-works"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/author/gabriela-mauch/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 18,
+      "linking_domains": 18,
+      "bucket": "blog",
+      "subject": "gabriela-mauch"
+    },
+    {
+      "url": "https://www.activtrak.com/about-us/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 58,
+      "linking_domains": 16,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/user-behavior-analytics/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 80,
+      "linking_domains": 23,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/productivity-management/productivity-metrics/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 22,
+      "linking_domains": 16,
+      "bucket": "solution-page",
+      "subject": "productivity-management"
+    },
+    {
+      "url": "https://activtrak.com/pricing/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 43,
+      "linking_domains": 17,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360032795191-Activity-Log",
+      "title": "Activity Log – ActivTrak Help Center",
+      "page_authority": 38,
+      "total_links": 16,
+      "linking_domains": 15,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/contact/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 32,
+      "linking_domains": 19,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/product/dashboard/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 38,
+      "linking_domains": 17,
+      "bucket": "feature-page",
+      "subject": "dashboard"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/distractions-in-the-workplace/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 23,
+      "linking_domains": 17,
+      "bucket": "blog",
+      "subject": "distractions-in-the-workplace"
+    },
+    {
+      "url": "https://www.activtrak.com/install-agent/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 25,
+      "linking_domains": 17,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360037449852-Roles-Permissions-for-Access-to-Your-ActivTrak-Account",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 18,
+      "linking_domains": 16,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/the-hidden-costs-of-context-switching/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 54,
+      "linking_domains": 18,
+      "bucket": "blog",
+      "subject": "the-hidden-costs-of-context-switching"
+    },
+    {
+      "url": "https://www.activtrak.com/cdn-cgi/image/quality=80,width=1320,format=auto/wp-content/uploads/2021/06/promo-banner_1.png",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 17,
+      "linking_domains": 15,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360034996271-Essential-Steps-for-Getting-Started-with-ActivTrak",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 20,
+      "linking_domains": 16,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/product/app-and-website-usage/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 51,
+      "linking_domains": 15,
+      "bucket": "feature-page",
+      "subject": "app-and-website-usage"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employees/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 64,
+      "linking_domains": 16,
+      "bucket": "solution-page",
+      "subject": "employees"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/reports/2023-state-of-the-workplace-research",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 18,
+      "linking_domains": 17,
+      "bucket": "blog",
+      "subject": "2023-state-of-the-workplace-research"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360034165131-Agent-Whitelist-Addresses-for-Antivirus-and-Firewall",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 21,
+      "linking_domains": 16,
+      "bucket": "other"
+    },
+    {
+      "url": "https://partners.activtrak.com/English/",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 23,
+      "linking_domains": 15,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/wp-content/uploads/2020/07/Dashboard.png",
+      "title": "",
+      "page_authority": 38,
+      "total_links": 496,
+      "linking_domains": 15,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360037108532-Can-I-capture-passwords-or-keystrokes-with-ActivTrak-",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 13,
+      "linking_domains": 10,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2023/05/img-regpage-hwpt-1.png",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 15,
+      "linking_domains": 10,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workplace-productivity-studies/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 35,
+      "linking_domains": 10,
+      "bucket": "blog",
+      "subject": "workplace-productivity-studies"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/activtrak-for-workforce-management/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 53,
+      "linking_domains": 37,
+      "bucket": "solution-page",
+      "subject": "activtrak-for-workforce-management"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/challenges-of-managing-remote-employees/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 12,
+      "linking_domains": 11,
+      "bucket": "blog",
+      "subject": "challenges-of-managing-remote-employees"
+    },
+    {
+      "url": "https://www.activtrak.com/product/productivity-reports/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 49,
+      "linking_domains": 12,
+      "bucket": "feature-page",
+      "subject": "productivity-reports"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/supporting-employees-in-the-workplace/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 13,
+      "linking_domains": 11,
+      "bucket": "blog",
+      "subject": "supporting-employees-in-the-workplace"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360040980132-Installing-the-ActivTrak-Agent-via-Direct-Link",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 11,
+      "linking_domains": 10,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/2026-state-of-the-workplace/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 14,
+      "linking_domains": 10,
+      "bucket": "blog",
+      "subject": "2026-state-of-the-workplace"
+    },
+    {
+      "url": "https://activtrak.com/solutions/activtrak-for-employee-productivity/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 18,
+      "linking_domains": 12,
+      "bucket": "solution-page",
+      "subject": "activtrak-for-employee-productivity"
+    },
+    {
+      "url": "https://activtrak.com/resources/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 32,
+      "linking_domains": 12,
+      "bucket": "blog",
+      "subject": "resources"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employee-engagement/what-is/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 48,
+      "linking_domains": 10,
+      "bucket": "solution-page",
+      "subject": "employee-engagement"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employee-engagement/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 53,
+      "linking_domains": 11,
+      "bucket": "solution-page",
+      "subject": "employee-engagement"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/low-employee-engagement/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 14,
+      "linking_domains": 13,
+      "bucket": "blog",
+      "subject": "low-employee-engagement"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/cost-of-disengaged-employees/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 13,
+      "linking_domains": 12,
+      "bucket": "blog",
+      "subject": "cost-of-disengaged-employees"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-sotw-2025/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 11,
+      "linking_domains": 10,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/what-is-activtrak/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 32,
+      "linking_domains": 11,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/demo",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 25,
+      "linking_domains": 12,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 43,
+      "linking_domains": 11,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/our-team/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 33,
+      "linking_domains": 12,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360059344151-Installing-the-Windows-Agent-via-Intune",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 26,
+      "linking_domains": 11,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/product/workforce-analytics/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 56,
+      "linking_domains": 11,
+      "bucket": "feature-page",
+      "subject": "workforce-analytics"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employee-monitoring/ethical-considerations/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 26,
+      "linking_domains": 12,
+      "bucket": "solution-page",
+      "subject": "employee-monitoring"
+    },
+    {
+      "url": "https://www.activtrak.com/academy/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 51,
+      "linking_domains": 11,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/cdn-cgi/image/quality=80,width=975,format=auto/wp-content/uploads/2021/07/team-pulse-1.png",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 14,
+      "linking_domains": 12,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-interruptions-affect-productivity/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 16,
+      "linking_domains": 12,
+      "bucket": "blog",
+      "subject": "how-interruptions-affect-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/partners/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 85,
+      "linking_domains": 31,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employee-engagement/metrics/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 13,
+      "linking_domains": 13,
+      "bucket": "solution-page",
+      "subject": "employee-engagement"
+    },
+    {
+      "url": "https://activtrak.com/what-is-activtrak/dashboard/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 24,
+      "linking_domains": 11,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/employee-monitoring/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 22,
+      "linking_domains": 11,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/ebook-remote-workforce-management/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 13,
+      "linking_domains": 10,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/careers/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 66,
+      "linking_domains": 15,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/activtrak-for-insider-threat-detection-and-uba/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 21,
+      "linking_domains": 13,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360039249211-Deploying-Agent-Guide",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 17,
+      "linking_domains": 10,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/activtrak-for-operational-efficiency/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 18,
+      "linking_domains": 10,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360035122372-Website-Blocking",
+      "title": "Website Blocking – ActivTrak Help Center",
+      "page_authority": 37,
+      "total_links": 12,
+      "linking_domains": 11,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/workforce-management/remote-work-impact-on-productivity-levels/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 29,
+      "linking_domains": 10,
+      "bucket": "solution-page",
+      "subject": "workforce-management"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/remote-work-environment/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 15,
+      "linking_domains": 12,
+      "bucket": "blog",
+      "subject": "remote-work-environment"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employee-monitoring/pros-cons/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 40,
+      "linking_domains": 11,
+      "bucket": "solution-page",
+      "subject": "employee-monitoring"
+    },
+    {
+      "url": "https://activtrak.com/blog/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 28,
+      "linking_domains": 13,
+      "bucket": "blog",
+      "subject": "blog"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/saas-management/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 52,
+      "linking_domains": 10,
+      "bucket": "solution-page",
+      "subject": "saas-management"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/productivity-management/productivity-measurement/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 24,
+      "linking_domains": 10,
+      "bucket": "solution-page",
+      "subject": "productivity-management"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/difference-workforce-analytics-hr-analytics/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 14,
+      "linking_domains": 12,
+      "bucket": "blog",
+      "subject": "difference-workforce-analytics-hr-analytics"
+    },
+    {
+      "url": "https://www.activtrak.com/privacy-policy/",
+      "title": "",
+      "page_authority": 37,
+      "total_links": 63,
+      "linking_domains": 10,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workplace-disruptions/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 10,
+      "linking_domains": 9,
+      "bucket": "blog",
+      "subject": "workplace-disruptions"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/data-privacy-security-hr/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 8,
+      "linking_domains": 8,
+      "bucket": "blog",
+      "subject": "data-privacy-security-hr"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360039987751-ActivTrak-ActivConnect-Quick-Start-Guide",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 9,
+      "linking_domains": 9,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/solutions/activtrak-for-workforce-analytics/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 12,
+      "linking_domains": 9,
+      "bucket": "solution-page",
+      "subject": "activtrak-for-workforce-analytics"
+    },
+    {
+      "url": "https://www.activtrak.com/our-team/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 83,
+      "linking_domains": 19,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/benchmarks/workforce-utilization-benchmarks-report/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 9,
+      "linking_domains": 8,
+      "bucket": "blog",
+      "subject": "workforce-utilization-benchmarks-report"
+    },
+    {
+      "url": "https://activtrak.com/productivity-monitoring.html",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 21,
+      "linking_domains": 8,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/productivity-management/productivity-vs-efficiency/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 8,
+      "linking_domains": 8,
+      "bucket": "vs-page",
+      "subject": "productivity-vs-efficiency"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/reports/2023-state-of-the-workplace/thank-you/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 13,
+      "linking_domains": 8,
+      "bucket": "blog",
+      "subject": "thank-you"
+    },
+    {
+      "url": "https://activtrak.com/activtrak-for-employee-monitoring/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 22,
+      "linking_domains": 9,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360049217372-Azure-SSO-Setup-Steps",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 8,
+      "linking_domains": 8,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/product-reviews/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 51,
+      "linking_domains": 10,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-calculate-productivity/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 10,
+      "linking_domains": 9,
+      "bucket": "blog",
+      "subject": "how-to-calculate-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-google-isv-connect-partner/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 8,
+      "linking_domains": 8,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/productivity-management/workplace-productivity-statistics/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 10,
+      "linking_domains": 9,
+      "bucket": "solution-page",
+      "subject": "productivity-management"
+    },
+    {
+      "url": "https://www.activtrak.com/responsible-disclosure-program/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 9,
+      "linking_domains": 9,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/blind-spots-in-business/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 15,
+      "linking_domains": 9,
+      "bucket": "blog",
+      "subject": "blind-spots-in-business"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/sales-productivity-metrics-pipeline-generation/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 12,
+      "linking_domains": 8,
+      "bucket": "blog",
+      "subject": "sales-productivity-metrics-pipeline-generation"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/2025-state-of-the-workplace/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 14,
+      "linking_domains": 8,
+      "bucket": "blog",
+      "subject": "2025-state-of-the-workplace"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/monitor-employees-internet-usage/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 11,
+      "linking_domains": 8,
+      "bucket": "blog",
+      "subject": "monitor-employees-internet-usage"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360037451572-Installing-the-ActivTrak-Agent-via-Command-Line",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 27,
+      "linking_domains": 9,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workflow-optimization/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 10,
+      "linking_domains": 8,
+      "bucket": "blog",
+      "subject": "workflow-optimization"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360050977352-What-Data-Does-ActivTrak-Collect-",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 10,
+      "linking_domains": 8,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/welcome-to-activtrak/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 9,
+      "linking_domains": 8,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/burnout/employee-burnout-signs/",
+      "title": "",
+      "page_authority": 36,
+      "total_links": 52,
+      "linking_domains": 9,
+      "bucket": "solution-page",
+      "subject": "burnout"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/burnout/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 45,
+      "linking_domains": 6,
+      "bucket": "solution-page",
+      "subject": "burnout"
+    },
+    {
+      "url": "https://activtrak.com/activtrak-for-workforce-management/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 15,
+      "linking_domains": 7,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/disengaged-employee-behaviors/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 7,
+      "linking_domains": 7,
+      "bucket": "blog",
+      "subject": "disengaged-employee-behaviors"
+    },
+    {
+      "url": "https://www.activtrak.com/partners/activtrak-msp-program/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 11,
+      "linking_domains": 6,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/cdn-cgi/image/quality=80,width=750,format=auto/wp-content/uploads/2023/08/blog-header-3-quarterly-benchmarks-q2-2023.png",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 6,
+      "linking_domains": 6,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/4406765537563-Mouse-Jiggling-Software-and-Similar-Activity-Mimicking-Devices",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 6,
+      "linking_domains": 6,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/insider-threat-detection/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 7,
+      "linking_domains": 7,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/performance-management/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 42,
+      "linking_domains": 6,
+      "bucket": "solution-page",
+      "subject": "performance-management"
+    },
+    {
+      "url": "https://www.activtrak.com/product/integrations/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 78,
+      "linking_domains": 7,
+      "bucket": "feature-page",
+      "subject": "integrations"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employee-monitoring/employee-computer-monitoring/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 20,
+      "linking_domains": 6,
+      "bucket": "solution-page",
+      "subject": "employee-monitoring"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/human-resources/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 47,
+      "linking_domains": 6,
+      "bucket": "solution-page",
+      "subject": "human-resources"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2018/05/Sample-Internet-Usage-Policy-Revised.pdf",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 6,
+      "linking_domains": 6,
+      "bucket": "other"
+    },
+    {
+      "url": "https://partners.activtrak.com/",
+      "title": "Page Redirection",
+      "page_authority": 35,
+      "total_links": 24,
+      "linking_domains": 6,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/effects-of-overtime-on-productivity/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 6,
+      "linking_domains": 6,
+      "bucket": "blog",
+      "subject": "effects-of-overtime-on-productivity"
+    },
+    {
+      "url": "https://activtrak.com/customers/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 22,
+      "linking_domains": 7,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/solutions/activtrak-for-employee-monitoring/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 9,
+      "linking_domains": 6,
+      "bucket": "solution-page",
+      "subject": "activtrak-for-employee-monitoring"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/productivity-in-the-workplace/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 8,
+      "linking_domains": 6,
+      "bucket": "blog",
+      "subject": "productivity-in-the-workplace"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360043420292-Single-Sign-On-Multi-Factor-Authentication-Support-Release-3-54-",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 6,
+      "linking_domains": 6,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/creating-a-culture-where-productivity-can-thrive/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 7,
+      "linking_domains": 7,
+      "bucket": "blog",
+      "subject": "creating-a-culture-where-productivity-can-thrive"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360026788412-Unable-to-View-Screenshots",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 6,
+      "linking_domains": 6,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/remote-work-vs-office-productivity",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 17,
+      "linking_domains": 6,
+      "bucket": "vs-page",
+      "subject": "remote-work-vs-office-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/underutilized-at-work/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 7,
+      "linking_domains": 6,
+      "bucket": "blog",
+      "subject": "underutilized-at-work"
+    },
+    {
+      "url": "https://www.activtrak.com/demo-request/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 86,
+      "linking_domains": 27,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/low-employee-productivity/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 8,
+      "linking_domains": 7,
+      "bucket": "blog",
+      "subject": "low-employee-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workplace-insights-logistics/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 44,
+      "linking_domains": 7,
+      "bucket": "blog",
+      "subject": "workplace-insights-logistics"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/activtrak-for-employee-monitoring/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 16,
+      "linking_domains": 13,
+      "bucket": "solution-page",
+      "subject": "activtrak-for-employee-monitoring"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/employee-time-management/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 7,
+      "linking_domains": 6,
+      "bucket": "blog",
+      "subject": "employee-time-management"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-prevent-quiet-quitting/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 6,
+      "linking_domains": 6,
+      "bucket": "blog",
+      "subject": "how-to-prevent-quiet-quitting"
+    },
+    {
+      "url": "https://activtrak.com/workforce-management/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 9,
+      "linking_domains": 6,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-state-of-the-workplace-report/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 9,
+      "linking_domains": 7,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-foster-accountability-in-the-workplace/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 6,
+      "linking_domains": 6,
+      "bucket": "blog",
+      "subject": "how-to-foster-accountability-in-the-workplace"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/productivity-kpis/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 10,
+      "linking_domains": 7,
+      "bucket": "blog",
+      "subject": "productivity-kpis"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-productivity-benchmarks-report-1h2024/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 6,
+      "linking_domains": 6,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/cdn-cgi/image/quality=80,width=1320,format=auto/wp-content/uploads/2021/01/2021-01-04-11.png",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 7,
+      "linking_domains": 7,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/employee-satisfaction-and-productivity/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 9,
+      "linking_domains": 6,
+      "bucket": "blog",
+      "subject": "employee-satisfaction-and-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/cost-optimization-examples/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 6,
+      "linking_domains": 6,
+      "bucket": "blog",
+      "subject": "cost-optimization-examples"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/reports/2022-state-of-the-workplace/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 6,
+      "linking_domains": 6,
+      "bucket": "blog",
+      "subject": "2022-state-of-the-workplace"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/",
+      "title": "ActivTrak Help Center",
+      "page_authority": 35,
+      "total_links": 1603,
+      "linking_domains": 6,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employee-productivity/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 48,
+      "linking_domains": 8,
+      "bucket": "solution-page",
+      "subject": "employee-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 46,
+      "linking_domains": 6,
+      "bucket": "solution-page"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360040027051-Restarting-the-ActivTrak-Service-through-Remote-Services",
+      "title": "Restarting the ActivTrak Service through Remote Services – ActivTrak Help Center",
+      "page_authority": 35,
+      "total_links": 11,
+      "linking_domains": 6,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/product/real-time-monitoring/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 8,
+      "linking_domains": 8,
+      "bucket": "feature-page",
+      "subject": "real-time-monitoring"
+    },
+    {
+      "url": "https://activtrak.com/user-activity-monitoring/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 10,
+      "linking_domains": 6,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/privacy-policy/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 7,
+      "linking_domains": 6,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/demo-request/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 21,
+      "linking_domains": 8,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/product/faq/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 10,
+      "linking_domains": 6,
+      "bucket": "feature-page",
+      "subject": "faq"
+    },
+    {
+      "url": "https://activtrak.com/features/",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 37,
+      "linking_domains": 6,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360041642772-How-to-Introduce-ActivTrak-to-your-Organization",
+      "title": "",
+      "page_authority": 35,
+      "total_links": 6,
+      "linking_domains": 6,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/activtrak-for-employee-productivity/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360051220512-Deploying-the-Agent-Through-Microsoft-Intune-in-Endpoint-Manager",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employee-monitoring/tracking-employee-performance/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "solution-page",
+      "subject": "employee-monitoring"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/workforce-optimization/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 9,
+      "linking_domains": 4,
+      "bucket": "solution-page",
+      "subject": "workforce-optimization"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/shipsticks-improved-efficiency-customer-service/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 8,
+      "linking_domains": 8,
+      "bucket": "blog",
+      "subject": "shipsticks-improved-efficiency-customer-service"
+    },
+    {
+      "url": "https://www.activtrak.com/cdn-cgi/image/quality=80,width=975,format=auto/wp-content/uploads/2021/03/alarm-automated-actions.png",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/webcasts/location-insights-demo-hybrid-visibility/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "location-insights-demo-hybrid-visibility"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-deloitte-fast-500-2024/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/workforce-management/remote-worker-monitoring-metrics/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "solution-page",
+      "subject": "workforce-management"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/article_attachments/12908962461979",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/managers/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 44,
+      "linking_domains": 4,
+      "bucket": "solution-page",
+      "subject": "managers"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/employee-monitoring-trends/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "employee-monitoring-trends"
+    },
+    {
+      "url": "https://activtrak.com/user-behavior-analytics/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 12,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/from-data-to-decisions-workforce-productivity-101/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 16,
+      "linking_domains": 6,
+      "bucket": "blog",
+      "subject": "from-data-to-decisions-workforce-productivity-101"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/4409163130267-ActivTrak-Salesforce-Configuration-Guide",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/workforce-planning/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 39,
+      "linking_domains": 4,
+      "bucket": "solution-page",
+      "subject": "workforce-planning"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/productivity-management/productivity-management/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "solution-page",
+      "subject": "productivity-management"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/information-technology/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 44,
+      "linking_domains": 4,
+      "bucket": "solution-page",
+      "subject": "information-technology"
+    },
+    {
+      "url": "https://www.activtrak.com/product/activity-logs/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 6,
+      "linking_domains": 4,
+      "bucket": "feature-page",
+      "subject": "activity-logs"
+    },
+    {
+      "url": "https://activtrak.com/robots.txt",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 11,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-measure-quality-of-work/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "how-to-measure-quality-of-work"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360041632051-Troubleshooting-Blocking",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/watching-sports-while-working-hindrance-or-homerun/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "watching-sports-while-working-hindrance-or-homerun"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/time-to-productivity/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "time-to-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/will-less-meetings-lead-to-more-productivity/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 6,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "will-less-meetings-lead-to-more-productivity"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360053092432-How-ActivTrak-Respects-Employee-Privacy",
+      "title": "How ActivTrak Respects Employee Privacy – ActivTrak Help Center",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/ways-to-improve-team-productivity/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "ways-to-improve-team-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/legal/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 52,
+      "linking_domains": 6,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/categories/360001872492-Getting-Started",
+      "title": "Getting Started – ActivTrak Help Center",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/blog/little-known-activtrak-features/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "little-known-activtrak-features"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workforce-capacity-planning/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "workforce-capacity-planning"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-measure-team-productivity/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "how-to-measure-team-productivity"
+    },
+    {
+      "url": "https://activtrak.com/product/settings/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "feature-page",
+      "subject": "settings"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/cost-saving-ideas-for-large-companies/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "cost-saving-ideas-for-large-companies"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/executive-dashboards/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "executive-dashboards"
+    },
+    {
+      "url": "https://www.activtrak.com/customer-onboarding/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 14,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360027132531-Change-email-address-linked-to-an-account",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/does-flexible-working-increase-productivity/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "does-flexible-working-increase-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/news/activtrak-productivity-lab-60-percent-workers-underperform/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "core"
+    },
+    {
+      "url": "https://developers.activtrak.com/",
+      "title": "Activtrak Documentation",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360041708272-How-to-Classify-Productivity-and-Categories-by-Groups",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/quote-request/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 53,
+      "linking_domains": 10,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/consequences-of-overworking-employees/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "consequences-of-overworking-employees"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workforce-utilization-benchmarks/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "workforce-utilization-benchmarks"
+    },
+    {
+      "url": "https://activtrak.com/operational-efficiency/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2021/03/activity-log.png",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/activtrak-lands-20m-series-a-investment-from-elsewhere-partners/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 6,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/hybrid-workforce-management/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "hybrid-workforce-management"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/people-analytics-examples/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "people-analytics-examples"
+    },
+    {
+      "url": "https://activtrak.com/download/ActivTrakViewer.msi",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/activity-tracking",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 22,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360031641451-Deploying-the-Agent-Through-Active-Directory-Group-Policy",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/terms-and-conditions/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workforce-management-trends/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 13,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "workforce-management-trends"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/flexible-work-schedule-statistics/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "flexible-work-schedule-statistics"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/new-feature-activtrak-user-management/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "new-feature-activtrak-user-management"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-sotw-logistics-2025/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 9,
+      "linking_domains": 5,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/cdn-cgi/image/quality=80,width=1024,format=auto/wp-content/uploads/2021/09/importance-2@2x.png",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-trustradius-buyers-choice-2024/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/5-tips-to-effectively-manage-a-remote-workforce/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "5-tips-to-effectively-manage-a-remote-workforce"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/categories/360001876251-Account-Settings",
+      "title": "Account Administration – ActivTrak Help Center",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/?igaag=72093350849&igaat&igacm=1809971711&igacr=728297649288&igakw=activtrak&igamt=e&igant=g&gad_source=1&gad_campaignid=1809971711&gbraid=0aaaaadvwiseq6940uh6uz8nlz35ckvegp&gclid=cj0kcqjwxdxbbhdearisaaukp6idcqvszvk6-xkv9np1l6qh88x0nmzz42goya-afz8luizvcchwrzmaajmmealw_wcb",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/blog/recapping-the-growing-risk-of-insider-threats-in-2019/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "recapping-the-growing-risk-of-insider-threats-in-2019"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workload-distribution/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 8,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "workload-distribution"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/hybrid-work-arrangements/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "hybrid-work-arrangements"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/internet-usage-policy-freedom/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 14,
+      "linking_domains": 6,
+      "bucket": "blog",
+      "subject": "internet-usage-policy-freedom"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-fortune-best-workplaces-technology/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/business-process-and-workflow-management/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "business-process-and-workflow-management"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2021/07/ATK_A-Modern-Approach-to-Employee-Productivity-03-1.png",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/blog/shipsticks-improved-efficiency-customer-service/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "shipsticks-improved-efficiency-customer-service"
+    },
+    {
+      "url": "https://lp.activtrak.com/email-preferences.html",
+      "title": "ActivTrak Email Preferences",
+      "page_authority": 34,
+      "total_links": 8,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360052456552-Mac-Screen-Recording-Permissions-Commonly-Asked-Questions",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://dev.activtrak.com/",
+      "title": "Login | Team Behavior Analytics | ActivTrak",
+      "page_authority": 34,
+      "total_links": 14,
+      "linking_domains": 5,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/strategic-alignment/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "strategic-alignment"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/operations/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 44,
+      "linking_domains": 4,
+      "bucket": "solution-page",
+      "subject": "operations"
+    },
+    {
+      "url": "https://www.activtrak.com/support/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 46,
+      "linking_domains": 6,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-support-remote-employees/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "how-to-support-remote-employees"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-essentials-plus/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360058778932-Share-Personal-Insights-with-Your-Team-Members",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/case-study-healthcare/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "case-study-healthcare"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/workforce-management/remote-work-monitoring/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 5,
+      "bucket": "solution-page",
+      "subject": "workforce-management"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2018/07/mockup-showcase-1024x600.png",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360037689592-Deploying-the-agent-using-the-ActivTrak-Remote-Installer",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/product/activconnect/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 16,
+      "linking_domains": 8,
+      "bucket": "feature-page",
+      "subject": "activconnect"
+    },
+    {
+      "url": "https://cdn.activtrak.com/wp-content/uploads/2018/05/9-activity-log.png",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 6,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-bhg-tech-award-2024/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/cost-optimization-finance/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "cost-optimization-finance"
+    },
+    {
+      "url": "https://www.activtrak.com/news/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 47,
+      "linking_domains": 7,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/find-most-productive-hours/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 6,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "find-most-productive-hours"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360032880231-Integrating-with-Citrix-Environments-and-Other-Remote-Desktop-Services",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-ai-innovation-year-2024/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360032880231-Integrating-with-Remote-Desktop-Services",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 6,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/wp-content/uploads/2019/09/at_dashboard.jpg",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 19,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/productivity-analytics-101/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "productivity-analytics-101"
+    },
+    {
+      "url": "https://activtrak.com/acceptable-use-policy/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 14,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-does-automation-increase-productivity/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "how-does-automation-increase-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/case-study-inside-sales-call-centers/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "case-study-inside-sales-call-centers"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360037484651-Previous-Install-Agent-Stopped-Reporting-macOS-Troubleshooting",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/4407841903515-Managing-User-Agents",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360032792811-How-to-Delete-Users-and-Computers",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 9,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/activtrak-in-action-how-york-international-uses-activtrak-to-improve-productivity/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 9,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "activtrak-in-action-how-york-international-uses-activtrak-to-improve-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/best-remote-computer-monitoring-software/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 16,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "best-remote-computer-monitoring-software"
+    },
+    {
+      "url": "https://activtrak.com/productivity-monitoring/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 5,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://activtrak.com/OnlineHelp/index.html",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360032796391-Weekly-Digest",
+      "title": "Weekly Digest – ActivTrak Help Center",
+      "page_authority": 34,
+      "total_links": 8,
+      "linking_domains": 8,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/categories/360001876171-ActivTrak-Features",
+      "title": "ActivTrak Dashboards – ActivTrak Help Center",
+      "page_authority": 34,
+      "total_links": 8,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/gated-work-from-home-policy-template/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workload-analysis/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "workload-analysis"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/hybrid-work-environment-challenges/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "hybrid-work-environment-challenges"
+    },
+    {
+      "url": "https://activtrak.com/news/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 9,
+      "linking_domains": 4,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/project-time-management/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "project-time-management"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-inc-5000-ranking/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/faq/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360032477972-Contacting-Support",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://cdn.activtrak.com/wp-content/uploads/2018/02/better-productivity-report.jpeg",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 12,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360055883012-Premium-Plan-Overview",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/activtrak-in-action-advanced-tech-group/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "activtrak-in-action-advanced-tech-group"
+    },
+    {
+      "url": "https://www.activtrak.com/product/productivity-coaching/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 40,
+      "linking_domains": 5,
+      "bucket": "feature-page",
+      "subject": "productivity-coaching"
+    },
+    {
+      "url": "https://activtrak.com/quote-request/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 17,
+      "linking_domains": 7,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360058730651-Dashboard-Troubleshooting-",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 6,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/2024-state-of-the-workplace/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "blog",
+      "subject": "2024-state-of-the-workplace"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360032479852-Installing-Chrome-Agents-",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/news/media-alert-gartner-reimaginehr-2024/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 5,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/4404929331995-ActivTrak-Benchmarks-Guide",
+      "title": "ActivTrak Benchmarks Guide – ActivTrak Help Center",
+      "page_authority": 34,
+      "total_links": 6,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/enterprise-user-behavior-analytics/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/saas-cost-optimization/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 5,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "saas-cost-optimization"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/hybrid-team-collaboration/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 38,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "hybrid-team-collaboration"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360059715171-ActivTrak-for-Microsoft-Power-BI-Setup-Guide",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 7,
+      "linking_domains": 5,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/benefits-of-workforce-analytics/",
+      "title": "",
+      "page_authority": 34,
+      "total_links": 6,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "benefits-of-workforce-analytics"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/executives/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 43,
+      "linking_domains": 3,
+      "bucket": "solution-page",
+      "subject": "executives"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/productivity-management/team-productivity/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "solution-page",
+      "subject": "productivity-management"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360058203252-Personal-Insights-Dashboard",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/improve-customer-service-skills/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "improve-customer-service-skills"
+    },
+    {
+      "url": "https://status.activtrak.com/history.atom",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 5,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360034616252-Install-ActivTrak-Chrome-Extension-using-Google-Workspaces-",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/avoid-burnout-working-with-remote-teams/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "avoid-burnout-working-with-remote-teams"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/predictive-workforce-analytics/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "predictive-workforce-analytics"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360048946872-ActivTrak-for-MS-Teams-Setup-Guide",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 5,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-avoid-distractions-at-work/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "how-to-avoid-distractions-at-work"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360036904752-Previous-Install-Agent-Stopped-Reporting-Windows-OS-Troubleshooting",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/benefits-of-remote-work/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "benefits-of-remote-work"
+    },
+    {
+      "url": "https://www.activtrak.com/product/alarms/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 13,
+      "linking_domains": 5,
+      "bucket": "feature-page",
+      "subject": "alarms"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/employee-monitoring-software-for-productivity-analytics-insights/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "employee-monitoring-software-for-productivity-analytics-insights"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-measure-productivity-2/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "how-to-measure-productivity-2"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2023/03/state-of-the-workplace-2023-final-030323.pdf",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 6,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-coach-employees-for-improved-performance/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "how-to-coach-employees-for-improved-performance"
+    },
+    {
+      "url": "https://onprem.activtrak.com/home/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://trust.activtrak.com/",
+      "title": "ActivTrak Trust Center",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/news/activtrak-introduces-activtrak-coach-empowering-teams-to-succeed-in-the-hybrid-workplace/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/types-of-hr-analytics/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "types-of-hr-analytics"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/...",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/why-workforce-planning-is-important/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "why-workforce-planning-is-important"
+    },
+    {
+      "url": "https://test.activtrak.com/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 20,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2021/02/Remote-Work-Policy-Template.pdf",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/signs-of-employee-disengagement/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "signs-of-employee-disengagement"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/hybrid-workforce/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "hybrid-workforce"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2022/02/2022-State-of-the-Workplace_Final.pdf",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/sections/360005145192-Account-Access",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/careers/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/default.htm",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 5,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/software-utilization-maximization/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "software-utilization-maximization"
+    },
+    {
+      "url": "https://www.activtrak.com/activtrak-awards/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 43,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360060296372-User-Merge-How-To",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/remote-hybrid-challenges/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "remote-hybrid-challenges"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-software-advice-frontrunner-for-hr-analytics-software/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360057628671-Manager-s-Guide",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360037689592-Deploying-the-Agent-using-the-ActivTrak-Remote-Installer",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/news/activtrak-lands-20m-series-a-investment-from-elsewhere-partners/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/blog/why-six-inc-5000-companies-went-remote/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "why-six-inc-5000-companies-went-remote"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2021/12/Case-Study-Healthcare-Organizations.pdf",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/operational-compliance/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "operational-compliance"
+    },
+    {
+      "url": "https://activtrak.com/blog/more-visibility-helps-remote-teams/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 6,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "more-visibility-helps-remote-teams"
+    },
+    {
+      "url": "https://activtrak.com/product-reviews/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 8,
+      "linking_domains": 3,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2023/12/blog-header-hybrid-work-policy-v2.png",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/remote-employee-wellbeing",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "remote-employee-wellbeing"
+    },
+    {
+      "url": "https://activtrak.com/product/reports/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "feature-page",
+      "subject": "reports"
+    },
+    {
+      "url": "https://app.activtrak.com/Account/login",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 12,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360039239051-How-to-Adjust-the-Multi-Screenshot-Feature",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/10-tips-to-effectively-manage-a-hybrid-team/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "10-tips-to-effectively-manage-a-hybrid-team"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360039331991-Get-in-touch-",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workflow-productivity/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "workflow-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/?gclid=EAIaIQobChMIrcLdwfiI8AIVxRrnCh2MEQ4BEAAYASAAEgKq_fD_BwE",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360027278492-Do-Not-Track",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/change-management-data/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "change-management-data"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-can-benchmarking-improve-performance/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "how-can-benchmarking-improve-performance"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2020/09/Screen-Shot-2020-09-15-at-3.02.00-PM-e1616105683665.png",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/4403980980763-Can-ActivTrak-be-used-for-Billable-Hours-",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 6,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-measure-productivity/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "how-to-measure-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/importance-of-hr-analytics/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "importance-of-hr-analytics"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/hybrid-workforce-playbook/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "hybrid-workforce-playbook"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/7-ways-you-can-prevent-accidental-insider-threats/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "7-ways-you-can-prevent-accidental-insider-threats"
+    },
+    {
+      "url": "https://activtrak.com/product/activconnect/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 5,
+      "linking_domains": 3,
+      "bucket": "feature-page",
+      "subject": "activconnect"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workforce-analytics-roi-strategies/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "workforce-analytics-roi-strategies"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-financial-services/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 103,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/track-ai-with-employee-monitoring/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "track-ai-with-employee-monitoring"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360032827891--Mobile-App",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360037032412-New-Install-Agent-Not-Reporting-macOS-Troubleshooting",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/activtrak-for-workforce-analytics/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 25,
+      "linking_domains": 12,
+      "bucket": "solution-page",
+      "subject": "activtrak-for-workforce-analytics"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/ask-the-expert-how-to-build-a-comprehensive-work-from-home-policy/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "ask-the-expert-how-to-build-a-comprehensive-work-from-home-policy"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/focus-time/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "focus-time"
+    },
+    {
+      "url": "https://activtrak.com/demo/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 6,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/do-dont-employee-monitoring/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 9,
+      "linking_domains": 6,
+      "bucket": "blog",
+      "subject": "do-dont-employee-monitoring"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/article_attachments/13897721877915",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360039576592-ActivConnect-Overview",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/solutions-for-overworked-employees/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "solutions-for-overworked-employees"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/4407833915803-Managing-Computer-Agents-",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/news/activtrak-announces-strategic-investment-from-francisco-partners/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/team-productivity-tools/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "team-productivity-tools"
+    },
+    {
+      "url": "https://activtrak.com/activtrak-for-data-privacy-and-compliance/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/protect-company-property-with-activtrak/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "protect-company-property-with-activtrak"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/productivity-challenges/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 36,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "productivity-challenges"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-reduce-unnecessary-meetings/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 8,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "how-to-reduce-unnecessary-meetings"
+    },
+    {
+      "url": "https://academy.activtrak.com/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/4416209478939-ActivTrak-for-Salesforce-Overview",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/4402812081549-Coach-Utilization",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/8641024134939-How-Does-ActivTrak-Determine-Remote-vs-Office-Location-",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 5,
+      "linking_domains": 3,
+      "bucket": "vs-page",
+      "subject": "8641024134939-how-does-activtrak-determine-remote-vs-office-location-"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360035571651-Setting-up-Accounts-as-a-Managed-Service-Provider-MSP-",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/employee-monitoring-best-practices/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 8,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "employee-monitoring-best-practices"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360035550732-Security-Audit-Log",
+      "title": "Security Audit Log – ActivTrak Help Center",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-measure-work-productivity/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "how-to-measure-work-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/effective-workforce-management/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 6,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "effective-workforce-management"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/article_attachments/360089522611/WB-A.png",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workforce-planning-metrics/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "workforce-planning-metrics"
+    },
+    {
+      "url": "https://activtrak.com/product/how-does-it-work/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "feature-page",
+      "subject": "how-does-it-work"
+    },
+    {
+      "url": "https://activtrak.com/blog/do-dont-employee-monitoring/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 6,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "do-dont-employee-monitoring"
+    },
+    {
+      "url": "https://activtrak.com/pricing",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-wfo-solution-2025/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 8,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/elsewhere-operating-advisor-spotlight-rita-selvaggi-of-activtrak/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "elsewhere-operating-advisor-spotlight-rita-selvaggi-of-activtrak"
+    },
+    {
+      "url": "https://www.activtrak.com/product",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360035258771-Working-Hours-Report",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2020/12/video-preview-data-privacy.png",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/article_attachments/360083415792/SAA.gif",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/activtrak-raises-50-million-in-series-b-funding/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/unbalanced-workloads/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "unbalanced-workloads"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/prevent-data-theft-from-employees/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "prevent-data-theft-from-employees"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/productivity-hacks-for-work/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "productivity-hacks-for-work"
+    },
+    {
+      "url": "https://www.activtrak.com/news/press-release-momentum-2025",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/data-privacy-and-security-employee/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "data-privacy-and-security-employee"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/case-study-insurance/",
+      "title": "",
+      "page_authority": 33,
+      "total_links": 4,
+      "linking_domains": 4,
+      "bucket": "blog",
+      "subject": "case-study-insurance"
+    },
+    {
+      "url": "https://www.activtrak.com/msa-agreement/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 3,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/four-types-of-remote-workforces/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "four-types-of-remote-workforces"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360047646311-Windows-Agent-Not-Auto-Updating",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/process-improvement/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 3,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "process-improvement"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/4410093680283-ActivTrak-s-SOC-2-Compliance-FAQ",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/?ref=sandymuc",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/google-chrome-support/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "google-chrome-support"
+    },
+    {
+      "url": "https://activtrak.com/blog/qa-activtrak-new-remote-workforce-productivity-capabilities/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 3,
+      "linking_domains": 3,
+      "bucket": "blog",
+      "subject": "qa-activtrak-new-remote-workforce-productivity-capabilities"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360039301331-Windows-10-Smartscreen-Defender",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/operational-efficiency/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 37,
+      "linking_domains": 2,
+      "bucket": "solution-page",
+      "subject": "operational-efficiency"
+    },
+    {
+      "url": "https://activtrak.com/451-research-special-report/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/invest-in-employees/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "invest-in-employees"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/report-long-hours-weekend-work-financial-services/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "report-long-hours-weekend-work-financial-services"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/article_attachments/360040397451/mceclip0.png",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 5,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360048178111-ActivTrak-licensing-how-does-it-work-",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/schedule-adherence/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "schedule-adherence"
+    },
+    {
+      "url": "https://rhello.activtrak.com/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 6,
+      "linking_domains": 2,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/product/workforce-management/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 61,
+      "linking_domains": 24,
+      "bucket": "feature-page",
+      "subject": "workforce-management"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/electronic-monitoring-legislation-changes/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 3,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "electronic-monitoring-legislation-changes"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/productivity-management/productivity-vs-efficiency",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "vs-page",
+      "subject": "productivity-vs-efficiency"
+    },
+    {
+      "url": "https://prod-frontend-gcp-us.activtrak.com/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 20,
+      "linking_domains": 2,
+      "bucket": "core"
+    },
+    {
+      "url": "https://wwwdev.activtrak.com/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 19,
+      "linking_domains": 2,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360055107311-The-Technology-Usage-Dashboard",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/time-to-completion/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "time-to-completion"
+    },
+    {
+      "url": "https://www.activtrak.com/academy/get-started/dashboard-overview/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/reports/2025-state-of-the-workplace/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "2025-state-of-the-workplace"
+    },
+    {
+      "url": "https://www.activtrak.com/product/team-productivity/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 8,
+      "linking_domains": 3,
+      "bucket": "feature-page",
+      "subject": "team-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/data-privacy-security-executive/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "data-privacy-security-executive"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360027132531-Change-Email-on-Account-",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/workforce-management/remote-work-policy/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "solution-page",
+      "subject": "workforce-management"
+    },
+    {
+      "url": "https://www.activtrak.com/customers/?wchannelid=td0u2v0z7t",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 32,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/cost-of-disengaged-employees/?ref=antispace.ghost.io",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 3,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "cost-of-disengaged-employees"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/increase-sales-productivity/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "increase-sales-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/contact-center/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 7,
+      "linking_domains": 2,
+      "bucket": "solution-page",
+      "subject": "contact-center"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360027324491-Subscription-Differences-Free-Advanced-Premium-",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/technical-support/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 3,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/webcast-how-to-get-visibility-into-team-productivity-with-activtrak/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 6,
+      "linking_domains": 3,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360041642772-How-to-Introduce-ActivTrak-to-your-Organization/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/4402603284635-ActivConnect-Premium-Data-Glossary",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://insights-ca.activtrak.com/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 18,
+      "linking_domains": 2,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/top-10-reports-for-productivity-insights/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 3,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "top-10-reports-for-productivity-insights"
+    },
+    {
+      "url": "https://activtrak.com/webcast-productivity-101/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 3,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/solutions/activtrak-for-operational-efficiency/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 5,
+      "linking_domains": 2,
+      "bucket": "solution-page",
+      "subject": "activtrak-for-operational-efficiency"
+    },
+    {
+      "url": "https://activtrak.com/screenpass/features.htm",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2021/04/Hybrid-Work-Policy-Template.pdf",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/demo-experience/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 7,
+      "linking_domains": 2,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/collaboration-and-productivity/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "collaboration-and-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-cut-business-costs-by-employing-a-remote-workforce/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "how-to-cut-business-costs-by-employing-a-remote-workforce"
+    },
+    {
+      "url": "https://upflow-email.activtrak.com/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 16,
+      "linking_domains": 2,
+      "bucket": "core"
+    },
+    {
+      "url": "https://insights-uk.activtrak.com/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 18,
+      "linking_domains": 2,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-to-set-employee-expectations-for-remote-work",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "how-to-set-employee-expectations-for-remote-work"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/overworked-employees/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "overworked-employees"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/categories/360001876171-Using-ActivTrak",
+      "title": "ActivTrak Dashboards – ActivTrak Help Center",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/news/activtrak-introduces-workforce-ai-services-to-accelerate-enterprise-transformation/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-brands-stand-out-on-social-media/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "how-brands-stand-out-on-social-media"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/productivity-trends/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "productivity-trends"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-do-companies-monitor-remote-workers/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "how-do-companies-monitor-remote-workers"
+    },
+    {
+      "url": "https://download.activtrak.com/createaccount/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/best-of-productivity-resources-2021/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 4,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "best-of-productivity-resources-2021"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/workforce-management-tool/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "workforce-management-tool"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/change-management-data/?utm_",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "change-management-data"
+    },
+    {
+      "url": "https://www.activtrak.com/wp-content/uploads/2021/02/1@2x.jpg",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/what-is-workforce-planning/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "blog",
+      "subject": "what-is-workforce-planning"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360038363992-Upgrade-Downgrade-or-Cancel-a-Paid-Plan",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.download.activtrak.com/",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 19,
+      "linking_domains": 2,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/4402805243789-Coach-Summary",
+      "title": "",
+      "page_authority": 32,
+      "total_links": 2,
+      "linking_domains": 2,
+      "bucket": "other"
+    }
+  ],
+  "top_by_pa": [
+    {
+      "url": "https://www.activtrak.com/",
+      "title": "",
+      "page_authority": 53,
+      "total_links": 9683,
+      "linking_domains": 2747,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/",
+      "title": "",
+      "page_authority": 52,
+      "total_links": 7557,
+      "linking_domains": 1718,
+      "bucket": "core"
+    },
+    {
+      "url": "https://app.activtrak.com/",
+      "title": "Login | Team Behavior Analytics | ActivTrak",
+      "page_authority": 47,
+      "total_links": 3225,
+      "linking_domains": 279,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/state-of-the-workplace/",
+      "title": "",
+      "page_authority": 44,
+      "total_links": 259,
+      "linking_domains": 163,
+      "bucket": "blog",
+      "subject": "state-of-the-workplace"
+    },
+    {
+      "url": "https://www.activtrak.com/product/",
+      "title": "",
+      "page_authority": 44,
+      "total_links": 414,
+      "linking_domains": 142,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/ai-for-hr/",
+      "title": "",
+      "page_authority": 44,
+      "total_links": 206,
+      "linking_domains": 115,
+      "bucket": "blog",
+      "subject": "ai-for-hr"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employee-monitoring/",
+      "title": "",
+      "page_authority": 44,
+      "total_links": 223,
+      "linking_domains": 115,
+      "bucket": "solution-page",
+      "subject": "employee-monitoring"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us",
+      "title": "ActivTrak Help Center",
+      "page_authority": 43,
+      "total_links": 1727,
+      "linking_domains": 76,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/pricing/",
+      "title": "",
+      "page_authority": 42,
+      "total_links": 562,
+      "linking_domains": 72,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/remote-work-vs-office-productivity/",
+      "title": "",
+      "page_authority": 42,
+      "total_links": 99,
+      "linking_domains": 65,
+      "bucket": "vs-page",
+      "subject": "remote-work-vs-office-productivity"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/reports/state-of-the-workplace/",
+      "title": "",
+      "page_authority": 42,
+      "total_links": 105,
+      "linking_domains": 64,
+      "bucket": "blog",
+      "subject": "state-of-the-workplace"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/workforce-management/",
+      "title": "",
+      "page_authority": 42,
+      "total_links": 176,
+      "linking_domains": 58,
+      "bucket": "solution-page",
+      "subject": "workforce-management"
+    },
+    {
+      "url": "https://www.activtrak.com/operational-efficiency/",
+      "title": "",
+      "page_authority": 42,
+      "total_links": 102,
+      "linking_domains": 54,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360033418691-Sign-Up-Login",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 116,
+      "linking_domains": 48,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/user-activity-monitoring/",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 130,
+      "linking_domains": 46,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/customers/",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 180,
+      "linking_domains": 42,
+      "bucket": "other"
+    },
+    {
+      "url": "https://activtrak.com/product/",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 80,
+      "linking_domains": 40,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/productivity-management/",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 119,
+      "linking_domains": 40,
+      "bucket": "solution-page",
+      "subject": "productivity-management"
+    },
+    {
+      "url": "https://www.activtrak.com/free-employee-monitoring-software/",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 88,
+      "linking_domains": 39,
+      "bucket": "other"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360043358032-Connect-your-SSO-account-with-ActivTrak",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 44,
+      "linking_domains": 38,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/flexible-work-arrangement-examples/",
+      "title": "",
+      "page_authority": 41,
+      "total_links": 57,
+      "linking_domains": 36,
+      "bucket": "blog",
+      "subject": "flexible-work-arrangement-examples"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 108,
+      "linking_domains": 44,
+      "bucket": "blog",
+      "subject": "blog"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 102,
+      "linking_domains": 43,
+      "bucket": "blog",
+      "subject": "resources"
+    },
+    {
+      "url": "https://status.activtrak.com/",
+      "title": "ActivTrak Status",
+      "page_authority": 40,
+      "total_links": 67,
+      "linking_domains": 33,
+      "bucket": "core"
+    },
+    {
+      "url": "https://activtrak.com/security/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 50,
+      "linking_domains": 33,
+      "bucket": "core"
+    },
+    {
+      "url": "https://support.activtrak.com/hc/en-us/articles/360026795412-Uninstall-the-Agent",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 52,
+      "linking_domains": 33,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/demo-experience/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 77,
+      "linking_domains": 33,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/hybrid-work-policy/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 39,
+      "linking_domains": 33,
+      "bucket": "blog",
+      "subject": "hybrid-work-policy"
+    },
+    {
+      "url": "https://www.activtrak.com/cdn-cgi/image/quality=80,width=1320,format=auto/wp-content/uploads/2021/02/Dashboard-new-wide-2.png",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 34,
+      "linking_domains": 32,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/reports/2023-state-of-the-workplace/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 37,
+      "linking_domains": 30,
+      "bucket": "blog",
+      "subject": "2023-state-of-the-workplace"
+    },
+    {
+      "url": "https://resellers.activtrak.com/",
+      "title": "Page Redirection",
+      "page_authority": 40,
+      "total_links": 80,
+      "linking_domains": 29,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/employee-monitoring/what-is/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 83,
+      "linking_domains": 28,
+      "bucket": "solution-page",
+      "subject": "employee-monitoring"
+    },
+    {
+      "url": "https://www.activtrak.com/resources/benchmarks/productivity-benchmarks-cross-industry/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 31,
+      "linking_domains": 28,
+      "bucket": "blog",
+      "subject": "productivity-benchmarks-cross-industry"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/benefits-of-increased-productivity-in-the-workplace/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 209,
+      "linking_domains": 28,
+      "bucket": "blog",
+      "subject": "benefits-of-increased-productivity-in-the-workplace"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/business-cost-savings/",
+      "title": "",
+      "page_authority": 40,
+      "total_links": 42,
+      "linking_domains": 27,
+      "bucket": "blog",
+      "subject": "business-cost-savings"
+    },
+    {
+      "url": "https://www.activtrak.com/security/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 114,
+      "linking_domains": 55,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/product/dashboard/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 100,
+      "linking_domains": 43,
+      "bucket": "feature-page",
+      "subject": "dashboard"
+    },
+    {
+      "url": "https://www.activtrak.com/welcome-to-activtrak/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 70,
+      "linking_domains": 34,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/workforce-management/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 75,
+      "linking_domains": 31,
+      "bucket": "other"
+    },
+    {
+      "url": "https://www.activtrak.com/productivity-monitoring/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 92,
+      "linking_domains": 28,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://www.activtrak.com/solutions/productivity-management/employee-productivity/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 78,
+      "linking_domains": 25,
+      "bucket": "solution-page",
+      "subject": "productivity-management"
+    },
+    {
+      "url": "https://www.activtrak.com/features/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 104,
+      "linking_domains": 25,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://activtrak.com/solutions/activtrak-for-workforce-management/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 41,
+      "linking_domains": 25,
+      "bucket": "solution-page",
+      "subject": "activtrak-for-workforce-management"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/employee-monitoring-statistics/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 35,
+      "linking_domains": 24,
+      "bucket": "blog",
+      "subject": "employee-monitoring-statistics"
+    },
+    {
+      "url": "https://www.activtrak.com/product/dashboards/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 61,
+      "linking_domains": 23,
+      "bucket": "feature-page",
+      "subject": "dashboards"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/how-can-technology-improve-productivity/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 35,
+      "linking_domains": 23,
+      "bucket": "blog",
+      "subject": "how-can-technology-improve-productivity"
+    },
+    {
+      "url": "https://signup.activtrak.com/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 1627,
+      "linking_domains": 22,
+      "bucket": "core"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/remote-workforce-survey-results/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 25,
+      "linking_domains": 22,
+      "bucket": "blog",
+      "subject": "remote-workforce-survey-results"
+    },
+    {
+      "url": "https://www.activtrak.com/productivity-lab/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 76,
+      "linking_domains": 22,
+      "bucket": "feature-page"
+    },
+    {
+      "url": "https://www.activtrak.com/blog/productivity-benchmarks/",
+      "title": "",
+      "page_authority": 39,
+      "total_links": 29,
+      "linking_domains": 22,
+      "bucket": "blog",
+      "subject": "productivity-benchmarks"
+    }
+  ],
+  "bucket_pa_distribution": {
+    "core": {
+      "page_count": 70,
+      "sum_links": 24195,
+      "sum_linking_domains": 5405
+    },
+    "blog": {
+      "page_count": 176,
+      "sum_links": 2561,
+      "sum_linking_domains": 1539
+    },
+    "solution-page": {
+      "page_count": 45,
+      "sum_links": 1833,
+      "sum_linking_domains": 608
+    },
+    "feature-page": {
+      "page_count": 30,
+      "sum_links": 1505,
+      "sum_linking_domains": 498
+    },
+    "other": {
+      "page_count": 173,
+      "sum_links": 6374,
+      "sum_linking_domains": 1421
+    },
+    "vs-page": {
+      "page_count": 5,
+      "sum_links": 131,
+      "sum_linking_domains": 84
+    },
+    "how-it-works": {
+      "page_count": 1,
+      "sum_links": 65,
+      "sum_linking_domains": 21
+    }
+  }
+}

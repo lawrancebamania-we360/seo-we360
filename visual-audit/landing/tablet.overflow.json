@@ -1,0 +1,17 @@
+[
+  {
+    "tag": "DIV",
+    "cls": "pointer-events-none absolute inset-0 overflow-hidden",
+    "w": 1010
+  },
+  {
+    "tag": "DIV",
+    "cls": "absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[1200p",
+    "w": 1200
+  },
+  {
+    "tag": "DIV",
+    "cls": "absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(9",
+    "w": 1200
+  }
+]

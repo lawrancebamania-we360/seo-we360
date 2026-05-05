@@ -1,0 +1,240 @@
+<mjml>
+  <mj-head>
+    <mj-title>Thanks for Signing Up — We360.ai</mj-title>
+    <!-- Preheader / inbox preview text -->
+    <mj-preview>You're now part of a community making work life efficient and enjoyable. Welcome aboard!</mj-preview>
+
+    <mj-attributes>
+      <mj-all font-family="Arial, Helvetica, sans-serif" />
+      <mj-text font-size="15px" line-height="1.75" color="#333333" padding="0 0 16px 0" />
+      <mj-section padding="0" background-color="#ffffff" />
+    </mj-attributes>
+  </mj-head>
+
+  <mj-body background-color="#f0f0f0">
+
+    <!-- ── Top spacer ── -->
+    <mj-section background-color="#f0f0f0" padding="28px 0 0">
+      <mj-column>
+        <mj-text padding="0"> </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- ── Logo header ── -->
+    <mj-section background-color="#ffffff" border-radius="12px 12px 0 0" padding="32px 40px 24px">
+      <mj-column>
+        <mj-image
+          src="https://images.g2crowd.com/uploads/product/image/982b8cf92b5ca18d08cce35c8179e48d/we360-ai.png"
+          width="110px"
+          alt="We360.ai"
+          href="https://we360.ai"
+          align="center"
+        />
+      </mj-column>
+    </mj-section>
+
+    <!-- ── Greeting + intro + CTA button ── -->
+    <mj-section background-color="#ffffff" padding="4px 40px 32px">
+      <mj-column>
+        <mj-text font-size="22px" font-weight="700" color="#111111" padding="0 0 20px 0">
+          Hey {{firstName}},
+        </mj-text>
+        <mj-text>
+          Arnav here, founder and CEO of
+          <a href="https://we360.ai" style="color:#5B4CF5;text-decoration:none;font-weight:600;">We360.ai</a>.
+        </mj-text>
+        <mj-text>
+          Myself and my entire team are super excited to welcome you aboard!
+        </mj-text>
+        <mj-text padding="0 0 28px 0">
+          You're not just a user to us; you're now part of a community dedicated to making work
+          life not just efficient, but also enjoyable.
+        </mj-text>
+        <mj-button
+          href="https://app.we360.ai/dashboard"
+          background-color="#5B4CF5"
+          color="#ffffff"
+          font-size="15px"
+          font-weight="600"
+          border-radius="8px"
+          inner-padding="14px 32px"
+          align="center"
+        >
+          Log into your dashboard →
+        </mj-button>
+      </mj-column>
+    </mj-section>
+
+    <!-- ── Divider ── -->
+    <mj-section background-color="#ffffff" padding="0 40px">
+      <mj-column>
+        <mj-divider border-color="#eeeeee" border-width="1px" padding="0" />
+      </mj-column>
+    </mj-section>
+
+    <!-- ── Dashboard screenshot ── -->
+    <mj-section background-color="#ffffff" padding="32px 40px">
+      <mj-column>
+        <mj-image
+          src="https://gdm-catalog-fmapi-prod.imgix.net/ProductScreenshot/6814b95e-3962-4c15-8be0-0be573d77e1f.png"
+          border-radius="8px"
+          alt="We360.ai Dashboard"
+          href="https://app.we360.ai/dashboard"
+        />
+      </mj-column>
+    </mj-section>
+
+    <!-- ── Divider ── -->
+    <mj-section background-color="#ffffff" padding="0 40px">
+      <mj-column>
+        <mj-divider border-color="#eeeeee" border-width="1px" padding="0" />
+      </mj-column>
+    </mj-section>
+
+    <!-- ── Feature list ── -->
+    <mj-section background-color="#ffffff" padding="32px 40px 8px">
+      <mj-column>
+        <mj-text font-size="17px" font-weight="700" color="#111111" padding="0 0 20px 0">
+          With We360.ai, here's what we've got for you:
+        </mj-text>
+        <mj-text padding="0 0 14px 0">
+          <span style="color:#5B4CF5;font-weight:700;">✦</span>&nbsp;&nbsp;<strong style="color:#111111;">See Team Productivity in Real-Time:</strong>
+          Stay in the know of what's happening, when it happens.
+        </mj-text>
+        <mj-text padding="0 0 14px 0">
+          <span style="color:#5B4CF5;font-weight:700;">✦</span>&nbsp;&nbsp;<strong style="color:#111111;">Screenshots? Yes, Please:</strong>
+          Dive into the workday with our screenshot feature – it's like having eyes everywhere, in a non-creepy way!
+        </mj-text>
+        <mj-text padding="0 0 14px 0">
+          <span style="color:#5B4CF5;font-weight:700;">✦</span>&nbsp;&nbsp;<strong style="color:#111111;">Sort Your Apps Like a Boss:</strong>
+          Discover which apps boost work and which ones don't.
+        </mj-text>
+        <mj-text padding="0 0 14px 0">
+          <span style="color:#5B4CF5;font-weight:700;">✦</span>&nbsp;&nbsp;<strong style="color:#111111;">Reports That Don't Bore:</strong>
+          Get the lowdown on your team's work without the headache.
+        </mj-text>
+        <mj-text padding="0 0 24px 0">
+          <span style="color:#5B4CF5;font-weight:700;">✦</span>&nbsp;&nbsp;<strong style="color:#111111;">Stay Connected on the Go:</strong>
+          Our mobile app means you're never out of the loop, no matter where you are.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- ── Divider ── -->
+    <mj-section background-color="#ffffff" padding="0 40px">
+      <mj-column>
+        <mj-divider border-color="#eeeeee" border-width="1px" padding="0" />
+      </mj-column>
+    </mj-section>
+
+    <!-- ── Closing copy ── -->
+    <mj-section background-color="#ffffff" padding="32px 40px 8px">
+      <mj-column>
+        <mj-text>
+          We built <a href="https://we360.ai" style="color:#5B4CF5;text-decoration:none;font-weight:600;">We360.ai</a>
+          to give you insights that matter, without the usual corporate stiffness. It's all about making
+          your and your team's work life a bit easier and a lot more informed.
+        </mj-text>
+        <mj-text>
+          Log into your <a href="https://app.we360.ai/dashboard" style="color:#5B4CF5;text-decoration:none;">dashboard</a>
+          and see what's up. And hey, if you've got questions or just want to chat, shoot me an email at
+          <a href="mailto:arnav.gupta@we360.ai" style="color:#5B4CF5;text-decoration:none;">arnav.gupta@we360.ai</a>.
+          I'm here for you.
+        </mj-text>
+        <mj-text padding="0 0 24px 0">
+          Welcome to the crew – let's make work awesome together!
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- ── Signature: avatar + name ── -->
+    <mj-section background-color="#ffffff" padding="0 40px 20px">
+      <mj-column width="70px" vertical-align="middle">
+        <!--
+          REPLACE THIS SRC with a direct hosted image URL of Arnav's photo.
+          LinkedIn profile page URLs cannot be used as email image sources.
+          Upload a headshot to your CDN (e.g. Cloudinary, Uploadcare, or your own S3)
+          and paste the direct .jpg/.png URL here.
+        -->
+        <mj-image
+          src="https://via.placeholder.com/60/5B4CF5/ffffff?text=AG"
+          width="52px"
+          border-radius="52px"
+          alt="Arnav Gupta"
+          padding="0"
+        />
+      </mj-column>
+      <mj-column vertical-align="middle">
+        <mj-text padding="0" font-size="14px" line-height="1.6">
+          Cheers,<br />
+          <strong style="color:#111111;font-size:16px;">Arnav Gupta</strong><br />
+          <span style="color:#666666;">CEO &amp; Founder,
+            <a href="https://we360.ai" style="color:#5B4CF5;text-decoration:none;">We360.ai</a>
+          </span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- ── P.S. ── -->
+    <mj-section background-color="#ffffff" border-radius="0 0 12px 12px" padding="0 40px 40px">
+      <mj-column>
+        <mj-divider border-color="#eeeeee" border-width="1px" padding="0 0 20px 0" />
+        <mj-text font-size="14px" color="#777777" font-style="italic" padding="0">
+          P.S. I will be sending you a separate "Getting Started" email in the next few minutes.
+          Keep an eye on your inbox.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- ── Dark footer ── -->
+    <mj-section background-color="#1a1a2e" padding="32px 40px 12px">
+      <mj-column>
+        <!-- Social icons -->
+        <mj-social font-size="0px" icon-size="28px" mode="horizontal" padding="0 0 20px 0" align="center">
+          <mj-social-element
+            name="linkedin"
+            href="https://www.linkedin.com/company/we360-ai/"
+            background-color="#1a1a2e"
+            padding="0 10px"
+          />
+          <mj-social-element
+            name="instagram"
+            href="https://www.instagram.com/we360.ai/"
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/240px-Instagram_icon.png"
+            background-color="#1a1a2e"
+            padding="0 10px"
+            icon-size="28px"
+          />
+          <mj-social-element
+            name="youtube"
+            href="https://www.youtube.com/@we360ai"
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/240px-YouTube_full-color_icon_%282017%29.svg.png"
+            background-color="#1a1a2e"
+            padding="0 10px"
+            icon-size="28px"
+          />
+        </mj-social>
+
+        <mj-divider border-color="#2e2e4e" border-width="1px" padding="0 0 16px 0" />
+
+        <mj-text color="#888888" font-size="12px" align="center" padding="0 0 8px 0">
+          Sent by the team at We360.ai<br />
+          2093 Philadelphia Pike #1360, Claymont, DE 19703, USA
+        </mj-text>
+        <mj-text color="#888888" font-size="12px" align="center" padding="0 0 28px 0">
+          <a href="{unsubscribe_link}" style="color:#888888;text-decoration:underline;">Manage subscriptions</a>
+          &nbsp;|&nbsp;
+          <a href="{unsubscribe_link}" style="color:#888888;text-decoration:underline;">Unsubscribe</a>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- ── Bottom spacer ── -->
+    <mj-section background-color="#f0f0f0" padding="28px">
+      <mj-column>
+        <mj-text padding="0"> </mj-text>
+      </mj-column>
+    </mj-section>
+
+  </mj-body>
+</mjml>
