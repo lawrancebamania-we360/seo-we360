@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { initials, competitionColor, priorityColor, formatNumber, stripTaskKey } from "@/lib/ui-helpers";
+import { initials, competitionColor, priorityColor, formatNumber, stripTaskKey, taskKindLabel } from "@/lib/ui-helpers";
 import { updateTaskStatus } from "@/lib/actions/tasks";
 import { BlogTaskDetailDialog } from "@/components/sections/blog-task-detail-dialog";
 import { AssigneePicker } from "@/components/sections/assignee-picker";
@@ -271,6 +271,7 @@ function BlogCard({
 }) {
   const due = dueLabel(task.scheduled_date, task.done);
   const isHighPriority = task.priority === "critical" || task.priority === "high";
+  const kind = taskKindLabel(task);
 
   return (
     <motion.div
@@ -287,6 +288,13 @@ function BlogCard({
           dragging && "ring-2 ring-primary shadow-lg"
         )}
       >
+        {/* Kind label — front-and-center so writers can scan the column
+            and see at a glance which cards are "Update Blog" vs "New Page"
+            etc. without opening the task. */}
+        <Badge className={cn("border text-[10px] font-semibold uppercase tracking-wider", kind.classes)}>
+          {kind.label}
+        </Badge>
+
         {/* Title */}
         <div className={cn("text-base font-semibold leading-tight line-clamp-2", task.done && "line-through text-muted-foreground")}>
           {stripTaskKey(task.title).replace(/^Write article:\s*/i, "")}

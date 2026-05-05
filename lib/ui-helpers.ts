@@ -27,6 +27,82 @@ export function formatVolume(v: number | null | undefined): string | null {
   return `${v}/mo`;
 }
 
+// Derive a glanceable "what kind of task is this" label from the title +
+// URL, with a stable color in the we360 palette. The same label is used on
+// every kanban card and in the task-detail dialog header so writers can tell
+// at a glance whether they're picking up a new blog vs a page refresh vs an
+// SEO ops chore.
+export interface TaskKindInfo {
+  action: "New" | "Update" | "Ops";
+  surface: "Blog" | "Page" | "Ops";
+  label: string;       // "New Blog" / "Update Page" / "SEO Ops" / etc.
+  classes: string;     // tailwind classes for a Badge
+}
+
+export function taskKindLabel(task: {
+  title: string;
+  url?: string | null;
+}): TaskKindInfo {
+  const title = (task.title ?? "").toLowerCase();
+  const url = (task.url ?? "").toLowerCase();
+
+  // ---- Action: detect from title prefix ----
+  let action: "New" | "Update" | "Ops" = "New";
+  if (/^update\b/.test(title)) {
+    action = "Update";
+  } else if (
+    /^(disavow|set up|clean up|internal linking|mid-plan|build monthly|8-month|data study #\d.*(kickoff|pr launch))/.test(title)
+  ) {
+    action = "Ops";
+  }
+
+  // ---- Surface: blog vs page vs ops ----
+  let surface: "Blog" | "Page" | "Ops" = "Blog";
+  if (action === "Ops") {
+    surface = "Ops";
+  } else if (/^\/(?:vs|alternative|integrations|solutions|in|industries)\//.test(url)) {
+    surface = "Page";
+  } else if (url.startsWith("/blog/")) {
+    surface = "Blog";
+  } else if (
+    /\b(comparison page|alternative page|alternative-to page|integration page|industry page|india page|landing page|vs-competitor page)\b/.test(title) ||
+    /\[b-vs\.|\[b-alt\.|\[b-int\.|\[b3\.2[a-z]?\]|\[b3\.1i\d\]|\[b4\.2\.\d\]|\[b2\.2[a-z]?\]/.test(title) ||
+    /^we360 vs /.test(title) ||
+    /\balternative\s*\[mcb-/.test(title) ||
+    /\bintegration\s*\[mcb-/.test(title) ||
+    /^workforce (management|planning) software/.test(title)
+  ) {
+    surface = "Page";
+  } else if (
+    /\b(update existing blog|write new article|write new blog|pillar #|data study|striking-distance)\b/.test(title) ||
+    /\[b1\.\d|\[b6\.[34]|\[b3\.[34]|\[b5\.2[a-z]?\]|\[b8\.[1-3]|\[b7\.3\]/.test(title)
+  ) {
+    surface = "Blog";
+  }
+  // Anything left (cluster blogs, calendar-only entries) defaults to Blog.
+
+  // ---- Label + we360-palette classes ----
+  let label = action === "Ops" ? "SEO Ops" : `${action} ${surface}`;
+  let classes: string;
+  if (action === "Ops") {
+    classes = "bg-[#7E8492]/10 text-[#7E8492] dark:text-[#9AA0B0] border-[#7E8492]/30";
+  } else if (action === "New" && surface === "Page") {
+    // Deepest emphasis — primary purple
+    classes = "bg-[#5B45E0]/12 text-[#5B45E0] dark:text-[#7B62FF] border-[#5B45E0]/25";
+  } else if (action === "New" && surface === "Blog") {
+    // Lighter — secondary purple
+    classes = "bg-[#7B62FF]/12 text-[#5B45E0] dark:text-[#7B62FF] border-[#7B62FF]/25";
+  } else if (action === "Update" && surface === "Page") {
+    // Strong yellow — clearly different from "new" work
+    classes = "bg-[#FEB800]/15 text-[#8a6500] dark:text-[#FEB800] border-[#FEB800]/35";
+  } else {
+    // Update Blog — softer yellow
+    classes = "bg-[#FEB800]/10 text-[#8a6500] dark:text-[#FEB800] border-[#FEB800]/25";
+    label = "Update Blog";
+  }
+  return { action, surface, label, classes };
+}
+
 // Tailwind class set for the task_type badge — color-coded by action.
 export function taskTypeBadgeClass(taskType: string | null | undefined): string {
   if (!taskType) return "";

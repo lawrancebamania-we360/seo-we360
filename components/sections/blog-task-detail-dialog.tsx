@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { competitionColor, priorityColor, initials, formatNumber, stripTaskKey, stripTaskPrefix, formatVolume, taskTypeBadgeClass } from "@/lib/ui-helpers";
+import { competitionColor, priorityColor, initials, formatNumber, stripTaskKey, stripTaskPrefix, formatVolume, taskTypeBadgeClass, taskKindLabel } from "@/lib/ui-helpers";
 import { updateTask, deleteTask } from "@/lib/actions/tasks";
 import { ByokDialog } from "@/components/sections/byok-dialog";
 import { AssigneePicker } from "@/components/sections/assignee-picker";
@@ -241,9 +241,22 @@ function BlogTaskContent({
                 )}
               </>
             )}
-            <DialogDescription className="mt-1">
-              {isOpsTask ? "SEO ops task" : "Blog brief"} · {task.source === "cron_audit" ? "Auto-discovered by Apify" : "Manual"}
-            </DialogDescription>
+            {/* Kind label — same Badge that's on the kanban card so the
+                classification is consistent everywhere. Replaces the older
+                generic "Blog brief · Manual" subtitle. */}
+            {(() => {
+              const kind = taskKindLabel(task);
+              return (
+                <DialogDescription className="mt-1.5 inline-flex items-center gap-2">
+                  <Badge className={cn("border text-[10px] font-semibold uppercase tracking-wider", kind.classes)}>
+                    {kind.label}
+                  </Badge>
+                  {task.source === "cron_audit" && (
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Auto-discovered</span>
+                  )}
+                </DialogDescription>
+              );
+            })()}
           </div>
           {canEdit && !editing && (
             <div className="flex items-center gap-1.5 shrink-0 mr-6">
