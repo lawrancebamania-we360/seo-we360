@@ -1,0 +1,697 @@
+========================================================
+STRONG (top score >= 0.70) — auto-match (0)
+========================================================
+
+
+========================================================
+AMBIGUOUS (0.30 <= top < 0.70) — NEEDS LLM JUDGMENT (7)
+========================================================
+
+[#1] Lokesh | vs-page | "We360 vs Time Doctor"
+     hub kw: we360 vs time doctor
+     url: /vs/we360-vs-time-doctor
+     [0.30] 177e064c → Build new comparison page: We360 Vs Time Doctor [B-VS.we360-vs-time-doctor]
+              target_kw: we360 vs time doctor
+              overlap: we360, time, doctor
+     [0.27] ed36188e → Build new alternative page: Time Doctor alternative [B-ALT.time-doctor-alternati
+              target_kw: time doctor alternative
+              overlap: we360, time, doctor
+     [0.20] 6969ed31 → Build new comparison page: Hubstaff Vs Time Doctor [B-VS.hubstaff-vs-time-doctor
+              target_kw: hubstaff vs time doctor
+              overlap: time, doctor
+     [0.20] c8a032da → Build new comparison page: Time Doctor Vs Activtrak [B-VS.time-doctor-vs-activtr
+              target_kw: time doctor vs activtrak
+              overlap: time, doctor
+     [0.13] 7ede5d3e → Write vs-competitor page: we360-vs-kickidler
+              target_kw: we360 vs Kickidler
+              overlap: we360
+
+[#10] Lokesh | homepage-retarget | "Employee Monitoring Software"
+     hub kw: employee monitoring software
+     url: /
+     [0.38] a28f54de → Write new article: "ai employee monitoring software" [B2.4b]
+              target_kw: ai employee monitoring software
+              overlap: employee, monitor, software
+     [0.38] da28b731 → Build new: Pillar #2: "Employee Monitoring Software — The 2026 Buyer's Guide" [B
+              target_kw: employee monitoring software guide
+              overlap: employee, monitor, software
+     [0.30] d06ad515 → Build new India page: Employee Monitoring Software (India) [B3.2a]
+              target_kw: employee monitoring software india
+              overlap: employee, monitor, software
+     [0.25] cb52c48b → Update existing landing page: /remote-employee-monitoring [B2.2c]
+              target_kw: remote employee monitoring
+              overlap: employee, monitor, software
+     [0.25] 703b5a23 → Write industry page: industries/ecommerce
+              target_kw: employee productivity software ecommerce
+              overlap: employee, software
+
+[#16] Rahul | solution-page | "Employee Monitoring Software"
+     hub kw: employee monitoring software
+     url: /solutions/employee-monitoring
+     [0.38] a28f54de → Write new article: "ai employee monitoring software" [B2.4b]
+              target_kw: ai employee monitoring software
+              overlap: employee, monitor, software
+     [0.38] da28b731 → Build new: Pillar #2: "Employee Monitoring Software — The 2026 Buyer's Guide" [B
+              target_kw: employee monitoring software guide
+              overlap: employee, monitor, software
+     [0.30] d06ad515 → Build new India page: Employee Monitoring Software (India) [B3.2a]
+              target_kw: employee monitoring software india
+              overlap: employee, monitor, software
+     [0.25] cb52c48b → Update existing landing page: /remote-employee-monitoring [B2.2c]
+              target_kw: remote employee monitoring
+              overlap: employee, monitor, software
+     [0.25] 703b5a23 → Write industry page: industries/ecommerce
+              target_kw: employee productivity software ecommerce
+              overlap: employee, software
+
+[#21] Rahul | india-page | "Employee Monitoring Software India"
+     hub kw: employee monitoring software india
+     url: /in/employee-monitoring-software-india
+     [0.40] d06ad515 → Build new India page: Employee Monitoring Software (India) [B3.2a]
+              target_kw: employee monitoring software india
+              overlap: employee, monitor, software, india
+     [0.33] a28f54de → Write new article: "ai employee monitoring software" [B2.4b]
+              target_kw: ai employee monitoring software
+              overlap: employee, monitor, software
+     [0.33] da28b731 → Build new: Pillar #2: "Employee Monitoring Software — The 2026 Buyer's Guide" [B
+              target_kw: employee monitoring software guide
+              overlap: employee, monitor, software
+     [0.23] cb52c48b → Update existing landing page: /remote-employee-monitoring [B2.2c]
+              target_kw: remote employee monitoring
+              overlap: employee, monitor, software
+     [0.22] 703b5a23 → Write industry page: industries/ecommerce
+              target_kw: employee productivity software ecommerce
+              overlap: employee, software
+
+[#22] Rahul | india-page | "Attendance Tracking Software India"
+     hub kw: attendance tracking software india
+     url: /in/attendance-tracking-software-india
+     [0.40] 1089bb84 → Build new India page: Attendance Tracking Software (India) [B3.2b]
+              target_kw: attendance tracking software india
+              overlap: attendance, track, software, india
+     [0.33] 086d238c → Update existing landing page: /attendance-tracking-software [B2.2b]
+              target_kw: attendance tracking software
+              overlap: attendance, track, software, india
+     [0.17] d06ad515 → Build new India page: Employee Monitoring Software (India) [B3.2a]
+              target_kw: employee monitoring software india
+              overlap: software, india
+     [0.15] 9aa93e7b → Build new India page: Productivity Software For Indian Enterprises (India) [B3.2
+              target_kw: productivity software for indian enterprises
+              overlap: software, india
+     [0.14] 38567a20 → Build new India page: Time Tracking For Indian Bpo (India) [B3.2c]
+              target_kw: time tracking for indian bpo
+              overlap: track, india
+
+[#27] Lokesh | cluster-blog | "Switching From Hubstaff to We360"
+     hub kw: switching from hubstaff to we360
+     url: /blog/switching-from-hubstaff-to-we360
+     [0.30] d64b6499 → Build new alternative page: Hubstaff alternative [B-ALT.hubstaff-alternative]
+              target_kw: hubstaff alternative
+              overlap: switch, hubstaff, we360
+     [0.20] 440141e1 → Build new comparison page: We360 Vs Hubstaff [B-VS.we360-vs-hubstaff]
+              target_kw: we360 vs hubstaff
+              overlap: hubstaff, we360
+     [0.18] 20052d1c → Build new alternative page: Desktime alternative [B-ALT.desktime-alternative]
+              target_kw: desktime alternative
+              overlap: switch, we360
+     [0.18] 6e83288f → Build new alternative page: Activtrak alternative [B-ALT.activtrak-alternative]
+              target_kw: activtrak alternative
+              overlap: switch, we360
+     [0.18] 92fc0b72 → Build new alternative page: Insightful alternative [B-ALT.insightful-alternative
+              target_kw: insightful alternative
+              overlap: switch, we360
+
+[#28] Lokesh | cluster-blog | "Why Teams Switch From Time Doctor"
+     hub kw: why teams switch from time doctor
+     url: /blog/why-teams-switch-from-time-doctor
+     [0.36] ed36188e → Build new alternative page: Time Doctor alternative [B-ALT.time-doctor-alternati
+              target_kw: time doctor alternative
+              overlap: team, switch, time, doctor
+     [0.18] 6969ed31 → Build new comparison page: Hubstaff Vs Time Doctor [B-VS.hubstaff-vs-time-doctor
+              target_kw: hubstaff vs time doctor
+              overlap: time, doctor
+     [0.18] c8a032da → Build new comparison page: Time Doctor Vs Activtrak [B-VS.time-doctor-vs-activtr
+              target_kw: time doctor vs activtrak
+              overlap: time, doctor
+     [0.17] 177e064c → Build new comparison page: We360 Vs Time Doctor [B-VS.we360-vs-time-doctor]
+              target_kw: we360 vs time doctor
+              overlap: time, doctor
+     [0.17] d64b6499 → Build new alternative page: Hubstaff alternative [B-ALT.hubstaff-alternative]
+              target_kw: hubstaff alternative
+              overlap: team, switch
+
+
+========================================================
+NO MATCH (top < 0.30) — fresh insert (26)
+========================================================
+
+[#0] Lokesh | vs-page | "We360 vs Hubstaff"
+     hub kw: we360 vs hubstaff
+     url: /vs/we360-vs-hubstaff
+     [0.22] 440141e1 → Build new comparison page: We360 Vs Hubstaff [B-VS.we360-vs-hubstaff]
+              target_kw: we360 vs hubstaff
+              overlap: we360, hubstaff
+     [0.20] d64b6499 → Build new alternative page: Hubstaff alternative [B-ALT.hubstaff-alternative]
+              target_kw: hubstaff alternative
+              overlap: we360, hubstaff
+     [0.14] 7ede5d3e → Write vs-competitor page: we360-vs-kickidler
+              target_kw: we360 vs Kickidler
+              overlap: we360
+     [0.14] 976b8f12 → Write vs-competitor page: we360-vs-veriato
+              target_kw: we360 vs Veriato
+              overlap: we360
+     [0.14] c2613fdb → Write vs-competitor page: we360-vs-worktime
+              target_kw: we360 vs WorkTime
+              overlap: we360
+
+[#2] Lokesh | vs-page | "We360 vs Teramind"
+     hub kw: we360 vs teramind
+     url: /vs/we360-vs-teramind
+     [0.22] c765816b → Build new comparison page: We360 Vs Teramind [B-VS.we360-vs-teramind]
+              target_kw: we360 vs teramind
+              overlap: we360, teramind
+     [0.20] 141e00c2 → Build new alternative page: Teramind alternative [B-ALT.teramind-alternative]
+              target_kw: teramind alternative
+              overlap: we360, teramind
+     [0.14] 7ede5d3e → Write vs-competitor page: we360-vs-kickidler
+              target_kw: we360 vs Kickidler
+              overlap: we360
+     [0.14] 976b8f12 → Write vs-competitor page: we360-vs-veriato
+              target_kw: we360 vs Veriato
+              overlap: we360
+     [0.14] c2613fdb → Write vs-competitor page: we360-vs-worktime
+              target_kw: we360 vs WorkTime
+              overlap: we360
+
+[#3] Lokesh | vs-page | "We360 vs Activtrak"
+     hub kw: we360 vs activtrak
+     url: /vs/we360-vs-activtrak
+     [0.22] cfeae204 → Build new comparison page: We360 Vs Activtrak [B-VS.we360-vs-activtrak]
+              target_kw: we360 vs activtrak
+              overlap: we360, activtrak
+     [0.20] 6e83288f → Build new alternative page: Activtrak alternative [B-ALT.activtrak-alternative]
+              target_kw: activtrak alternative
+              overlap: we360, activtrak
+     [0.14] 7ede5d3e → Write vs-competitor page: we360-vs-kickidler
+              target_kw: we360 vs Kickidler
+              overlap: we360
+     [0.14] 976b8f12 → Write vs-competitor page: we360-vs-veriato
+              target_kw: we360 vs Veriato
+              overlap: we360
+     [0.14] c2613fdb → Write vs-competitor page: we360-vs-worktime
+              target_kw: we360 vs WorkTime
+              overlap: we360
+
+[#4] Lokesh | vs-page | "We360 vs Desktime"
+     hub kw: we360 vs desktime
+     url: /vs/we360-vs-desktime
+     [0.22] 907d88d4 → Build new comparison page: We360 Vs Desktime [B-VS.we360-vs-desktime]
+              target_kw: we360 vs desktime
+              overlap: we360, desktime
+     [0.20] 20052d1c → Build new alternative page: Desktime alternative [B-ALT.desktime-alternative]
+              target_kw: desktime alternative
+              overlap: we360, desktime
+     [0.14] 7ede5d3e → Write vs-competitor page: we360-vs-kickidler
+              target_kw: we360 vs Kickidler
+              overlap: we360
+     [0.14] 976b8f12 → Write vs-competitor page: we360-vs-veriato
+              target_kw: we360 vs Veriato
+              overlap: we360
+     [0.14] c2613fdb → Write vs-competitor page: we360-vs-worktime
+              target_kw: we360 vs WorkTime
+              overlap: we360
+
+[#5] Lokesh | alternative-page | "Hubstaff Alternative"
+     hub kw: hubstaff alternative
+     url: /alternative/hubstaff-alternative
+     [0.20] d64b6499 → Build new alternative page: Hubstaff alternative [B-ALT.hubstaff-alternative]
+              target_kw: hubstaff alternative
+              overlap: hubstaff, alternative
+     [0.14] 63abdf8d → Write alternative-to page: kickidler-alternative
+              target_kw: kickidler alternative
+              overlap: alternative
+     [0.14] 66a8fc36 → Write alternative-to page: veriato-alternative
+              target_kw: veriato alternative
+              overlap: alternative
+     [0.14] 9fa41f63 → Write alternative-to page: monitask-alternative
+              target_kw: monitask alternative
+              overlap: alternative
+     [0.14] f05c38ed → Write alternative-to page: staffcop-alternative
+              target_kw: staffcop alternative
+              overlap: alternative
+
+[#6] Lokesh | alternative-page | "Time Doctor Alternative"
+     hub kw: time doctor alternative
+     url: /alternative/time-doctor-alternative
+     [0.27] ed36188e → Build new alternative page: Time Doctor alternative [B-ALT.time-doctor-alternati
+              target_kw: time doctor alternative
+              overlap: time, doctor, alternative
+     [0.20] 6969ed31 → Build new comparison page: Hubstaff Vs Time Doctor [B-VS.hubstaff-vs-time-doctor
+              target_kw: hubstaff vs time doctor
+              overlap: time, doctor
+     [0.20] c8a032da → Build new comparison page: Time Doctor Vs Activtrak [B-VS.time-doctor-vs-activtr
+              target_kw: time doctor vs activtrak
+              overlap: time, doctor
+     [0.18] 177e064c → Build new comparison page: We360 Vs Time Doctor [B-VS.we360-vs-time-doctor]
+              target_kw: we360 vs time doctor
+              overlap: time, doctor
+     [0.13] 63abdf8d → Write alternative-to page: kickidler-alternative
+              target_kw: kickidler alternative
+              overlap: alternative
+
+[#7] Lokesh | alternative-page | "Activtrak Alternative"
+     hub kw: activtrak alternative
+     url: /alternative/activtrak-alternative
+     [0.20] 6e83288f → Build new alternative page: Activtrak alternative [B-ALT.activtrak-alternative]
+              target_kw: activtrak alternative
+              overlap: activtrak, alternative
+     [0.14] 63abdf8d → Write alternative-to page: kickidler-alternative
+              target_kw: kickidler alternative
+              overlap: alternative
+     [0.14] 66a8fc36 → Write alternative-to page: veriato-alternative
+              target_kw: veriato alternative
+              overlap: alternative
+     [0.14] 9fa41f63 → Write alternative-to page: monitask-alternative
+              target_kw: monitask alternative
+              overlap: alternative
+     [0.14] f05c38ed → Write alternative-to page: staffcop-alternative
+              target_kw: staffcop alternative
+              overlap: alternative
+
+[#8] Lokesh | alternative-page | "Teramind Alternative"
+     hub kw: teramind alternative
+     url: /alternative/teramind-alternative
+     [0.20] 141e00c2 → Build new alternative page: Teramind alternative [B-ALT.teramind-alternative]
+              target_kw: teramind alternative
+              overlap: teramind, alternative
+     [0.14] 63abdf8d → Write alternative-to page: kickidler-alternative
+              target_kw: kickidler alternative
+              overlap: alternative
+     [0.14] 66a8fc36 → Write alternative-to page: veriato-alternative
+              target_kw: veriato alternative
+              overlap: alternative
+     [0.14] 9fa41f63 → Write alternative-to page: monitask-alternative
+              target_kw: monitask alternative
+              overlap: alternative
+     [0.14] f05c38ed → Write alternative-to page: staffcop-alternative
+              target_kw: staffcop alternative
+              overlap: alternative
+
+[#9] Lokesh | alternative-page | "Desktime Alternative"
+     hub kw: desktime alternative
+     url: /alternative/desktime-alternative
+     [0.20] 20052d1c → Build new alternative page: Desktime alternative [B-ALT.desktime-alternative]
+              target_kw: desktime alternative
+              overlap: desktime, alternative
+     [0.14] 63abdf8d → Write alternative-to page: kickidler-alternative
+              target_kw: kickidler alternative
+              overlap: alternative
+     [0.14] 66a8fc36 → Write alternative-to page: veriato-alternative
+              target_kw: veriato alternative
+              overlap: alternative
+     [0.14] 9fa41f63 → Write alternative-to page: monitask-alternative
+              target_kw: monitask alternative
+              overlap: alternative
+     [0.14] f05c38ed → Write alternative-to page: staffcop-alternative
+              target_kw: staffcop alternative
+              overlap: alternative
+
+[#11] Ishika | integration-page | "We360 Jira Integration"
+     hub kw: we360 jira integration
+     url: /integrations/jira
+     [0.25] e043f2c8 → Build new integration page: Jira [B-INT.jira]
+              target_kw: jira employee monitoring integration
+              overlap: we360, jira, integration
+     [0.13] adf53607 → Build new integration page: Microsoft Teams [B-INT.microsoft-teams]
+              target_kw: microsoft teams employee monitoring integration
+              overlap: we360, integration
+     [0.13] 7ede5d3e → Write vs-competitor page: we360-vs-kickidler
+              target_kw: we360 vs Kickidler
+              overlap: we360
+     [0.13] 976b8f12 → Write vs-competitor page: we360-vs-veriato
+              target_kw: we360 vs Veriato
+              overlap: we360
+     [0.13] c2613fdb → Write vs-competitor page: we360-vs-worktime
+              target_kw: we360 vs WorkTime
+              overlap: we360
+
+[#12] Ishika | integration-page | "We360 Keka Integration"
+     hub kw: we360 keka integration
+     url: /integrations/keka
+     [0.18] 718d045b → Build new alternative page: Keka alternative [B-ALT.keka-alternative]
+              target_kw: keka alternative
+              overlap: we360, keka
+     [0.15] e043f2c8 → Build new integration page: Jira [B-INT.jira]
+              target_kw: jira employee monitoring integration
+              overlap: we360, integration
+     [0.13] adf53607 → Build new integration page: Microsoft Teams [B-INT.microsoft-teams]
+              target_kw: microsoft teams employee monitoring integration
+              overlap: we360, integration
+     [0.13] 7ede5d3e → Write vs-competitor page: we360-vs-kickidler
+              target_kw: we360 vs Kickidler
+              overlap: we360
+     [0.13] 976b8f12 → Write vs-competitor page: we360-vs-veriato
+              target_kw: we360 vs Veriato
+              overlap: we360
+
+[#13] Ishika | integration-page | "We360 Zoho People Integration"
+     hub kw: we360 zoho people integration
+     url: /integrations/zoho
+     [0.18] 919a2a61 → Update existing blog: "zoho people vs keka" [B1.4f]
+              target_kw: zoho people vs keka
+              overlap: zoho, people
+     [0.18] 2e8a7b0c → Build new comparison page: Keka Vs Zoho [B-VS.keka-vs-zoho]
+              target_kw: keka vs zoho
+              overlap: zoho, people
+     [0.18] b998d21a → Build new comparison page: Zoho Vs Keka [B-VS.zoho-vs-keka]
+              target_kw: zoho vs keka
+              overlap: zoho, people
+     [0.14] e043f2c8 → Build new integration page: Jira [B-INT.jira]
+              target_kw: jira employee monitoring integration
+              overlap: we360, integration
+     [0.13] adf53607 → Build new integration page: Microsoft Teams [B-INT.microsoft-teams]
+              target_kw: microsoft teams employee monitoring integration
+              overlap: we360, integration
+
+[#14] Ishika | integration-page | "We360 Greythr Integration"
+     hub kw: we360 greythr integration
+     url: /integrations/greythr
+     [0.15] e043f2c8 → Build new integration page: Jira [B-INT.jira]
+              target_kw: jira employee monitoring integration
+              overlap: we360, integration
+     [0.13] adf53607 → Build new integration page: Microsoft Teams [B-INT.microsoft-teams]
+              target_kw: microsoft teams employee monitoring integration
+              overlap: we360, integration
+     [0.13] 7ede5d3e → Write vs-competitor page: we360-vs-kickidler
+              target_kw: we360 vs Kickidler
+              overlap: we360
+     [0.13] 976b8f12 → Write vs-competitor page: we360-vs-veriato
+              target_kw: we360 vs Veriato
+              overlap: we360
+     [0.13] c2613fdb → Write vs-competitor page: we360-vs-worktime
+              target_kw: we360 vs WorkTime
+              overlap: we360
+
+[#15] Ishika | integration-page | "We360 Microsoft Teams Integration"
+     hub kw: we360 microsoft teams integration
+     url: /integrations/microsoft-teams
+     [0.29] adf53607 → Build new integration page: Microsoft Teams [B-INT.microsoft-teams]
+              target_kw: microsoft teams employee monitoring integration
+              overlap: we360, microsoft, team, integration
+     [0.17] d64b6499 → Build new alternative page: Hubstaff alternative [B-ALT.hubstaff-alternative]
+              target_kw: hubstaff alternative
+              overlap: we360, team
+     [0.17] 20052d1c → Build new alternative page: Desktime alternative [B-ALT.desktime-alternative]
+              target_kw: desktime alternative
+              overlap: we360, team
+     [0.17] 6e83288f → Build new alternative page: Activtrak alternative [B-ALT.activtrak-alternative]
+              target_kw: activtrak alternative
+              overlap: we360, team
+     [0.17] 92fc0b72 → Build new alternative page: Insightful alternative [B-ALT.insightful-alternative
+              target_kw: insightful alternative
+              overlap: we360, team
+
+[#17] Rahul | solution-page | "Workforce Analytics Software"
+     hub kw: workforce analytics software
+     url: /solutions/workforce-analytics
+     [0.22] e4996ff9 → Build new India page: Workforce Analytics (India) [B3.2d]
+              target_kw: workforce analytics india
+              overlap: workforce, analytic
+     [0.22] f057c739 → Write industry page: industries/accounting-firms
+              target_kw: workforce analytics accounting firms
+              overlap: workforce, analytic
+     [0.20] b3000ed6 → Build new: Pillar #1: "Workforce Productivity Software — The Buyer's Guide 2026"
+              target_kw: workforce productivity software
+              overlap: workforce, software
+     [0.20] 8a30b707 → Build new: Pillar #3: "Workforce Analytics — What It Is + Tools Compared" [B8.1b
+              target_kw: workforce analytics
+              overlap: workforce, analytic
+     [0.11] e9043acc → Write vs-competitor page: we360-vs-sapience-analytics
+              target_kw: we360 vs Sapience Analytics
+              overlap: analytic
+
+[#18] Rahul | solution-page | "Time Tracking Software"
+     hub kw: time tracking software
+     url: /solutions/time-tracker
+     [0.18] 1089bb84 → Build new India page: Attendance Tracking Software (India) [B3.2b]
+              target_kw: attendance tracking software india
+              overlap: track, software
+     [0.15] 086d238c → Update existing landing page: /attendance-tracking-software [B2.2b]
+              target_kw: attendance tracking software
+              overlap: track, software
+     [0.15] 38567a20 → Build new India page: Time Tracking For Indian Bpo (India) [B3.2c]
+              target_kw: time tracking for indian bpo
+              overlap: time, track
+     [0.11] 703b5a23 → Write industry page: industries/ecommerce
+              target_kw: employee productivity software ecommerce
+              overlap: software
+     [0.10] a28f54de → Write new article: "ai employee monitoring software" [B2.4b]
+              target_kw: ai employee monitoring software
+              overlap: software
+
+[#19] Rahul | solution-page | "Attendance Management Software"
+     hub kw: attendance management software
+     url: /attendance-tracking-software
+     [0.18] 1089bb84 → Build new India page: Attendance Tracking Software (India) [B3.2b]
+              target_kw: attendance tracking software india
+              overlap: attendance, software
+     [0.15] 086d238c → Update existing landing page: /attendance-tracking-software [B2.2b]
+              target_kw: attendance tracking software
+              overlap: attendance, software
+     [0.11] 703b5a23 → Write industry page: industries/ecommerce
+              target_kw: employee productivity software ecommerce
+              overlap: software
+     [0.10] a28f54de → Write new article: "ai employee monitoring software" [B2.4b]
+              target_kw: ai employee monitoring software
+              overlap: software
+     [0.10] da28b731 → Build new: Pillar #2: "Employee Monitoring Software — The 2026 Buyer's Guide" [B
+              target_kw: employee monitoring software guide
+              overlap: software
+
+[#20] Rahul | solution-page | "Field Employee Tracking Software"
+     hub kw: field employee tracking software
+     url: /solutions/field-tracking
+     [0.22] 703b5a23 → Write industry page: industries/ecommerce
+              target_kw: employee productivity software ecommerce
+              overlap: employee, software
+     [0.20] a28f54de → Write new article: "ai employee monitoring software" [B2.4b]
+              target_kw: ai employee monitoring software
+              overlap: employee, software
+     [0.20] da28b731 → Build new: Pillar #2: "Employee Monitoring Software — The 2026 Buyer's Guide" [B
+              target_kw: employee monitoring software guide
+              overlap: employee, software
+     [0.17] d06ad515 → Build new India page: Employee Monitoring Software (India) [B3.2a]
+              target_kw: employee monitoring software india
+              overlap: employee, software
+     [0.17] 1089bb84 → Build new India page: Attendance Tracking Software (India) [B3.2b]
+              target_kw: attendance tracking software india
+              overlap: track, software
+
+[#23] Rahul | india-page | "Wfh Tracking Software India"
+     hub kw: wfh tracking software india
+     url: /in/wfh-tracking-software-india
+     [0.27] 1089bb84 → Build new India page: Attendance Tracking Software (India) [B3.2b]
+              target_kw: attendance tracking software india
+              overlap: track, software, india
+     [0.23] 086d238c → Update existing landing page: /attendance-tracking-software [B2.2b]
+              target_kw: attendance tracking software
+              overlap: track, software, india
+     [0.17] d06ad515 → Build new India page: Employee Monitoring Software (India) [B3.2a]
+              target_kw: employee monitoring software india
+              overlap: software, india
+     [0.15] 9aa93e7b → Build new India page: Productivity Software For Indian Enterprises (India) [B3.2
+              target_kw: productivity software for indian enterprises
+              overlap: software, india
+     [0.14] cb52c48b → Update existing landing page: /remote-employee-monitoring [B2.2c]
+              target_kw: remote employee monitoring
+              overlap: wfh, software
+
+[#24] Rahul | industry-page | "Employee Monitoring Bpo"
+     hub kw: employee monitoring bpo
+     url: /industries/bpo
+     [0.27] 4b6f054e → Build new industry page: Bpo [B3.1i1]
+              target_kw: employee monitoring bpo
+              overlap: employee, monitor, bpo
+     [0.22] a28f54de → Write new article: "ai employee monitoring software" [B2.4b]
+              target_kw: ai employee monitoring software
+              overlap: employee, monitor
+     [0.22] a30b02c6 → Write industry page: industries/legal
+              target_kw: employee monitoring law firms
+              overlap: employee, monitor
+     [0.22] f3e2f4b3 → Write industry page: industries/real-estate
+              target_kw: employee monitoring real estate
+              overlap: employee, monitor
+     [0.22] da28b731 → Build new: Pillar #2: "Employee Monitoring Software — The 2026 Buyer's Guide" [B
+              target_kw: employee monitoring software guide
+              overlap: employee, monitor
+
+[#25] Rahul | industry-page | "Employee Monitoring It Services"
+     hub kw: employee monitoring it services
+     url: /industries/it-services
+     [0.25] cfccccd2 → Build new industry page: It Services [B3.1i2]
+              target_kw: employee monitoring for it services
+              overlap: employee, monitor, servic
+     [0.22] a28f54de → Write new article: "ai employee monitoring software" [B2.4b]
+              target_kw: ai employee monitoring software
+              overlap: employee, monitor
+     [0.22] a30b02c6 → Write industry page: industries/legal
+              target_kw: employee monitoring law firms
+              overlap: employee, monitor
+     [0.22] f3e2f4b3 → Write industry page: industries/real-estate
+              target_kw: employee monitoring real estate
+              overlap: employee, monitor
+     [0.22] da28b731 → Build new: Pillar #2: "Employee Monitoring Software — The 2026 Buyer's Guide" [B
+              target_kw: employee monitoring software guide
+              overlap: employee, monitor
+
+[#26] Rahul | industry-page | "Employee Monitoring Banking"
+     hub kw: employee monitoring banking
+     url: /industries/banking
+     [0.27] 26a19092 → Build new industry page: Banking [B4.2.1]
+              target_kw: employee monitoring for banking
+              overlap: employee, monitor, bank
+     [0.22] a28f54de → Write new article: "ai employee monitoring software" [B2.4b]
+              target_kw: ai employee monitoring software
+              overlap: employee, monitor
+     [0.22] a30b02c6 → Write industry page: industries/legal
+              target_kw: employee monitoring law firms
+              overlap: employee, monitor
+     [0.22] f3e2f4b3 → Write industry page: industries/real-estate
+              target_kw: employee monitoring real estate
+              overlap: employee, monitor
+     [0.22] da28b731 → Build new: Pillar #2: "Employee Monitoring Software — The 2026 Buyer's Guide" [B
+              target_kw: employee monitoring software guide
+              overlap: employee, monitor
+
+[#29] Lokesh | cluster-blog | "Teramind Pricing Analysis"
+     hub kw: teramind pricing analysis
+     url: /blog/teramind-pricing-analysis
+     [0.10] 2c0b701b → Build new comparison page: Teramind Vs Activtrak [B-VS.teramind-vs-activtrak]
+              target_kw: teramind vs activtrak
+              overlap: teramind
+     [0.09] 919a2a61 → Update existing blog: "zoho people vs keka" [B1.4f]
+              target_kw: zoho people vs keka
+              overlap: pric
+     [0.09] c765816b → Build new comparison page: We360 Vs Teramind [B-VS.we360-vs-teramind]
+              target_kw: we360 vs teramind
+              overlap: teramind
+     [0.08] 141e00c2 → Build new alternative page: Teramind alternative [B-ALT.teramind-alternative]
+              target_kw: teramind alternative
+              overlap: teramind
+     [0.08] d06ad515 → Build new India page: Employee Monitoring Software (India) [B3.2a]
+              target_kw: employee monitoring software india
+              overlap: pric
+
+[#30] Lokesh | cluster-blog | "Activtrak Privacy Concerns"
+     hub kw: activtrak privacy concerns
+     url: /blog/activtrak-privacy-concerns
+     [0.10] 2c0b701b → Build new comparison page: Teramind Vs Activtrak [B-VS.teramind-vs-activtrak]
+              target_kw: teramind vs activtrak
+              overlap: activtrak
+     [0.10] 9294f0fa → Build new comparison page: Hubstaff Vs Activtrak [B-VS.hubstaff-vs-activtrak]
+              target_kw: hubstaff vs activtrak
+              overlap: activtrak
+     [0.09] cfeae204 → Build new comparison page: We360 Vs Activtrak [B-VS.we360-vs-activtrak]
+              target_kw: we360 vs activtrak
+              overlap: activtrak
+     [0.09] c8a032da → Build new comparison page: Time Doctor Vs Activtrak [B-VS.time-doctor-vs-activtr
+              target_kw: time doctor vs activtrak
+              overlap: activtrak
+     [0.08] 6e83288f → Build new alternative page: Activtrak alternative [B-ALT.activtrak-alternative]
+              target_kw: activtrak alternative
+              overlap: activtrak
+
+[#31] Lokesh | cluster-blog | "Desktime vs We360 Features"
+     hub kw: desktime vs we360 features
+     url: /blog/desktime-vs-we360-features
+     [0.20] 907d88d4 → Build new comparison page: We360 Vs Desktime [B-VS.we360-vs-desktime]
+              target_kw: we360 vs desktime
+              overlap: desktime, we360
+     [0.18] 20052d1c → Build new alternative page: Desktime alternative [B-ALT.desktime-alternative]
+              target_kw: desktime alternative
+              overlap: desktime, we360
+     [0.13] 7ede5d3e → Write vs-competitor page: we360-vs-kickidler
+              target_kw: we360 vs Kickidler
+              overlap: we360
+     [0.13] 976b8f12 → Write vs-competitor page: we360-vs-veriato
+              target_kw: we360 vs Veriato
+              overlap: we360
+     [0.13] c2613fdb → Write vs-competitor page: we360-vs-worktime
+              target_kw: we360 vs WorkTime
+              overlap: we360
+
+[#32] Ishika | cluster-blog | "Jira Time Tracking Guide"
+     hub kw: jira time tracking guide
+     url: /blog/jira-time-tracking-guide
+     [0.15] 38567a20 → Build new India page: Time Tracking For Indian Bpo (India) [B3.2c]
+              target_kw: time tracking for indian bpo
+              overlap: time, track
+     [0.09] 1da20bf4 → Build new: Striking-distance: "efficiency tracking using ai tools" (636 imp) [B3
+              target_kw: efficiency tracking using ai tools
+              overlap: track
+     [0.09] 6969ed31 → Build new comparison page: Hubstaff Vs Time Doctor [B-VS.hubstaff-vs-time-doctor
+              target_kw: hubstaff vs time doctor
+              overlap: time
+     [0.09] c8a032da → Build new comparison page: Time Doctor Vs Activtrak [B-VS.time-doctor-vs-activtr
+              target_kw: time doctor vs activtrak
+              overlap: time
+     [0.08] 177e064c → Build new comparison page: We360 Vs Time Doctor [B-VS.we360-vs-time-doctor]
+              target_kw: we360 vs time doctor
+              overlap: time
+
+
+========================================================
+CALENDAR-ONLY (user-added bare titles) — search DB regardless of score (5)
+========================================================
+
+[#33] Lokesh | manual-entry | "Tech Investment Analysis"
+     hub kw: tech investment analysis
+     candidates: NONE (score < 0.05)
+
+[#34] Lokesh | manual-entry | "Performance Benchmark Management"
+     hub kw: performance benchmark management
+     [0.11] a810aa8c → Build monthly performance report v1 (Tier 1 + Tier 2 + striking distance) [K1.8]
+              overlap: performance
+     [0.10] e4996ff9 → Build new India page: Workforce Analytics (India) [B3.2d]
+              target_kw: workforce analytics india
+              overlap: benchmark
+
+[#35] Lokesh | manual-entry | "Capacity & Headcount Planning"
+     hub kw: capacity & headcount planning
+     candidates: NONE (score < 0.05)
+
+[#36] Lokesh | manual-entry | "Workforce Management Software"
+     hub kw: workforce management software
+     [0.20] b3000ed6 → Build new: Pillar #1: "Workforce Productivity Software — The Buyer's Guide 2026"
+              target_kw: workforce productivity software
+              overlap: workforce, software
+     [0.11] 703b5a23 → Write industry page: industries/ecommerce
+              target_kw: employee productivity software ecommerce
+              overlap: software
+     [0.10] a28f54de → Write new article: "ai employee monitoring software" [B2.4b]
+              target_kw: ai employee monitoring software
+              overlap: software
+     [0.10] e4996ff9 → Build new India page: Workforce Analytics (India) [B3.2d]
+              target_kw: workforce analytics india
+              overlap: workforce
+     [0.10] 18a5d787 → Data Study #1 — "We360 Workforce Productivity Index 2026 (India H1)" [B3.4]
+              target_kw: workforce productivity index india 2026
+              overlap: workforce
+
+[#37] Lokesh | manual-entry | "Workforce planning software"
+     hub kw: workforce planning software
+     [0.20] b3000ed6 → Build new: Pillar #1: "Workforce Productivity Software — The Buyer's Guide 2026"
+              target_kw: workforce productivity software
+              overlap: workforce, software
+     [0.11] 703b5a23 → Write industry page: industries/ecommerce
+              target_kw: employee productivity software ecommerce
+              overlap: software
+     [0.10] a28f54de → Write new article: "ai employee monitoring software" [B2.4b]
+              target_kw: ai employee monitoring software
+              overlap: software
+     [0.10] e4996ff9 → Build new India page: Workforce Analytics (India) [B3.2d]
+              target_kw: workforce analytics india
+              overlap: workforce
+     [0.10] 18a5d787 → Data Study #1 — "We360 Workforce Productivity Index 2026 (India H1)" [B3.4]
+              target_kw: workforce productivity index india 2026
+              overlap: workforce

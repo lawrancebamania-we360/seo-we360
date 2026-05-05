@@ -530,7 +530,9 @@ function BlogTaskContent({
                 <SelectContent>
                   <SelectItem value="__unassigned">Unassigned</SelectItem>
                   {members.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
+                    // `label` is required when SelectItem children is a JSX
+                    // tree — without it Base UI shows the raw value (UUID).
+                    <SelectItem key={m.id} value={m.id} label={m.name}>
                       <span className="inline-flex items-center gap-1.5">
                         <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
                           {initials(m.name)}

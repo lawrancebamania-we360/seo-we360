@@ -1,0 +1,2616 @@
+[
+  {
+    "sheetIdx": 0,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "PAGE",
+      "format": "vs-page",
+      "hubKeyword": "we360 vs hubstaff",
+      "proposedH1": "We360 vs Hubstaff",
+      "url": "/vs/we360-vs-hubstaff",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "440141e1-dddb-4994-9469-5b84485edb4e",
+        "dbTitle": "Build new comparison page: We360 Vs Hubstaff [B-VS.we360-vs-hubstaff]",
+        "dbTargetKeyword": "we360 vs hubstaff",
+        "dbScheduledDate": "2026-06-08",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "we360",
+          "hubstaff"
+        ]
+      },
+      {
+        "dbTaskId": "d64b6499-5f91-4ce1-bfdf-30ef7043240f",
+        "dbTitle": "Build new alternative page: Hubstaff alternative [B-ALT.hubstaff-alternative]",
+        "dbTargetKeyword": "hubstaff alternative",
+        "dbScheduledDate": "2026-07-01",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "we360",
+          "hubstaff"
+        ]
+      },
+      {
+        "dbTaskId": "7ede5d3e-b9ce-4936-800e-00b5be7e3e1b",
+        "dbTitle": "Write vs-competitor page: we360-vs-kickidler",
+        "dbTargetKeyword": "we360 vs Kickidler",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "976b8f12-1e75-4985-b816-1f6d8500073d",
+        "dbTitle": "Write vs-competitor page: we360-vs-veriato",
+        "dbTargetKeyword": "we360 vs Veriato",
+        "dbScheduledDate": "2026-06-11",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "c2613fdb-a670-43ed-88d6-e2757bbb1e52",
+        "dbTitle": "Write vs-competitor page: we360-vs-worktime",
+        "dbTargetKeyword": "we360 vs WorkTime",
+        "dbScheduledDate": "2026-06-13",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 1,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "PAGE",
+      "format": "vs-page",
+      "hubKeyword": "we360 vs time doctor",
+      "proposedH1": "We360 vs Time Doctor",
+      "url": "/vs/we360-vs-time-doctor",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "177e064c-1213-4a93-9184-70d8815e6261",
+        "dbTitle": "Build new comparison page: We360 Vs Time Doctor [B-VS.we360-vs-time-doctor]",
+        "dbTargetKeyword": "we360 vs time doctor",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.3,
+        "overlapTokens": [
+          "we360",
+          "time",
+          "doctor"
+        ]
+      },
+      {
+        "dbTaskId": "ed36188e-4e33-4bc7-b9ab-953c77a45d50",
+        "dbTitle": "Build new alternative page: Time Doctor alternative [B-ALT.time-doctor-alternative]",
+        "dbTargetKeyword": "time doctor alternative",
+        "dbScheduledDate": "2026-07-02",
+        "dbAssigneeId": null,
+        "score": 0.273,
+        "overlapTokens": [
+          "we360",
+          "time",
+          "doctor"
+        ]
+      },
+      {
+        "dbTaskId": "6969ed31-9604-4df0-80f6-23a043bf930e",
+        "dbTitle": "Build new comparison page: Hubstaff Vs Time Doctor [B-VS.hubstaff-vs-time-doctor]",
+        "dbTargetKeyword": "hubstaff vs time doctor",
+        "dbScheduledDate": "2026-09-03",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "time",
+          "doctor"
+        ]
+      },
+      {
+        "dbTaskId": "c8a032da-3387-428b-b942-1644363cce04",
+        "dbTitle": "Build new comparison page: Time Doctor Vs Activtrak [B-VS.time-doctor-vs-activtrak]",
+        "dbTargetKeyword": "time doctor vs activtrak",
+        "dbScheduledDate": "2026-09-09",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "time",
+          "doctor"
+        ]
+      },
+      {
+        "dbTaskId": "7ede5d3e-b9ce-4936-800e-00b5be7e3e1b",
+        "dbTitle": "Write vs-competitor page: we360-vs-kickidler",
+        "dbTargetKeyword": "we360 vs Kickidler",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 2,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "PAGE",
+      "format": "vs-page",
+      "hubKeyword": "we360 vs teramind",
+      "proposedH1": "We360 vs Teramind",
+      "url": "/vs/we360-vs-teramind",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "c765816b-e925-4fe4-92fa-af557e5319bd",
+        "dbTitle": "Build new comparison page: We360 Vs Teramind [B-VS.we360-vs-teramind]",
+        "dbTargetKeyword": "we360 vs teramind",
+        "dbScheduledDate": "2026-06-10",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "we360",
+          "teramind"
+        ]
+      },
+      {
+        "dbTaskId": "141e00c2-6f79-4bd2-a426-12d2c05a4544",
+        "dbTitle": "Build new alternative page: Teramind alternative [B-ALT.teramind-alternative]",
+        "dbTargetKeyword": "teramind alternative",
+        "dbScheduledDate": "2026-07-08",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "we360",
+          "teramind"
+        ]
+      },
+      {
+        "dbTaskId": "7ede5d3e-b9ce-4936-800e-00b5be7e3e1b",
+        "dbTitle": "Write vs-competitor page: we360-vs-kickidler",
+        "dbTargetKeyword": "we360 vs Kickidler",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "976b8f12-1e75-4985-b816-1f6d8500073d",
+        "dbTitle": "Write vs-competitor page: we360-vs-veriato",
+        "dbTargetKeyword": "we360 vs Veriato",
+        "dbScheduledDate": "2026-06-11",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "c2613fdb-a670-43ed-88d6-e2757bbb1e52",
+        "dbTitle": "Write vs-competitor page: we360-vs-worktime",
+        "dbTargetKeyword": "we360 vs WorkTime",
+        "dbScheduledDate": "2026-06-13",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 3,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "PAGE",
+      "format": "vs-page",
+      "hubKeyword": "we360 vs activtrak",
+      "proposedH1": "We360 vs Activtrak",
+      "url": "/vs/we360-vs-activtrak",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "cfeae204-d6ca-439e-a1ae-57e871f35c08",
+        "dbTitle": "Build new comparison page: We360 Vs Activtrak [B-VS.we360-vs-activtrak]",
+        "dbTargetKeyword": "we360 vs activtrak",
+        "dbScheduledDate": "2026-06-11",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "we360",
+          "activtrak"
+        ]
+      },
+      {
+        "dbTaskId": "6e83288f-bafd-4730-9dff-f2fccd39c1f5",
+        "dbTitle": "Build new alternative page: Activtrak alternative [B-ALT.activtrak-alternative]",
+        "dbTargetKeyword": "activtrak alternative",
+        "dbScheduledDate": "2026-07-06",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "we360",
+          "activtrak"
+        ]
+      },
+      {
+        "dbTaskId": "7ede5d3e-b9ce-4936-800e-00b5be7e3e1b",
+        "dbTitle": "Write vs-competitor page: we360-vs-kickidler",
+        "dbTargetKeyword": "we360 vs Kickidler",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "976b8f12-1e75-4985-b816-1f6d8500073d",
+        "dbTitle": "Write vs-competitor page: we360-vs-veriato",
+        "dbTargetKeyword": "we360 vs Veriato",
+        "dbScheduledDate": "2026-06-11",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "c2613fdb-a670-43ed-88d6-e2757bbb1e52",
+        "dbTitle": "Write vs-competitor page: we360-vs-worktime",
+        "dbTargetKeyword": "we360 vs WorkTime",
+        "dbScheduledDate": "2026-06-13",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 4,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "PAGE",
+      "format": "vs-page",
+      "hubKeyword": "we360 vs desktime",
+      "proposedH1": "We360 vs Desktime",
+      "url": "/vs/we360-vs-desktime",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "907d88d4-3654-466c-893c-cdc0755ed491",
+        "dbTitle": "Build new comparison page: We360 Vs Desktime [B-VS.we360-vs-desktime]",
+        "dbTargetKeyword": "we360 vs desktime",
+        "dbScheduledDate": "2026-06-12",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "we360",
+          "desktime"
+        ]
+      },
+      {
+        "dbTaskId": "20052d1c-3afb-4130-9ba1-10b23cfa7faf",
+        "dbTitle": "Build new alternative page: Desktime alternative [B-ALT.desktime-alternative]",
+        "dbTargetKeyword": "desktime alternative",
+        "dbScheduledDate": "2026-07-03",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "we360",
+          "desktime"
+        ]
+      },
+      {
+        "dbTaskId": "7ede5d3e-b9ce-4936-800e-00b5be7e3e1b",
+        "dbTitle": "Write vs-competitor page: we360-vs-kickidler",
+        "dbTargetKeyword": "we360 vs Kickidler",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "976b8f12-1e75-4985-b816-1f6d8500073d",
+        "dbTitle": "Write vs-competitor page: we360-vs-veriato",
+        "dbTargetKeyword": "we360 vs Veriato",
+        "dbScheduledDate": "2026-06-11",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "c2613fdb-a670-43ed-88d6-e2757bbb1e52",
+        "dbTitle": "Write vs-competitor page: we360-vs-worktime",
+        "dbTargetKeyword": "we360 vs WorkTime",
+        "dbScheduledDate": "2026-06-13",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 5,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "PAGE",
+      "format": "alternative-page",
+      "hubKeyword": "hubstaff alternative",
+      "proposedH1": "Hubstaff Alternative",
+      "url": "/alternative/hubstaff-alternative",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "d64b6499-5f91-4ce1-bfdf-30ef7043240f",
+        "dbTitle": "Build new alternative page: Hubstaff alternative [B-ALT.hubstaff-alternative]",
+        "dbTargetKeyword": "hubstaff alternative",
+        "dbScheduledDate": "2026-07-01",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "hubstaff",
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "63abdf8d-b73c-4077-8f32-74fbe0e07d77",
+        "dbTitle": "Write alternative-to page: kickidler-alternative",
+        "dbTargetKeyword": "kickidler alternative",
+        "dbScheduledDate": "2026-07-07",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "66a8fc36-914b-44e9-aab0-520e04918267",
+        "dbTitle": "Write alternative-to page: veriato-alternative",
+        "dbTargetKeyword": "veriato alternative",
+        "dbScheduledDate": "2026-07-11",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "9fa41f63-ba60-4cfb-ada9-d83f16a36823",
+        "dbTitle": "Write alternative-to page: monitask-alternative",
+        "dbTargetKeyword": "monitask alternative",
+        "dbScheduledDate": "2026-07-13",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "f05c38ed-fb18-4b5c-9fa7-dc1b3a968a2a",
+        "dbTitle": "Write alternative-to page: staffcop-alternative",
+        "dbTargetKeyword": "staffcop alternative",
+        "dbScheduledDate": "2026-07-15",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 6,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "PAGE",
+      "format": "alternative-page",
+      "hubKeyword": "time doctor alternative",
+      "proposedH1": "Time Doctor Alternative",
+      "url": "/alternative/time-doctor-alternative",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "ed36188e-4e33-4bc7-b9ab-953c77a45d50",
+        "dbTitle": "Build new alternative page: Time Doctor alternative [B-ALT.time-doctor-alternative]",
+        "dbTargetKeyword": "time doctor alternative",
+        "dbScheduledDate": "2026-07-02",
+        "dbAssigneeId": null,
+        "score": 0.273,
+        "overlapTokens": [
+          "time",
+          "doctor",
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "6969ed31-9604-4df0-80f6-23a043bf930e",
+        "dbTitle": "Build new comparison page: Hubstaff Vs Time Doctor [B-VS.hubstaff-vs-time-doctor]",
+        "dbTargetKeyword": "hubstaff vs time doctor",
+        "dbScheduledDate": "2026-09-03",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "time",
+          "doctor"
+        ]
+      },
+      {
+        "dbTaskId": "c8a032da-3387-428b-b942-1644363cce04",
+        "dbTitle": "Build new comparison page: Time Doctor Vs Activtrak [B-VS.time-doctor-vs-activtrak]",
+        "dbTargetKeyword": "time doctor vs activtrak",
+        "dbScheduledDate": "2026-09-09",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "time",
+          "doctor"
+        ]
+      },
+      {
+        "dbTaskId": "177e064c-1213-4a93-9184-70d8815e6261",
+        "dbTitle": "Build new comparison page: We360 Vs Time Doctor [B-VS.we360-vs-time-doctor]",
+        "dbTargetKeyword": "we360 vs time doctor",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "time",
+          "doctor"
+        ]
+      },
+      {
+        "dbTaskId": "63abdf8d-b73c-4077-8f32-74fbe0e07d77",
+        "dbTitle": "Write alternative-to page: kickidler-alternative",
+        "dbTargetKeyword": "kickidler alternative",
+        "dbScheduledDate": "2026-07-07",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "alternative"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 7,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "PAGE",
+      "format": "alternative-page",
+      "hubKeyword": "activtrak alternative",
+      "proposedH1": "Activtrak Alternative",
+      "url": "/alternative/activtrak-alternative",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "6e83288f-bafd-4730-9dff-f2fccd39c1f5",
+        "dbTitle": "Build new alternative page: Activtrak alternative [B-ALT.activtrak-alternative]",
+        "dbTargetKeyword": "activtrak alternative",
+        "dbScheduledDate": "2026-07-06",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "activtrak",
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "63abdf8d-b73c-4077-8f32-74fbe0e07d77",
+        "dbTitle": "Write alternative-to page: kickidler-alternative",
+        "dbTargetKeyword": "kickidler alternative",
+        "dbScheduledDate": "2026-07-07",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "66a8fc36-914b-44e9-aab0-520e04918267",
+        "dbTitle": "Write alternative-to page: veriato-alternative",
+        "dbTargetKeyword": "veriato alternative",
+        "dbScheduledDate": "2026-07-11",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "9fa41f63-ba60-4cfb-ada9-d83f16a36823",
+        "dbTitle": "Write alternative-to page: monitask-alternative",
+        "dbTargetKeyword": "monitask alternative",
+        "dbScheduledDate": "2026-07-13",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "f05c38ed-fb18-4b5c-9fa7-dc1b3a968a2a",
+        "dbTitle": "Write alternative-to page: staffcop-alternative",
+        "dbTargetKeyword": "staffcop alternative",
+        "dbScheduledDate": "2026-07-15",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 8,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "PAGE",
+      "format": "alternative-page",
+      "hubKeyword": "teramind alternative",
+      "proposedH1": "Teramind Alternative",
+      "url": "/alternative/teramind-alternative",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "141e00c2-6f79-4bd2-a426-12d2c05a4544",
+        "dbTitle": "Build new alternative page: Teramind alternative [B-ALT.teramind-alternative]",
+        "dbTargetKeyword": "teramind alternative",
+        "dbScheduledDate": "2026-07-08",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "teramind",
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "63abdf8d-b73c-4077-8f32-74fbe0e07d77",
+        "dbTitle": "Write alternative-to page: kickidler-alternative",
+        "dbTargetKeyword": "kickidler alternative",
+        "dbScheduledDate": "2026-07-07",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "66a8fc36-914b-44e9-aab0-520e04918267",
+        "dbTitle": "Write alternative-to page: veriato-alternative",
+        "dbTargetKeyword": "veriato alternative",
+        "dbScheduledDate": "2026-07-11",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "9fa41f63-ba60-4cfb-ada9-d83f16a36823",
+        "dbTitle": "Write alternative-to page: monitask-alternative",
+        "dbTargetKeyword": "monitask alternative",
+        "dbScheduledDate": "2026-07-13",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "f05c38ed-fb18-4b5c-9fa7-dc1b3a968a2a",
+        "dbTitle": "Write alternative-to page: staffcop-alternative",
+        "dbTargetKeyword": "staffcop alternative",
+        "dbScheduledDate": "2026-07-15",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 9,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "PAGE",
+      "format": "alternative-page",
+      "hubKeyword": "desktime alternative",
+      "proposedH1": "Desktime Alternative",
+      "url": "/alternative/desktime-alternative",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "20052d1c-3afb-4130-9ba1-10b23cfa7faf",
+        "dbTitle": "Build new alternative page: Desktime alternative [B-ALT.desktime-alternative]",
+        "dbTargetKeyword": "desktime alternative",
+        "dbScheduledDate": "2026-07-03",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "desktime",
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "63abdf8d-b73c-4077-8f32-74fbe0e07d77",
+        "dbTitle": "Write alternative-to page: kickidler-alternative",
+        "dbTargetKeyword": "kickidler alternative",
+        "dbScheduledDate": "2026-07-07",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "66a8fc36-914b-44e9-aab0-520e04918267",
+        "dbTitle": "Write alternative-to page: veriato-alternative",
+        "dbTargetKeyword": "veriato alternative",
+        "dbScheduledDate": "2026-07-11",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "9fa41f63-ba60-4cfb-ada9-d83f16a36823",
+        "dbTitle": "Write alternative-to page: monitask-alternative",
+        "dbTargetKeyword": "monitask alternative",
+        "dbScheduledDate": "2026-07-13",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      },
+      {
+        "dbTaskId": "f05c38ed-fb18-4b5c-9fa7-dc1b3a968a2a",
+        "dbTitle": "Write alternative-to page: staffcop-alternative",
+        "dbTargetKeyword": "staffcop alternative",
+        "dbScheduledDate": "2026-07-15",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "alternative"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 10,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "PAGE",
+      "format": "homepage-retarget",
+      "hubKeyword": "employee monitoring software",
+      "proposedH1": "Employee Monitoring Software",
+      "url": "/",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "a28f54de-652e-4f92-8371-9306f4bb752d",
+        "dbTitle": "Write new article: \"ai employee monitoring software\" [B2.4b]",
+        "dbTargetKeyword": "ai employee monitoring software",
+        "dbScheduledDate": "2026-06-16",
+        "dbAssigneeId": null,
+        "score": 0.375,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "da28b731-681a-4ba5-800a-461a1806c45f",
+        "dbTitle": "Build new: Pillar #2: \"Employee Monitoring Software — The 2026 Buyer's Guide\" [B8.1a]",
+        "dbTargetKeyword": "employee monitoring software guide",
+        "dbScheduledDate": "2026-12-01",
+        "dbAssigneeId": null,
+        "score": 0.375,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "d06ad515-8783-47db-b355-66bce238eda1",
+        "dbTitle": "Build new India page: Employee Monitoring Software (India) [B3.2a]",
+        "dbTargetKeyword": "employee monitoring software india",
+        "dbScheduledDate": "2026-07-13",
+        "dbAssigneeId": null,
+        "score": 0.3,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "cb52c48b-1a5a-4bd1-8edf-575cde0a230b",
+        "dbTitle": "Update existing landing page: /remote-employee-monitoring [B2.2c]",
+        "dbTargetKeyword": "remote employee monitoring",
+        "dbScheduledDate": "2026-06-04",
+        "dbAssigneeId": null,
+        "score": 0.25,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "703b5a23-0855-4dd8-9ba3-1c2bd7c83e5f",
+        "dbTitle": "Write industry page: industries/ecommerce",
+        "dbTargetKeyword": "employee productivity software ecommerce",
+        "dbScheduledDate": "2026-08-22",
+        "dbAssigneeId": null,
+        "score": 0.25,
+        "overlapTokens": [
+          "employee",
+          "software"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 11,
+    "sheetTask": {
+      "owner": "Ishika",
+      "type": "PAGE",
+      "format": "integration-page",
+      "hubKeyword": "we360 jira integration",
+      "proposedH1": "We360 Jira Integration",
+      "url": "/integrations/jira",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "e043f2c8-898e-414e-8daf-703cfea08a24",
+        "dbTitle": "Build new integration page: Jira [B-INT.jira]",
+        "dbTargetKeyword": "jira employee monitoring integration",
+        "dbScheduledDate": "2026-08-11",
+        "dbAssigneeId": null,
+        "score": 0.25,
+        "overlapTokens": [
+          "we360",
+          "jira",
+          "integration"
+        ]
+      },
+      {
+        "dbTaskId": "adf53607-e2b1-403b-89eb-a9d53f8c5a19",
+        "dbTitle": "Build new integration page: Microsoft Teams [B-INT.microsoft-teams]",
+        "dbTargetKeyword": "microsoft teams employee monitoring integration",
+        "dbScheduledDate": "2026-08-04",
+        "dbAssigneeId": null,
+        "score": 0.133,
+        "overlapTokens": [
+          "we360",
+          "integration"
+        ]
+      },
+      {
+        "dbTaskId": "7ede5d3e-b9ce-4936-800e-00b5be7e3e1b",
+        "dbTitle": "Write vs-competitor page: we360-vs-kickidler",
+        "dbTargetKeyword": "we360 vs Kickidler",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "976b8f12-1e75-4985-b816-1f6d8500073d",
+        "dbTitle": "Write vs-competitor page: we360-vs-veriato",
+        "dbTargetKeyword": "we360 vs Veriato",
+        "dbScheduledDate": "2026-06-11",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "c2613fdb-a670-43ed-88d6-e2757bbb1e52",
+        "dbTitle": "Write vs-competitor page: we360-vs-worktime",
+        "dbTargetKeyword": "we360 vs WorkTime",
+        "dbScheduledDate": "2026-06-13",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 12,
+    "sheetTask": {
+      "owner": "Ishika",
+      "type": "PAGE",
+      "format": "integration-page",
+      "hubKeyword": "we360 keka integration",
+      "proposedH1": "We360 Keka Integration",
+      "url": "/integrations/keka",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "718d045b-0cc0-4f9b-a9b1-6233a3c24a1d",
+        "dbTitle": "Build new alternative page: Keka alternative [B-ALT.keka-alternative]",
+        "dbTargetKeyword": "keka alternative",
+        "dbScheduledDate": "2026-07-10",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "we360",
+          "keka"
+        ]
+      },
+      {
+        "dbTaskId": "e043f2c8-898e-414e-8daf-703cfea08a24",
+        "dbTitle": "Build new integration page: Jira [B-INT.jira]",
+        "dbTargetKeyword": "jira employee monitoring integration",
+        "dbScheduledDate": "2026-08-11",
+        "dbAssigneeId": null,
+        "score": 0.154,
+        "overlapTokens": [
+          "we360",
+          "integration"
+        ]
+      },
+      {
+        "dbTaskId": "adf53607-e2b1-403b-89eb-a9d53f8c5a19",
+        "dbTitle": "Build new integration page: Microsoft Teams [B-INT.microsoft-teams]",
+        "dbTargetKeyword": "microsoft teams employee monitoring integration",
+        "dbScheduledDate": "2026-08-04",
+        "dbAssigneeId": null,
+        "score": 0.133,
+        "overlapTokens": [
+          "we360",
+          "integration"
+        ]
+      },
+      {
+        "dbTaskId": "7ede5d3e-b9ce-4936-800e-00b5be7e3e1b",
+        "dbTitle": "Write vs-competitor page: we360-vs-kickidler",
+        "dbTargetKeyword": "we360 vs Kickidler",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "976b8f12-1e75-4985-b816-1f6d8500073d",
+        "dbTitle": "Write vs-competitor page: we360-vs-veriato",
+        "dbTargetKeyword": "we360 vs Veriato",
+        "dbScheduledDate": "2026-06-11",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 13,
+    "sheetTask": {
+      "owner": "Ishika",
+      "type": "PAGE",
+      "format": "integration-page",
+      "hubKeyword": "we360 zoho people integration",
+      "proposedH1": "We360 Zoho People Integration",
+      "url": "/integrations/zoho",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "919a2a61-ed98-414d-aa97-106f19905dc4",
+        "dbTitle": "Update existing blog: \"zoho people vs keka\" [B1.4f]",
+        "dbTargetKeyword": "zoho people vs keka",
+        "dbScheduledDate": "2026-05-11",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "zoho",
+          "people"
+        ]
+      },
+      {
+        "dbTaskId": "2e8a7b0c-13d0-4e6d-b817-5a2838edb3a1",
+        "dbTitle": "Build new comparison page: Keka Vs Zoho [B-VS.keka-vs-zoho]",
+        "dbTargetKeyword": "keka vs zoho",
+        "dbScheduledDate": "2026-06-15",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "zoho",
+          "people"
+        ]
+      },
+      {
+        "dbTaskId": "b998d21a-fb72-47bc-8664-2f152e30813d",
+        "dbTitle": "Build new comparison page: Zoho Vs Keka [B-VS.zoho-vs-keka]",
+        "dbTargetKeyword": "zoho vs keka",
+        "dbScheduledDate": "2026-06-16",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "zoho",
+          "people"
+        ]
+      },
+      {
+        "dbTaskId": "e043f2c8-898e-414e-8daf-703cfea08a24",
+        "dbTitle": "Build new integration page: Jira [B-INT.jira]",
+        "dbTargetKeyword": "jira employee monitoring integration",
+        "dbScheduledDate": "2026-08-11",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "we360",
+          "integration"
+        ]
+      },
+      {
+        "dbTaskId": "adf53607-e2b1-403b-89eb-a9d53f8c5a19",
+        "dbTitle": "Build new integration page: Microsoft Teams [B-INT.microsoft-teams]",
+        "dbTargetKeyword": "microsoft teams employee monitoring integration",
+        "dbScheduledDate": "2026-08-04",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360",
+          "integration"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 14,
+    "sheetTask": {
+      "owner": "Ishika",
+      "type": "PAGE",
+      "format": "integration-page",
+      "hubKeyword": "we360 greythr integration",
+      "proposedH1": "We360 Greythr Integration",
+      "url": "/integrations/greythr",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "e043f2c8-898e-414e-8daf-703cfea08a24",
+        "dbTitle": "Build new integration page: Jira [B-INT.jira]",
+        "dbTargetKeyword": "jira employee monitoring integration",
+        "dbScheduledDate": "2026-08-11",
+        "dbAssigneeId": null,
+        "score": 0.154,
+        "overlapTokens": [
+          "we360",
+          "integration"
+        ]
+      },
+      {
+        "dbTaskId": "adf53607-e2b1-403b-89eb-a9d53f8c5a19",
+        "dbTitle": "Build new integration page: Microsoft Teams [B-INT.microsoft-teams]",
+        "dbTargetKeyword": "microsoft teams employee monitoring integration",
+        "dbScheduledDate": "2026-08-04",
+        "dbAssigneeId": null,
+        "score": 0.133,
+        "overlapTokens": [
+          "we360",
+          "integration"
+        ]
+      },
+      {
+        "dbTaskId": "7ede5d3e-b9ce-4936-800e-00b5be7e3e1b",
+        "dbTitle": "Write vs-competitor page: we360-vs-kickidler",
+        "dbTargetKeyword": "we360 vs Kickidler",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "976b8f12-1e75-4985-b816-1f6d8500073d",
+        "dbTitle": "Write vs-competitor page: we360-vs-veriato",
+        "dbTargetKeyword": "we360 vs Veriato",
+        "dbScheduledDate": "2026-06-11",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "c2613fdb-a670-43ed-88d6-e2757bbb1e52",
+        "dbTitle": "Write vs-competitor page: we360-vs-worktime",
+        "dbTargetKeyword": "we360 vs WorkTime",
+        "dbScheduledDate": "2026-06-13",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 15,
+    "sheetTask": {
+      "owner": "Ishika",
+      "type": "PAGE",
+      "format": "integration-page",
+      "hubKeyword": "we360 microsoft teams integration",
+      "proposedH1": "We360 Microsoft Teams Integration",
+      "url": "/integrations/microsoft-teams",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "adf53607-e2b1-403b-89eb-a9d53f8c5a19",
+        "dbTitle": "Build new integration page: Microsoft Teams [B-INT.microsoft-teams]",
+        "dbTargetKeyword": "microsoft teams employee monitoring integration",
+        "dbScheduledDate": "2026-08-04",
+        "dbAssigneeId": null,
+        "score": 0.286,
+        "overlapTokens": [
+          "we360",
+          "microsoft",
+          "team",
+          "integration"
+        ]
+      },
+      {
+        "dbTaskId": "d64b6499-5f91-4ce1-bfdf-30ef7043240f",
+        "dbTitle": "Build new alternative page: Hubstaff alternative [B-ALT.hubstaff-alternative]",
+        "dbTargetKeyword": "hubstaff alternative",
+        "dbScheduledDate": "2026-07-01",
+        "dbAssigneeId": null,
+        "score": 0.167,
+        "overlapTokens": [
+          "we360",
+          "team"
+        ]
+      },
+      {
+        "dbTaskId": "20052d1c-3afb-4130-9ba1-10b23cfa7faf",
+        "dbTitle": "Build new alternative page: Desktime alternative [B-ALT.desktime-alternative]",
+        "dbTargetKeyword": "desktime alternative",
+        "dbScheduledDate": "2026-07-03",
+        "dbAssigneeId": null,
+        "score": 0.167,
+        "overlapTokens": [
+          "we360",
+          "team"
+        ]
+      },
+      {
+        "dbTaskId": "6e83288f-bafd-4730-9dff-f2fccd39c1f5",
+        "dbTitle": "Build new alternative page: Activtrak alternative [B-ALT.activtrak-alternative]",
+        "dbTargetKeyword": "activtrak alternative",
+        "dbScheduledDate": "2026-07-06",
+        "dbAssigneeId": null,
+        "score": 0.167,
+        "overlapTokens": [
+          "we360",
+          "team"
+        ]
+      },
+      {
+        "dbTaskId": "92fc0b72-3c40-4222-8dee-1a459e67021f",
+        "dbTitle": "Build new alternative page: Insightful alternative [B-ALT.insightful-alternative]",
+        "dbTargetKeyword": "insightful alternative",
+        "dbScheduledDate": "2026-07-07",
+        "dbAssigneeId": null,
+        "score": 0.167,
+        "overlapTokens": [
+          "we360",
+          "team"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 16,
+    "sheetTask": {
+      "owner": "Rahul",
+      "type": "PAGE",
+      "format": "solution-page",
+      "hubKeyword": "employee monitoring software",
+      "proposedH1": "Employee Monitoring Software",
+      "url": "/solutions/employee-monitoring",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "a28f54de-652e-4f92-8371-9306f4bb752d",
+        "dbTitle": "Write new article: \"ai employee monitoring software\" [B2.4b]",
+        "dbTargetKeyword": "ai employee monitoring software",
+        "dbScheduledDate": "2026-06-16",
+        "dbAssigneeId": null,
+        "score": 0.375,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "da28b731-681a-4ba5-800a-461a1806c45f",
+        "dbTitle": "Build new: Pillar #2: \"Employee Monitoring Software — The 2026 Buyer's Guide\" [B8.1a]",
+        "dbTargetKeyword": "employee monitoring software guide",
+        "dbScheduledDate": "2026-12-01",
+        "dbAssigneeId": null,
+        "score": 0.375,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "d06ad515-8783-47db-b355-66bce238eda1",
+        "dbTitle": "Build new India page: Employee Monitoring Software (India) [B3.2a]",
+        "dbTargetKeyword": "employee monitoring software india",
+        "dbScheduledDate": "2026-07-13",
+        "dbAssigneeId": null,
+        "score": 0.3,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "cb52c48b-1a5a-4bd1-8edf-575cde0a230b",
+        "dbTitle": "Update existing landing page: /remote-employee-monitoring [B2.2c]",
+        "dbTargetKeyword": "remote employee monitoring",
+        "dbScheduledDate": "2026-06-04",
+        "dbAssigneeId": null,
+        "score": 0.25,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "703b5a23-0855-4dd8-9ba3-1c2bd7c83e5f",
+        "dbTitle": "Write industry page: industries/ecommerce",
+        "dbTargetKeyword": "employee productivity software ecommerce",
+        "dbScheduledDate": "2026-08-22",
+        "dbAssigneeId": null,
+        "score": 0.25,
+        "overlapTokens": [
+          "employee",
+          "software"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 17,
+    "sheetTask": {
+      "owner": "Rahul",
+      "type": "PAGE",
+      "format": "solution-page",
+      "hubKeyword": "workforce analytics software",
+      "proposedH1": "Workforce Analytics Software",
+      "url": "/solutions/workforce-analytics",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "e4996ff9-47e1-4241-af06-1925969a2023",
+        "dbTitle": "Build new India page: Workforce Analytics (India) [B3.2d]",
+        "dbTargetKeyword": "workforce analytics india",
+        "dbScheduledDate": "2026-07-16",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "workforce",
+          "analytic"
+        ]
+      },
+      {
+        "dbTaskId": "f057c739-57e2-4f0f-b499-f639dd1d0ab9",
+        "dbTitle": "Write industry page: industries/accounting-firms",
+        "dbTargetKeyword": "workforce analytics accounting firms",
+        "dbScheduledDate": "2026-08-28",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "workforce",
+          "analytic"
+        ]
+      },
+      {
+        "dbTaskId": "b3000ed6-64fe-4671-a809-c13687d1105c",
+        "dbTitle": "Build new: Pillar #1: \"Workforce Productivity Software — The Buyer's Guide 2026\" [B7.4]",
+        "dbTargetKeyword": "workforce productivity software",
+        "dbScheduledDate": "2026-11-03",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "workforce",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "8a30b707-1c90-4fd6-acbd-54838d9190bc",
+        "dbTitle": "Build new: Pillar #3: \"Workforce Analytics — What It Is + Tools Compared\" [B8.1b]",
+        "dbTargetKeyword": "workforce analytics",
+        "dbScheduledDate": "2026-12-08",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "workforce",
+          "analytic"
+        ]
+      },
+      {
+        "dbTaskId": "e9043acc-865d-44a0-8249-9dae66630051",
+        "dbTitle": "Write vs-competitor page: we360-vs-sapience-analytics",
+        "dbTargetKeyword": "we360 vs Sapience Analytics",
+        "dbScheduledDate": "2026-06-21",
+        "dbAssigneeId": null,
+        "score": 0.111,
+        "overlapTokens": [
+          "analytic"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 18,
+    "sheetTask": {
+      "owner": "Rahul",
+      "type": "PAGE",
+      "format": "solution-page",
+      "hubKeyword": "time tracking software",
+      "proposedH1": "Time Tracking Software",
+      "url": "/solutions/time-tracker",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "1089bb84-273c-43a8-ac45-d367b1c501bf",
+        "dbTitle": "Build new India page: Attendance Tracking Software (India) [B3.2b]",
+        "dbTargetKeyword": "attendance tracking software india",
+        "dbScheduledDate": "2026-07-14",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "track",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "086d238c-570a-4239-b284-ced6501378e3",
+        "dbTitle": "Update existing landing page: /attendance-tracking-software [B2.2b]",
+        "dbTargetKeyword": "attendance tracking software",
+        "dbScheduledDate": "2026-06-03",
+        "dbAssigneeId": null,
+        "score": 0.154,
+        "overlapTokens": [
+          "track",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "38567a20-f791-46f3-8546-ae960f35eedb",
+        "dbTitle": "Build new India page: Time Tracking For Indian Bpo (India) [B3.2c]",
+        "dbTargetKeyword": "time tracking for indian bpo",
+        "dbScheduledDate": "2026-07-15",
+        "dbAssigneeId": null,
+        "score": 0.154,
+        "overlapTokens": [
+          "time",
+          "track"
+        ]
+      },
+      {
+        "dbTaskId": "703b5a23-0855-4dd8-9ba3-1c2bd7c83e5f",
+        "dbTitle": "Write industry page: industries/ecommerce",
+        "dbTargetKeyword": "employee productivity software ecommerce",
+        "dbScheduledDate": "2026-08-22",
+        "dbAssigneeId": null,
+        "score": 0.111,
+        "overlapTokens": [
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "a28f54de-652e-4f92-8371-9306f4bb752d",
+        "dbTitle": "Write new article: \"ai employee monitoring software\" [B2.4b]",
+        "dbTargetKeyword": "ai employee monitoring software",
+        "dbScheduledDate": "2026-06-16",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "software"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 19,
+    "sheetTask": {
+      "owner": "Rahul",
+      "type": "PAGE",
+      "format": "solution-page",
+      "hubKeyword": "attendance management software",
+      "proposedH1": "Attendance Management Software",
+      "url": "/attendance-tracking-software",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "1089bb84-273c-43a8-ac45-d367b1c501bf",
+        "dbTitle": "Build new India page: Attendance Tracking Software (India) [B3.2b]",
+        "dbTargetKeyword": "attendance tracking software india",
+        "dbScheduledDate": "2026-07-14",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "attendance",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "086d238c-570a-4239-b284-ced6501378e3",
+        "dbTitle": "Update existing landing page: /attendance-tracking-software [B2.2b]",
+        "dbTargetKeyword": "attendance tracking software",
+        "dbScheduledDate": "2026-06-03",
+        "dbAssigneeId": null,
+        "score": 0.154,
+        "overlapTokens": [
+          "attendance",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "703b5a23-0855-4dd8-9ba3-1c2bd7c83e5f",
+        "dbTitle": "Write industry page: industries/ecommerce",
+        "dbTargetKeyword": "employee productivity software ecommerce",
+        "dbScheduledDate": "2026-08-22",
+        "dbAssigneeId": null,
+        "score": 0.111,
+        "overlapTokens": [
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "a28f54de-652e-4f92-8371-9306f4bb752d",
+        "dbTitle": "Write new article: \"ai employee monitoring software\" [B2.4b]",
+        "dbTargetKeyword": "ai employee monitoring software",
+        "dbScheduledDate": "2026-06-16",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "da28b731-681a-4ba5-800a-461a1806c45f",
+        "dbTitle": "Build new: Pillar #2: \"Employee Monitoring Software — The 2026 Buyer's Guide\" [B8.1a]",
+        "dbTargetKeyword": "employee monitoring software guide",
+        "dbScheduledDate": "2026-12-01",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "software"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 20,
+    "sheetTask": {
+      "owner": "Rahul",
+      "type": "PAGE",
+      "format": "solution-page",
+      "hubKeyword": "field employee tracking software",
+      "proposedH1": "Field Employee Tracking Software",
+      "url": "/solutions/field-tracking",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "703b5a23-0855-4dd8-9ba3-1c2bd7c83e5f",
+        "dbTitle": "Write industry page: industries/ecommerce",
+        "dbTargetKeyword": "employee productivity software ecommerce",
+        "dbScheduledDate": "2026-08-22",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "a28f54de-652e-4f92-8371-9306f4bb752d",
+        "dbTitle": "Write new article: \"ai employee monitoring software\" [B2.4b]",
+        "dbTargetKeyword": "ai employee monitoring software",
+        "dbScheduledDate": "2026-06-16",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "employee",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "da28b731-681a-4ba5-800a-461a1806c45f",
+        "dbTitle": "Build new: Pillar #2: \"Employee Monitoring Software — The 2026 Buyer's Guide\" [B8.1a]",
+        "dbTargetKeyword": "employee monitoring software guide",
+        "dbScheduledDate": "2026-12-01",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "employee",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "d06ad515-8783-47db-b355-66bce238eda1",
+        "dbTitle": "Build new India page: Employee Monitoring Software (India) [B3.2a]",
+        "dbTargetKeyword": "employee monitoring software india",
+        "dbScheduledDate": "2026-07-13",
+        "dbAssigneeId": null,
+        "score": 0.167,
+        "overlapTokens": [
+          "employee",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "1089bb84-273c-43a8-ac45-d367b1c501bf",
+        "dbTitle": "Build new India page: Attendance Tracking Software (India) [B3.2b]",
+        "dbTargetKeyword": "attendance tracking software india",
+        "dbScheduledDate": "2026-07-14",
+        "dbAssigneeId": null,
+        "score": 0.167,
+        "overlapTokens": [
+          "track",
+          "software"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 21,
+    "sheetTask": {
+      "owner": "Rahul",
+      "type": "PAGE",
+      "format": "india-page",
+      "hubKeyword": "employee monitoring software india",
+      "proposedH1": "Employee Monitoring Software India",
+      "url": "/in/employee-monitoring-software-india",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "d06ad515-8783-47db-b355-66bce238eda1",
+        "dbTitle": "Build new India page: Employee Monitoring Software (India) [B3.2a]",
+        "dbTargetKeyword": "employee monitoring software india",
+        "dbScheduledDate": "2026-07-13",
+        "dbAssigneeId": null,
+        "score": 0.4,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "software",
+          "india"
+        ]
+      },
+      {
+        "dbTaskId": "a28f54de-652e-4f92-8371-9306f4bb752d",
+        "dbTitle": "Write new article: \"ai employee monitoring software\" [B2.4b]",
+        "dbTargetKeyword": "ai employee monitoring software",
+        "dbScheduledDate": "2026-06-16",
+        "dbAssigneeId": null,
+        "score": 0.333,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "da28b731-681a-4ba5-800a-461a1806c45f",
+        "dbTitle": "Build new: Pillar #2: \"Employee Monitoring Software — The 2026 Buyer's Guide\" [B8.1a]",
+        "dbTargetKeyword": "employee monitoring software guide",
+        "dbScheduledDate": "2026-12-01",
+        "dbAssigneeId": null,
+        "score": 0.333,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "cb52c48b-1a5a-4bd1-8edf-575cde0a230b",
+        "dbTitle": "Update existing landing page: /remote-employee-monitoring [B2.2c]",
+        "dbTargetKeyword": "remote employee monitoring",
+        "dbScheduledDate": "2026-06-04",
+        "dbAssigneeId": null,
+        "score": 0.231,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "703b5a23-0855-4dd8-9ba3-1c2bd7c83e5f",
+        "dbTitle": "Write industry page: industries/ecommerce",
+        "dbTargetKeyword": "employee productivity software ecommerce",
+        "dbScheduledDate": "2026-08-22",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "software"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 22,
+    "sheetTask": {
+      "owner": "Rahul",
+      "type": "PAGE",
+      "format": "india-page",
+      "hubKeyword": "attendance tracking software india",
+      "proposedH1": "Attendance Tracking Software India",
+      "url": "/in/attendance-tracking-software-india",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "1089bb84-273c-43a8-ac45-d367b1c501bf",
+        "dbTitle": "Build new India page: Attendance Tracking Software (India) [B3.2b]",
+        "dbTargetKeyword": "attendance tracking software india",
+        "dbScheduledDate": "2026-07-14",
+        "dbAssigneeId": null,
+        "score": 0.4,
+        "overlapTokens": [
+          "attendance",
+          "track",
+          "software",
+          "india"
+        ]
+      },
+      {
+        "dbTaskId": "086d238c-570a-4239-b284-ced6501378e3",
+        "dbTitle": "Update existing landing page: /attendance-tracking-software [B2.2b]",
+        "dbTargetKeyword": "attendance tracking software",
+        "dbScheduledDate": "2026-06-03",
+        "dbAssigneeId": null,
+        "score": 0.333,
+        "overlapTokens": [
+          "attendance",
+          "track",
+          "software",
+          "india"
+        ]
+      },
+      {
+        "dbTaskId": "d06ad515-8783-47db-b355-66bce238eda1",
+        "dbTitle": "Build new India page: Employee Monitoring Software (India) [B3.2a]",
+        "dbTargetKeyword": "employee monitoring software india",
+        "dbScheduledDate": "2026-07-13",
+        "dbAssigneeId": null,
+        "score": 0.167,
+        "overlapTokens": [
+          "software",
+          "india"
+        ]
+      },
+      {
+        "dbTaskId": "9aa93e7b-17f5-4c98-8c1e-00a5de3c1756",
+        "dbTitle": "Build new India page: Productivity Software For Indian Enterprises (India) [B3.2e]",
+        "dbTargetKeyword": "productivity software for indian enterprises",
+        "dbScheduledDate": "2026-07-17",
+        "dbAssigneeId": null,
+        "score": 0.154,
+        "overlapTokens": [
+          "software",
+          "india"
+        ]
+      },
+      {
+        "dbTaskId": "38567a20-f791-46f3-8546-ae960f35eedb",
+        "dbTitle": "Build new India page: Time Tracking For Indian Bpo (India) [B3.2c]",
+        "dbTargetKeyword": "time tracking for indian bpo",
+        "dbScheduledDate": "2026-07-15",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "track",
+          "india"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 23,
+    "sheetTask": {
+      "owner": "Rahul",
+      "type": "PAGE",
+      "format": "india-page",
+      "hubKeyword": "wfh tracking software india",
+      "proposedH1": "Wfh Tracking Software India",
+      "url": "/in/wfh-tracking-software-india",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "1089bb84-273c-43a8-ac45-d367b1c501bf",
+        "dbTitle": "Build new India page: Attendance Tracking Software (India) [B3.2b]",
+        "dbTargetKeyword": "attendance tracking software india",
+        "dbScheduledDate": "2026-07-14",
+        "dbAssigneeId": null,
+        "score": 0.273,
+        "overlapTokens": [
+          "track",
+          "software",
+          "india"
+        ]
+      },
+      {
+        "dbTaskId": "086d238c-570a-4239-b284-ced6501378e3",
+        "dbTitle": "Update existing landing page: /attendance-tracking-software [B2.2b]",
+        "dbTargetKeyword": "attendance tracking software",
+        "dbScheduledDate": "2026-06-03",
+        "dbAssigneeId": null,
+        "score": 0.231,
+        "overlapTokens": [
+          "track",
+          "software",
+          "india"
+        ]
+      },
+      {
+        "dbTaskId": "d06ad515-8783-47db-b355-66bce238eda1",
+        "dbTitle": "Build new India page: Employee Monitoring Software (India) [B3.2a]",
+        "dbTargetKeyword": "employee monitoring software india",
+        "dbScheduledDate": "2026-07-13",
+        "dbAssigneeId": null,
+        "score": 0.167,
+        "overlapTokens": [
+          "software",
+          "india"
+        ]
+      },
+      {
+        "dbTaskId": "9aa93e7b-17f5-4c98-8c1e-00a5de3c1756",
+        "dbTitle": "Build new India page: Productivity Software For Indian Enterprises (India) [B3.2e]",
+        "dbTargetKeyword": "productivity software for indian enterprises",
+        "dbScheduledDate": "2026-07-17",
+        "dbAssigneeId": null,
+        "score": 0.154,
+        "overlapTokens": [
+          "software",
+          "india"
+        ]
+      },
+      {
+        "dbTaskId": "cb52c48b-1a5a-4bd1-8edf-575cde0a230b",
+        "dbTitle": "Update existing landing page: /remote-employee-monitoring [B2.2c]",
+        "dbTargetKeyword": "remote employee monitoring",
+        "dbScheduledDate": "2026-06-04",
+        "dbAssigneeId": null,
+        "score": 0.143,
+        "overlapTokens": [
+          "wfh",
+          "software"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 24,
+    "sheetTask": {
+      "owner": "Rahul",
+      "type": "PAGE",
+      "format": "industry-page",
+      "hubKeyword": "employee monitoring bpo",
+      "proposedH1": "Employee Monitoring Bpo",
+      "url": "/industries/bpo",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "4b6f054e-a989-486e-95c9-c6d269433c14",
+        "dbTitle": "Build new industry page: Bpo [B3.1i1]",
+        "dbTargetKeyword": "employee monitoring bpo",
+        "dbScheduledDate": "2026-07-20",
+        "dbAssigneeId": null,
+        "score": 0.273,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "bpo"
+        ]
+      },
+      {
+        "dbTaskId": "a28f54de-652e-4f92-8371-9306f4bb752d",
+        "dbTitle": "Write new article: \"ai employee monitoring software\" [B2.4b]",
+        "dbTargetKeyword": "ai employee monitoring software",
+        "dbScheduledDate": "2026-06-16",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "monitor"
+        ]
+      },
+      {
+        "dbTaskId": "a30b02c6-ce5b-4592-9696-ac8ea1511131",
+        "dbTitle": "Write industry page: industries/legal",
+        "dbTargetKeyword": "employee monitoring law firms",
+        "dbScheduledDate": "2026-08-25",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "monitor"
+        ]
+      },
+      {
+        "dbTaskId": "f3e2f4b3-e8b6-46af-a44b-f5c0671db6ff",
+        "dbTitle": "Write industry page: industries/real-estate",
+        "dbTargetKeyword": "employee monitoring real estate",
+        "dbScheduledDate": "2026-08-31",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "monitor"
+        ]
+      },
+      {
+        "dbTaskId": "da28b731-681a-4ba5-800a-461a1806c45f",
+        "dbTitle": "Build new: Pillar #2: \"Employee Monitoring Software — The 2026 Buyer's Guide\" [B8.1a]",
+        "dbTargetKeyword": "employee monitoring software guide",
+        "dbScheduledDate": "2026-12-01",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "monitor"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 25,
+    "sheetTask": {
+      "owner": "Rahul",
+      "type": "PAGE",
+      "format": "industry-page",
+      "hubKeyword": "employee monitoring it services",
+      "proposedH1": "Employee Monitoring It Services",
+      "url": "/industries/it-services",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "cfccccd2-8a6f-4a77-92e1-6bd9b4b7def4",
+        "dbTitle": "Build new industry page: It Services [B3.1i2]",
+        "dbTargetKeyword": "employee monitoring for it services",
+        "dbScheduledDate": "2026-07-21",
+        "dbAssigneeId": null,
+        "score": 0.25,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "servic"
+        ]
+      },
+      {
+        "dbTaskId": "a28f54de-652e-4f92-8371-9306f4bb752d",
+        "dbTitle": "Write new article: \"ai employee monitoring software\" [B2.4b]",
+        "dbTargetKeyword": "ai employee monitoring software",
+        "dbScheduledDate": "2026-06-16",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "monitor"
+        ]
+      },
+      {
+        "dbTaskId": "a30b02c6-ce5b-4592-9696-ac8ea1511131",
+        "dbTitle": "Write industry page: industries/legal",
+        "dbTargetKeyword": "employee monitoring law firms",
+        "dbScheduledDate": "2026-08-25",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "monitor"
+        ]
+      },
+      {
+        "dbTaskId": "f3e2f4b3-e8b6-46af-a44b-f5c0671db6ff",
+        "dbTitle": "Write industry page: industries/real-estate",
+        "dbTargetKeyword": "employee monitoring real estate",
+        "dbScheduledDate": "2026-08-31",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "monitor"
+        ]
+      },
+      {
+        "dbTaskId": "da28b731-681a-4ba5-800a-461a1806c45f",
+        "dbTitle": "Build new: Pillar #2: \"Employee Monitoring Software — The 2026 Buyer's Guide\" [B8.1a]",
+        "dbTargetKeyword": "employee monitoring software guide",
+        "dbScheduledDate": "2026-12-01",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "monitor"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 26,
+    "sheetTask": {
+      "owner": "Rahul",
+      "type": "PAGE",
+      "format": "industry-page",
+      "hubKeyword": "employee monitoring banking",
+      "proposedH1": "Employee Monitoring Banking",
+      "url": "/industries/banking",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "26a19092-3a9e-4d3a-82e9-eef9b5ae585f",
+        "dbTitle": "Build new industry page: Banking [B4.2.1]",
+        "dbTargetKeyword": "employee monitoring for banking",
+        "dbScheduledDate": "2026-08-17",
+        "dbAssigneeId": null,
+        "score": 0.273,
+        "overlapTokens": [
+          "employee",
+          "monitor",
+          "bank"
+        ]
+      },
+      {
+        "dbTaskId": "a28f54de-652e-4f92-8371-9306f4bb752d",
+        "dbTitle": "Write new article: \"ai employee monitoring software\" [B2.4b]",
+        "dbTargetKeyword": "ai employee monitoring software",
+        "dbScheduledDate": "2026-06-16",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "monitor"
+        ]
+      },
+      {
+        "dbTaskId": "a30b02c6-ce5b-4592-9696-ac8ea1511131",
+        "dbTitle": "Write industry page: industries/legal",
+        "dbTargetKeyword": "employee monitoring law firms",
+        "dbScheduledDate": "2026-08-25",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "monitor"
+        ]
+      },
+      {
+        "dbTaskId": "f3e2f4b3-e8b6-46af-a44b-f5c0671db6ff",
+        "dbTitle": "Write industry page: industries/real-estate",
+        "dbTargetKeyword": "employee monitoring real estate",
+        "dbScheduledDate": "2026-08-31",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "monitor"
+        ]
+      },
+      {
+        "dbTaskId": "da28b731-681a-4ba5-800a-461a1806c45f",
+        "dbTitle": "Build new: Pillar #2: \"Employee Monitoring Software — The 2026 Buyer's Guide\" [B8.1a]",
+        "dbTargetKeyword": "employee monitoring software guide",
+        "dbScheduledDate": "2026-12-01",
+        "dbAssigneeId": null,
+        "score": 0.222,
+        "overlapTokens": [
+          "employee",
+          "monitor"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 27,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "BLOG",
+      "format": "cluster-blog",
+      "hubKeyword": "switching from hubstaff to we360",
+      "proposedH1": "Switching From Hubstaff to We360",
+      "url": "/blog/switching-from-hubstaff-to-we360",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "d64b6499-5f91-4ce1-bfdf-30ef7043240f",
+        "dbTitle": "Build new alternative page: Hubstaff alternative [B-ALT.hubstaff-alternative]",
+        "dbTargetKeyword": "hubstaff alternative",
+        "dbScheduledDate": "2026-07-01",
+        "dbAssigneeId": null,
+        "score": 0.3,
+        "overlapTokens": [
+          "switch",
+          "hubstaff",
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "440141e1-dddb-4994-9469-5b84485edb4e",
+        "dbTitle": "Build new comparison page: We360 Vs Hubstaff [B-VS.we360-vs-hubstaff]",
+        "dbTargetKeyword": "we360 vs hubstaff",
+        "dbScheduledDate": "2026-06-08",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "hubstaff",
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "20052d1c-3afb-4130-9ba1-10b23cfa7faf",
+        "dbTitle": "Build new alternative page: Desktime alternative [B-ALT.desktime-alternative]",
+        "dbTargetKeyword": "desktime alternative",
+        "dbScheduledDate": "2026-07-03",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "switch",
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "6e83288f-bafd-4730-9dff-f2fccd39c1f5",
+        "dbTitle": "Build new alternative page: Activtrak alternative [B-ALT.activtrak-alternative]",
+        "dbTargetKeyword": "activtrak alternative",
+        "dbScheduledDate": "2026-07-06",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "switch",
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "92fc0b72-3c40-4222-8dee-1a459e67021f",
+        "dbTitle": "Build new alternative page: Insightful alternative [B-ALT.insightful-alternative]",
+        "dbTargetKeyword": "insightful alternative",
+        "dbScheduledDate": "2026-07-07",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "switch",
+          "we360"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 28,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "BLOG",
+      "format": "cluster-blog",
+      "hubKeyword": "why teams switch from time doctor",
+      "proposedH1": "Why Teams Switch From Time Doctor",
+      "url": "/blog/why-teams-switch-from-time-doctor",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "ed36188e-4e33-4bc7-b9ab-953c77a45d50",
+        "dbTitle": "Build new alternative page: Time Doctor alternative [B-ALT.time-doctor-alternative]",
+        "dbTargetKeyword": "time doctor alternative",
+        "dbScheduledDate": "2026-07-02",
+        "dbAssigneeId": null,
+        "score": 0.364,
+        "overlapTokens": [
+          "team",
+          "switch",
+          "time",
+          "doctor"
+        ]
+      },
+      {
+        "dbTaskId": "6969ed31-9604-4df0-80f6-23a043bf930e",
+        "dbTitle": "Build new comparison page: Hubstaff Vs Time Doctor [B-VS.hubstaff-vs-time-doctor]",
+        "dbTargetKeyword": "hubstaff vs time doctor",
+        "dbScheduledDate": "2026-09-03",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "time",
+          "doctor"
+        ]
+      },
+      {
+        "dbTaskId": "c8a032da-3387-428b-b942-1644363cce04",
+        "dbTitle": "Build new comparison page: Time Doctor Vs Activtrak [B-VS.time-doctor-vs-activtrak]",
+        "dbTargetKeyword": "time doctor vs activtrak",
+        "dbScheduledDate": "2026-09-09",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "time",
+          "doctor"
+        ]
+      },
+      {
+        "dbTaskId": "177e064c-1213-4a93-9184-70d8815e6261",
+        "dbTitle": "Build new comparison page: We360 Vs Time Doctor [B-VS.we360-vs-time-doctor]",
+        "dbTargetKeyword": "we360 vs time doctor",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.167,
+        "overlapTokens": [
+          "time",
+          "doctor"
+        ]
+      },
+      {
+        "dbTaskId": "d64b6499-5f91-4ce1-bfdf-30ef7043240f",
+        "dbTitle": "Build new alternative page: Hubstaff alternative [B-ALT.hubstaff-alternative]",
+        "dbTargetKeyword": "hubstaff alternative",
+        "dbScheduledDate": "2026-07-01",
+        "dbAssigneeId": null,
+        "score": 0.167,
+        "overlapTokens": [
+          "team",
+          "switch"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 29,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "BLOG",
+      "format": "cluster-blog",
+      "hubKeyword": "teramind pricing analysis",
+      "proposedH1": "Teramind Pricing Analysis",
+      "url": "/blog/teramind-pricing-analysis",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "2c0b701b-aa58-41f7-a699-2ea4aeff4bdc",
+        "dbTitle": "Build new comparison page: Teramind Vs Activtrak [B-VS.teramind-vs-activtrak]",
+        "dbTargetKeyword": "teramind vs activtrak",
+        "dbScheduledDate": "2026-09-07",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "teramind"
+        ]
+      },
+      {
+        "dbTaskId": "919a2a61-ed98-414d-aa97-106f19905dc4",
+        "dbTitle": "Update existing blog: \"zoho people vs keka\" [B1.4f]",
+        "dbTargetKeyword": "zoho people vs keka",
+        "dbScheduledDate": "2026-05-11",
+        "dbAssigneeId": null,
+        "score": 0.091,
+        "overlapTokens": [
+          "pric"
+        ]
+      },
+      {
+        "dbTaskId": "c765816b-e925-4fe4-92fa-af557e5319bd",
+        "dbTitle": "Build new comparison page: We360 Vs Teramind [B-VS.we360-vs-teramind]",
+        "dbTargetKeyword": "we360 vs teramind",
+        "dbScheduledDate": "2026-06-10",
+        "dbAssigneeId": null,
+        "score": 0.091,
+        "overlapTokens": [
+          "teramind"
+        ]
+      },
+      {
+        "dbTaskId": "141e00c2-6f79-4bd2-a426-12d2c05a4544",
+        "dbTitle": "Build new alternative page: Teramind alternative [B-ALT.teramind-alternative]",
+        "dbTargetKeyword": "teramind alternative",
+        "dbScheduledDate": "2026-07-08",
+        "dbAssigneeId": null,
+        "score": 0.083,
+        "overlapTokens": [
+          "teramind"
+        ]
+      },
+      {
+        "dbTaskId": "d06ad515-8783-47db-b355-66bce238eda1",
+        "dbTitle": "Build new India page: Employee Monitoring Software (India) [B3.2a]",
+        "dbTargetKeyword": "employee monitoring software india",
+        "dbScheduledDate": "2026-07-13",
+        "dbAssigneeId": null,
+        "score": 0.083,
+        "overlapTokens": [
+          "pric"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 30,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "BLOG",
+      "format": "cluster-blog",
+      "hubKeyword": "activtrak privacy concerns",
+      "proposedH1": "Activtrak Privacy Concerns",
+      "url": "/blog/activtrak-privacy-concerns",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "2c0b701b-aa58-41f7-a699-2ea4aeff4bdc",
+        "dbTitle": "Build new comparison page: Teramind Vs Activtrak [B-VS.teramind-vs-activtrak]",
+        "dbTargetKeyword": "teramind vs activtrak",
+        "dbScheduledDate": "2026-09-07",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "activtrak"
+        ]
+      },
+      {
+        "dbTaskId": "9294f0fa-a9f5-41a4-a20a-b3dde3324941",
+        "dbTitle": "Build new comparison page: Hubstaff Vs Activtrak [B-VS.hubstaff-vs-activtrak]",
+        "dbTargetKeyword": "hubstaff vs activtrak",
+        "dbScheduledDate": "2026-09-08",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "activtrak"
+        ]
+      },
+      {
+        "dbTaskId": "cfeae204-d6ca-439e-a1ae-57e871f35c08",
+        "dbTitle": "Build new comparison page: We360 Vs Activtrak [B-VS.we360-vs-activtrak]",
+        "dbTargetKeyword": "we360 vs activtrak",
+        "dbScheduledDate": "2026-06-11",
+        "dbAssigneeId": null,
+        "score": 0.091,
+        "overlapTokens": [
+          "activtrak"
+        ]
+      },
+      {
+        "dbTaskId": "c8a032da-3387-428b-b942-1644363cce04",
+        "dbTitle": "Build new comparison page: Time Doctor Vs Activtrak [B-VS.time-doctor-vs-activtrak]",
+        "dbTargetKeyword": "time doctor vs activtrak",
+        "dbScheduledDate": "2026-09-09",
+        "dbAssigneeId": null,
+        "score": 0.091,
+        "overlapTokens": [
+          "activtrak"
+        ]
+      },
+      {
+        "dbTaskId": "6e83288f-bafd-4730-9dff-f2fccd39c1f5",
+        "dbTitle": "Build new alternative page: Activtrak alternative [B-ALT.activtrak-alternative]",
+        "dbTargetKeyword": "activtrak alternative",
+        "dbScheduledDate": "2026-07-06",
+        "dbAssigneeId": null,
+        "score": 0.083,
+        "overlapTokens": [
+          "activtrak"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 31,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "BLOG",
+      "format": "cluster-blog",
+      "hubKeyword": "desktime vs we360 features",
+      "proposedH1": "Desktime vs We360 Features",
+      "url": "/blog/desktime-vs-we360-features",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "907d88d4-3654-466c-893c-cdc0755ed491",
+        "dbTitle": "Build new comparison page: We360 Vs Desktime [B-VS.we360-vs-desktime]",
+        "dbTargetKeyword": "we360 vs desktime",
+        "dbScheduledDate": "2026-06-12",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "desktime",
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "20052d1c-3afb-4130-9ba1-10b23cfa7faf",
+        "dbTitle": "Build new alternative page: Desktime alternative [B-ALT.desktime-alternative]",
+        "dbTargetKeyword": "desktime alternative",
+        "dbScheduledDate": "2026-07-03",
+        "dbAssigneeId": null,
+        "score": 0.182,
+        "overlapTokens": [
+          "desktime",
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "7ede5d3e-b9ce-4936-800e-00b5be7e3e1b",
+        "dbTitle": "Write vs-competitor page: we360-vs-kickidler",
+        "dbTargetKeyword": "we360 vs Kickidler",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "976b8f12-1e75-4985-b816-1f6d8500073d",
+        "dbTitle": "Write vs-competitor page: we360-vs-veriato",
+        "dbTargetKeyword": "we360 vs Veriato",
+        "dbScheduledDate": "2026-06-11",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360"
+        ]
+      },
+      {
+        "dbTaskId": "c2613fdb-a670-43ed-88d6-e2757bbb1e52",
+        "dbTitle": "Write vs-competitor page: we360-vs-worktime",
+        "dbTargetKeyword": "we360 vs WorkTime",
+        "dbScheduledDate": "2026-06-13",
+        "dbAssigneeId": null,
+        "score": 0.125,
+        "overlapTokens": [
+          "we360"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 32,
+    "sheetTask": {
+      "owner": "Ishika",
+      "type": "BLOG",
+      "format": "cluster-blog",
+      "hubKeyword": "jira time tracking guide",
+      "proposedH1": "Jira Time Tracking Guide",
+      "url": "/blog/jira-time-tracking-guide",
+      "isCalendarOnly": false
+    },
+    "candidates": [
+      {
+        "dbTaskId": "38567a20-f791-46f3-8546-ae960f35eedb",
+        "dbTitle": "Build new India page: Time Tracking For Indian Bpo (India) [B3.2c]",
+        "dbTargetKeyword": "time tracking for indian bpo",
+        "dbScheduledDate": "2026-07-15",
+        "dbAssigneeId": null,
+        "score": 0.154,
+        "overlapTokens": [
+          "time",
+          "track"
+        ]
+      },
+      {
+        "dbTaskId": "1da20bf4-df28-44ef-9587-4953587b002c",
+        "dbTitle": "Build new: Striking-distance: \"efficiency tracking using ai tools\" (636 imp) [B3.3a]",
+        "dbTargetKeyword": "efficiency tracking using ai tools",
+        "dbScheduledDate": "2026-07-23",
+        "dbAssigneeId": null,
+        "score": 0.091,
+        "overlapTokens": [
+          "track"
+        ]
+      },
+      {
+        "dbTaskId": "6969ed31-9604-4df0-80f6-23a043bf930e",
+        "dbTitle": "Build new comparison page: Hubstaff Vs Time Doctor [B-VS.hubstaff-vs-time-doctor]",
+        "dbTargetKeyword": "hubstaff vs time doctor",
+        "dbScheduledDate": "2026-09-03",
+        "dbAssigneeId": null,
+        "score": 0.091,
+        "overlapTokens": [
+          "time"
+        ]
+      },
+      {
+        "dbTaskId": "c8a032da-3387-428b-b942-1644363cce04",
+        "dbTitle": "Build new comparison page: Time Doctor Vs Activtrak [B-VS.time-doctor-vs-activtrak]",
+        "dbTargetKeyword": "time doctor vs activtrak",
+        "dbScheduledDate": "2026-09-09",
+        "dbAssigneeId": null,
+        "score": 0.091,
+        "overlapTokens": [
+          "time"
+        ]
+      },
+      {
+        "dbTaskId": "177e064c-1213-4a93-9184-70d8815e6261",
+        "dbTitle": "Build new comparison page: We360 Vs Time Doctor [B-VS.we360-vs-time-doctor]",
+        "dbTargetKeyword": "we360 vs time doctor",
+        "dbScheduledDate": "2026-06-09",
+        "dbAssigneeId": null,
+        "score": 0.083,
+        "overlapTokens": [
+          "time"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 33,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "BLOG",
+      "format": "manual-entry",
+      "hubKeyword": "tech investment analysis",
+      "proposedH1": "Tech Investment Analysis",
+      "url": "",
+      "isCalendarOnly": true
+    },
+    "candidates": []
+  },
+  {
+    "sheetIdx": 34,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "BLOG",
+      "format": "manual-entry",
+      "hubKeyword": "performance benchmark management",
+      "proposedH1": "Performance Benchmark Management",
+      "url": "",
+      "isCalendarOnly": true
+    },
+    "candidates": [
+      {
+        "dbTaskId": "a810aa8c-fbad-48c2-a572-2e102296cab6",
+        "dbTitle": "Build monthly performance report v1 (Tier 1 + Tier 2 + striking distance) [K1.8]",
+        "dbTargetKeyword": null,
+        "dbScheduledDate": "2026-05-13",
+        "dbAssigneeId": null,
+        "score": 0.111,
+        "overlapTokens": [
+          "performance"
+        ]
+      },
+      {
+        "dbTaskId": "e4996ff9-47e1-4241-af06-1925969a2023",
+        "dbTitle": "Build new India page: Workforce Analytics (India) [B3.2d]",
+        "dbTargetKeyword": "workforce analytics india",
+        "dbScheduledDate": "2026-07-16",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "benchmark"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 35,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "BLOG",
+      "format": "manual-entry",
+      "hubKeyword": "capacity & headcount planning",
+      "proposedH1": "Capacity & Headcount Planning",
+      "url": "",
+      "isCalendarOnly": true
+    },
+    "candidates": []
+  },
+  {
+    "sheetIdx": 36,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "BLOG",
+      "format": "manual-entry",
+      "hubKeyword": "workforce management software",
+      "proposedH1": "Workforce Management Software",
+      "url": "",
+      "isCalendarOnly": true
+    },
+    "candidates": [
+      {
+        "dbTaskId": "b3000ed6-64fe-4671-a809-c13687d1105c",
+        "dbTitle": "Build new: Pillar #1: \"Workforce Productivity Software — The Buyer's Guide 2026\" [B7.4]",
+        "dbTargetKeyword": "workforce productivity software",
+        "dbScheduledDate": "2026-11-03",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "workforce",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "703b5a23-0855-4dd8-9ba3-1c2bd7c83e5f",
+        "dbTitle": "Write industry page: industries/ecommerce",
+        "dbTargetKeyword": "employee productivity software ecommerce",
+        "dbScheduledDate": "2026-08-22",
+        "dbAssigneeId": null,
+        "score": 0.111,
+        "overlapTokens": [
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "a28f54de-652e-4f92-8371-9306f4bb752d",
+        "dbTitle": "Write new article: \"ai employee monitoring software\" [B2.4b]",
+        "dbTargetKeyword": "ai employee monitoring software",
+        "dbScheduledDate": "2026-06-16",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "e4996ff9-47e1-4241-af06-1925969a2023",
+        "dbTitle": "Build new India page: Workforce Analytics (India) [B3.2d]",
+        "dbTargetKeyword": "workforce analytics india",
+        "dbScheduledDate": "2026-07-16",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "workforce"
+        ]
+      },
+      {
+        "dbTaskId": "18a5d787-6bcc-460d-a8d9-c156af1baa28",
+        "dbTitle": "Data Study #1 — \"We360 Workforce Productivity Index 2026 (India H1)\" [B3.4]",
+        "dbTargetKeyword": "workforce productivity index india 2026",
+        "dbScheduledDate": "2026-07-28",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "workforce"
+        ]
+      }
+    ]
+  },
+  {
+    "sheetIdx": 37,
+    "sheetTask": {
+      "owner": "Lokesh",
+      "type": "BLOG",
+      "format": "manual-entry",
+      "hubKeyword": "workforce planning software",
+      "proposedH1": "Workforce planning software",
+      "url": "",
+      "isCalendarOnly": true
+    },
+    "candidates": [
+      {
+        "dbTaskId": "b3000ed6-64fe-4671-a809-c13687d1105c",
+        "dbTitle": "Build new: Pillar #1: \"Workforce Productivity Software — The Buyer's Guide 2026\" [B7.4]",
+        "dbTargetKeyword": "workforce productivity software",
+        "dbScheduledDate": "2026-11-03",
+        "dbAssigneeId": null,
+        "score": 0.2,
+        "overlapTokens": [
+          "workforce",
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "703b5a23-0855-4dd8-9ba3-1c2bd7c83e5f",
+        "dbTitle": "Write industry page: industries/ecommerce",
+        "dbTargetKeyword": "employee productivity software ecommerce",
+        "dbScheduledDate": "2026-08-22",
+        "dbAssigneeId": null,
+        "score": 0.111,
+        "overlapTokens": [
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "a28f54de-652e-4f92-8371-9306f4bb752d",
+        "dbTitle": "Write new article: \"ai employee monitoring software\" [B2.4b]",
+        "dbTargetKeyword": "ai employee monitoring software",
+        "dbScheduledDate": "2026-06-16",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "software"
+        ]
+      },
+      {
+        "dbTaskId": "e4996ff9-47e1-4241-af06-1925969a2023",
+        "dbTitle": "Build new India page: Workforce Analytics (India) [B3.2d]",
+        "dbTargetKeyword": "workforce analytics india",
+        "dbScheduledDate": "2026-07-16",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "workforce"
+        ]
+      },
+      {
+        "dbTaskId": "18a5d787-6bcc-460d-a8d9-c156af1baa28",
+        "dbTitle": "Data Study #1 — \"We360 Workforce Productivity Index 2026 (India H1)\" [B3.4]",
+        "dbTargetKeyword": "workforce productivity index india 2026",
+        "dbScheduledDate": "2026-07-28",
+        "dbAssigneeId": null,
+        "score": 0.1,
+        "overlapTokens": [
+          "workforce"
+        ]
+      }
+    ]
+  }
+]
