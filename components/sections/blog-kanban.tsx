@@ -227,16 +227,35 @@ function SortableBlogCard({
   );
 }
 
-function dueLabel(scheduledDate: string | null, done: boolean): { text: string; emoji: string; tone: string } {
-  if (done) return { text: "Published", emoji: "✅", tone: "text-emerald-600" };
-  if (!scheduledDate) return { text: "No date", emoji: "·", tone: "text-muted-foreground" };
-  const days = differenceInDays(startOfDay(new Date(scheduledDate)), startOfDay(new Date()));
-  if (days < 0) return { text: `${Math.abs(days)}d overdue`, emoji: "⚠️", tone: "text-rose-600" };
-  if (days === 0) return { text: "Due today", emoji: "🔴", tone: "text-rose-600" };
-  if (days === 1) return { text: "Due in 1d", emoji: "🟠", tone: "text-orange-600" };
-  if (days <= 3) return { text: `Due in ${days}d`, emoji: "🟡", tone: "text-amber-600" };
-  if (days <= 7) return { text: "This week", emoji: "🔵", tone: "text-sky-600" };
-  return { text: format(new Date(scheduledDate), "MMM d"), emoji: "📅", tone: "text-muted-foreground" };
+// Tasks are scheduled by sprint week (scheduled_date = Monday of that week).
+// Render the due-by label in week buckets — "This week" / "Next week" /
+// "In 2 weeks" — instead of day-by-day "Due in Xd" which is misleading
+// when the underlying date is just a weekly anchor.
+function dueLabel(scheduledDate: string | null, done: boolean): { text: string; tone: string } {
+  if (done) return { text: "Published", tone: "text-[#5B45E0] dark:text-[#7B62FF]" };
+  if (!scheduledDate) return { text: "No date", tone: "text-muted-foreground" };
+
+  // Both the scheduled date and "now" are reduced to the Monday of their
+  // calendar week so we can do a clean integer week diff.
+  const mondayOf = (d: Date): Date => {
+    const m = startOfDay(new Date(d));
+    const dow = m.getDay();              // 0=Sun, 1=Mon, ... 6=Sat
+    const offsetToMon = (dow + 6) % 7;
+    m.setDate(m.getDate() - offsetToMon);
+    return m;
+  };
+  const taskMon = mondayOf(new Date(scheduledDate));
+  const todayMon = mondayOf(new Date());
+  const weeks = Math.round((taskMon.getTime() - todayMon.getTime()) / (7 * 24 * 60 * 60 * 1000));
+
+  if (weeks < 0) {
+    const w = Math.abs(weeks);
+    return { text: w === 1 ? "Overdue · 1 week" : `Overdue · ${w} weeks`, tone: "text-rose-600 dark:text-rose-400" };
+  }
+  if (weeks === 0) return { text: "Due this week", tone: "text-[#5B45E0] dark:text-[#7B62FF]" };
+  if (weeks === 1) return { text: "Due next week", tone: "text-[#7B62FF] dark:text-[#7B62FF]" };
+  if (weeks <= 4)  return { text: `In ${weeks} weeks`, tone: "text-muted-foreground" };
+  return { text: format(new Date(scheduledDate), "MMM d"), tone: "text-muted-foreground" };
 }
 
 function BlogCard({
@@ -281,13 +300,8 @@ function BlogCard({
           </div>
         )}
 
-        {/* Intent + Priority + Competition badges */}
+        {/* Priority + Competition badges (intent badge removed — not useful for writers) */}
         <div className="flex flex-wrap items-center gap-1.5">
-          {task.intent && (
-            <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 text-[10px] font-medium">
-              {task.intent}
-            </Badge>
-          )}
           {isHighPriority && (
             <Badge className={cn("text-[10px] font-semibold gap-0.5", priorityColor(task.priority))}>
               <Flame className="size-2.5" />
@@ -324,8 +338,7 @@ function BlogCard({
 
         {/* Due + assignee */}
         <div className="flex items-center justify-between pt-2 border-t border-border/60 text-xs">
-          <span className={cn("inline-flex items-center gap-1 font-medium", due.tone)}>
-            <span>{due.emoji}</span>
+          <span className={cn("font-medium", due.tone)}>
             {due.text}
           </span>
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>

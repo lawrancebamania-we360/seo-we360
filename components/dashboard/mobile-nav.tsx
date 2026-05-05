@@ -17,15 +17,20 @@ const NAV = [
   { href: "/dashboard/competitors", label: "Competitors" },
   { href: "/dashboard/sprint", label: "Blog Sprint" },
   { href: "/dashboard/blog-audit", label: "Blog audit" },
+];
+
+// Admin-only routes — Wins moved here per access policy (no longer in
+// the default nav for members).
+const ADMIN_NAV = [
   { href: "/dashboard/wins", label: "Wins" },
+  { href: "/dashboard/team", label: "Team" },
+  { href: "/dashboard/projects", label: "Projects" },
 ];
 
 export function MobileNav({ canManageTeam }: { canManageTeam: boolean }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const allItems = canManageTeam
-    ? [...NAV, { href: "/dashboard/team", label: "Team" }, { href: "/dashboard/projects", label: "Projects" }]
-    : NAV;
+  const allItems = canManageTeam ? [...NAV, ...ADMIN_NAV] : NAV;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>

@@ -1,7 +1,7 @@
 import dynamic from "next/dynamic";
-import { getUserContext } from "@/lib/auth/get-user";
+import { requireAdmin } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
-import { getWeeklyWinSummary, getWinsTimeline } from "@/lib/data/wins";
+import { getWeeklyWinSummary, getWinsTimeline, type WinsTimeline } from "@/lib/data/wins";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
 
@@ -23,14 +23,23 @@ import type { Win } from "@/lib/types/database";
 export const metadata = { title: "Wins" };
 
 export default async function WinsPage() {
-  const ctx = await getUserContext();
+  // Wins is admin-only (admin or super_admin). requireAdmin redirects members
+  // to "/" so they can't access it via direct URL even though it's hidden in
+  // the sidebar nav.
+  const ctx = await requireAdmin();
   if (!ctx.activeProject) return <EmptyProjectState canCreate={ctx.canManageProjects} />;
+  // The 12-week comparison timeline is a super-admin-only deeper analytics
+  // surface — admins see week-over-week stats and pillar deltas, super-admins
+  // additionally see the long-range trend chart.
+  const isSuperAdmin = ctx.profile.role === "super_admin";
 
   const supabase = await createClient();
+  // Skip the 12-week timeline fetch entirely for non-super-admins — saves a
+  // round-trip and keeps the data they shouldn't see off the wire.
   const [{ data: allWins }, weekly, timeline] = await Promise.all([
     supabase.from("wins").select("*").eq("project_id", ctx.activeProject.id).order("date", { ascending: false }).limit(100),
     getWeeklyWinSummary(ctx.activeProject.id),
-    getWinsTimeline(ctx.activeProject.id, 12),
+    isSuperAdmin ? getWinsTimeline(ctx.activeProject.id, 12) : Promise.resolve(null as WinsTimeline | null),
   ]);
   const wins = (allWins ?? []) as Win[];
 
@@ -87,13 +96,15 @@ export default async function WinsPage() {
         </div>
       </section>
 
-      {/* 12-week comparison timeline */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Comparison timeline
-        </h2>
-        <WinsTimelineChart timeline={timeline} />
-      </section>
+      {/* 12-week comparison timeline — super-admin only */}
+      {isSuperAdmin && timeline && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Comparison timeline
+          </h2>
+          <WinsTimelineChart timeline={timeline} />
+        </section>
+      )}
 
       {/* Pillar deltas */}
       <section className="space-y-3">

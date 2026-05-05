@@ -45,78 +45,48 @@ interface Props {
   health: HealthSnapshot;
 }
 
-type NavTone = "violet" | "emerald" | "rose" | "sky" | "amber" | "orange" | "fuchsia" | "gold";
+// Monochromatic we360 nav palette — primary purple for everything except Wins
+// which gets the brand yellow accent (admin-only, deserves visual emphasis).
+// No more rainbow tones — keeps the sidebar quiet so the active item pops.
+type NavTone = "primary" | "yellow";
 type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; tone: NavTone };
 
-// SEO Gaps + Technical were rolled into Web Tasks (PSI sprint covers everything
-// audit_findings tracked). Articles is reachable from blog tasks (Generate with
-// AI flow), so it stays as a route but doesn't need its own sidebar slot.
+// Wins moved to ADMIN_NAV (per direction: only admins should see it).
+// SEO Gaps + Technical are rolled into Web Tasks. Articles is reachable from
+// the blog-task "Generate with AI" flow.
 const DEFAULT_NAV: NavItem[] = [
-  { href: "/dashboard/overview", label: "Overview", icon: LayoutDashboard, exact: true, tone: "violet" },
-  { href: "/dashboard/timeline", label: "Timeline", icon: GitBranch, tone: "violet" },
-  { href: "/dashboard/tasks", label: "Web Tasks", icon: ListChecks, tone: "emerald" },
-  { href: "/dashboard/keywords", label: "Keywords", icon: Search, tone: "sky" },
-  { href: "/dashboard/competitors", label: "Competitors", icon: Swords, tone: "orange" },
-  { href: "/dashboard/sprint", label: "Blog Sprint", icon: CalendarRange, tone: "fuchsia" },
-  { href: "/dashboard/blog-audit", label: "Blog audit", icon: FileSearch, tone: "rose" },
-  { href: "/dashboard/wins", label: "Wins", icon: Trophy, tone: "gold" },
+  { href: "/dashboard/overview",   label: "Overview",    icon: LayoutDashboard, exact: true, tone: "primary" },
+  { href: "/dashboard/timeline",   label: "Timeline",    icon: GitBranch,      tone: "primary" },
+  { href: "/dashboard/tasks",      label: "Web Tasks",   icon: ListChecks,     tone: "primary" },
+  { href: "/dashboard/keywords",   label: "Keywords",    icon: Search,         tone: "primary" },
+  { href: "/dashboard/competitors", label: "Competitors", icon: Swords,        tone: "primary" },
+  { href: "/dashboard/sprint",     label: "Blog Sprint", icon: CalendarRange,  tone: "primary" },
+  { href: "/dashboard/blog-audit", label: "Blog audit",  icon: FileSearch,     tone: "primary" },
 ];
 
-// Integrations moved to the user-menu dropdown — one-off setup,
-// not day-to-day navigation. Sidebar stays focused on live work.
+// Admin-only nav — Wins gets the yellow accent so it stands out as a
+// reward / status surface vs the work-tracking nav above.
 const ADMIN_NAV: NavItem[] = [
-  { href: "/dashboard/team", label: "Team", icon: Users, tone: "violet" },
-  { href: "/dashboard/projects", label: "Projects", icon: FolderCog, tone: "amber" },
+  { href: "/dashboard/wins",     label: "Wins",     icon: Trophy,    tone: "yellow"  },
+  { href: "/dashboard/team",     label: "Team",     icon: Users,     tone: "primary" },
+  { href: "/dashboard/projects", label: "Projects", icon: FolderCog, tone: "primary" },
 ];
 
 const TONE: Record<NavTone, { icon: string; active: string; activeIcon: string; hoverShadow: string }> = {
-  violet: {
-    icon: "text-violet-500",
-    active: "bg-violet-500/10 text-violet-700 dark:text-violet-300",
-    activeIcon: "text-violet-600 dark:text-violet-400",
-    hoverShadow: "hover:shadow-[0_4px_12px_-6px_rgb(139_92_246/0.35)]",
+  // Primary purple — used for nearly everything. Inactive state is a muted
+  // light-purple icon over neutral text; active state lifts to brand purple.
+  primary: {
+    icon: "text-[#7B62FF]/80",
+    active: "bg-[#5B45E0]/10 text-[#5B45E0] dark:text-[#7B62FF]",
+    activeIcon: "text-[#5B45E0] dark:text-[#7B62FF]",
+    hoverShadow: "hover:shadow-[0_4px_12px_-6px_rgb(91_69_224/0.35)]",
   },
-  emerald: {
-    icon: "text-emerald-500",
-    active: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-    activeIcon: "text-emerald-600 dark:text-emerald-400",
-    hoverShadow: "hover:shadow-[0_4px_12px_-6px_rgb(16_185_129/0.35)]",
-  },
-  rose: {
-    icon: "text-rose-500",
-    active: "bg-rose-500/10 text-rose-700 dark:text-rose-300",
-    activeIcon: "text-rose-600 dark:text-rose-400",
-    hoverShadow: "hover:shadow-[0_4px_12px_-6px_rgb(244_63_94/0.35)]",
-  },
-  sky: {
-    icon: "text-sky-500",
-    active: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
-    activeIcon: "text-sky-600 dark:text-sky-400",
-    hoverShadow: "hover:shadow-[0_4px_12px_-6px_rgb(14_165_233/0.35)]",
-  },
-  amber: {
-    icon: "text-amber-500",
-    active: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
-    activeIcon: "text-amber-600 dark:text-amber-400",
-    hoverShadow: "hover:shadow-[0_4px_12px_-6px_rgb(245_158_11/0.35)]",
-  },
-  orange: {
-    icon: "text-orange-500",
-    active: "bg-orange-500/10 text-orange-700 dark:text-orange-300",
-    activeIcon: "text-orange-600 dark:text-orange-400",
-    hoverShadow: "hover:shadow-[0_4px_12px_-6px_rgb(249_115_22/0.35)]",
-  },
-  fuchsia: {
-    icon: "text-fuchsia-500",
-    active: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300",
-    activeIcon: "text-fuchsia-600 dark:text-fuchsia-400",
-    hoverShadow: "hover:shadow-[0_4px_12px_-6px_rgb(217_70_239/0.35)]",
-  },
-  gold: {
-    icon: "text-yellow-500",
-    active: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
-    activeIcon: "text-yellow-600 dark:text-yellow-400 fill-yellow-400",
-    hoverShadow: "hover:shadow-[0_4px_12px_-6px_rgb(234_179_8/0.45)]",
+  // Brand yellow — reserved for Wins so it pops without breaking the palette.
+  yellow: {
+    icon: "text-[#FEB800]",
+    active: "bg-[#FEB800]/15 text-[#231D4F] dark:text-[#FEB800]",
+    activeIcon: "text-[#FEB800] fill-[#FEB800]/30",
+    hoverShadow: "hover:shadow-[0_4px_12px_-6px_rgb(254_184_0/0.40)]",
   },
 };
 
