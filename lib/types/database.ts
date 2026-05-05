@@ -35,7 +35,8 @@ export type SectionKey =
   | "sprint"
   | "wins"
   | "articles"
-  | "team";
+  | "team"
+  | "blog_audit";
 
 export interface Project {
   id: string;

@@ -11,6 +11,7 @@ export const SECTION_LABELS: Record<SectionKey, string> = {
   wins: "Wins",
   articles: "Article Writer",
   team: "Team",
+  blog_audit: "Blog audit",
 };
 
 export const ALL_SECTIONS: SectionKey[] = [
@@ -24,6 +25,7 @@ export const ALL_SECTIONS: SectionKey[] = [
   "wins",
   "articles",
   "team",
+  "blog_audit",
 ];
 
 export interface PermissionCheck {

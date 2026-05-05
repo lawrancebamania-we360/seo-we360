@@ -68,7 +68,7 @@ export default async function TeamPage() {
             </div>
             <div>
               {isSuper && m.id !== ctx.profile.id && (
-                <MemberActions member={m} />
+                <MemberActions member={m} projects={allProjects} />
               )}
             </div>
           </div>

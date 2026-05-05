@@ -1,6 +1,6 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { getUserContext } from "@/lib/auth/get-user";
+import { requireSection } from "@/lib/auth/get-user";
 import { getDashboardCounts, getLatestPillarScores } from "@/lib/data/overview";
 import { getGa4WeeklyDelta } from "@/lib/google/ga4";
 import { getGscWeeklyDelta } from "@/lib/google/gsc";
@@ -34,7 +34,7 @@ const PILLAR_HREF: Record<string, string> = {
 };
 
 export default async function OverviewPage() {
-  const ctx = await getUserContext();
+  const ctx = await requireSection("overview");
   if (!ctx.activeProject) return <EmptyProjectState canCreate={ctx.canManageProjects} />;
 
   const projectId = ctx.activeProject.id;

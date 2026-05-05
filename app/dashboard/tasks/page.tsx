@@ -1,4 +1,4 @@
-import { getUserContext } from "@/lib/auth/get-user";
+import { requireSection } from "@/lib/auth/get-user";
 import { getTasks, getTeamMembers, type TaskFilterParams } from "@/lib/data/tasks";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
@@ -23,7 +23,7 @@ export default async function TasksPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const ctx = await getUserContext();
+  const ctx = await requireSection("tasks");
   if (!ctx.activeProject) return <EmptyProjectState canCreate={ctx.canManageProjects} />;
 
   const params = await searchParams;

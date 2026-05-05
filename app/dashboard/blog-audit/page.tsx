@@ -1,4 +1,4 @@
-import { getUserContext } from "@/lib/auth/get-user";
+import { requireSection } from "@/lib/auth/get-user";
 import { getLatestBlogAudit } from "@/lib/data/blog-audit";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
@@ -11,7 +11,7 @@ import { formatDistanceToNow } from "date-fns";
 export const metadata = { title: "Blog audit" };
 
 export default async function BlogAuditPage() {
-  const ctx = await getUserContext();
+  const ctx = await requireSection("seo_gaps");
   if (!ctx.activeProject) return <EmptyProjectState canCreate={ctx.canManageProjects} />;
 
   const { run, rows } = await getLatestBlogAudit(ctx.activeProject.id);

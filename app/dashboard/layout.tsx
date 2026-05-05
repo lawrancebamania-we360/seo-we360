@@ -22,6 +22,7 @@ export default async function DashboardLayout({
         canManageTeam={ctx.canManageTeam}
         canManageProjects={ctx.canManageProjects}
         health={health}
+        permissions={ctx.permissions}
       />
       <div className="flex-1 flex flex-col min-w-0">
         <header className="lg:hidden flex h-14 shrink-0 items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur sticky top-0 z-30">

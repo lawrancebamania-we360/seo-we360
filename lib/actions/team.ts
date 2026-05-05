@@ -103,3 +103,84 @@ export async function removeMember(userId: string) {
   await admin.auth.admin.deleteUser(userId);
   revalidatePath("/dashboard/team");
 }
+
+// ---------------------------------------------------------------- Permissions
+const PermissionsUpdateSchema = z.object({
+  user_id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  section_permissions: z.record(
+    z.string(),
+    z.object({
+      can_view: z.boolean().default(true),
+      can_add: z.boolean().default(false),
+      can_edit: z.boolean().default(false),
+      can_complete: z.boolean().default(false),
+      can_delete: z.boolean().default(false),
+    })
+  ),
+});
+
+/**
+ * Update a member's per-section permissions for a project. Super-admins and
+ * admins only. The previous flow only set permissions at invite-time; this
+ * lets admins adjust them later (e.g. revoke a member's access to a section
+ * once their role on the team changes).
+ */
+export async function updateMemberPermissions(
+  input: z.infer<typeof PermissionsUpdateSchema>
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const myRole = (me as { role?: string } | null)?.role;
+  if (!myRole || (myRole !== "super_admin" && myRole !== "admin")) {
+    throw new Error("Only admins can update permissions");
+  }
+
+  const parsed = PermissionsUpdateSchema.parse(input);
+  const admin = createAdminClient();
+
+  // Upsert each section row. We rely on the unique(user_id, project_id, section)
+  // constraint in the schema for proper conflict resolution.
+  const rows = Object.entries(parsed.section_permissions).map(([section, perms]) => ({
+    user_id: parsed.user_id,
+    project_id: parsed.project_id,
+    section: section as SectionKey,
+    ...perms,
+    updated_at: new Date().toISOString(),
+  }));
+
+  for (const row of rows) {
+    const { error } = await admin
+      .from("member_permissions")
+      .upsert(row, { onConflict: "user_id,project_id,section" });
+    if (error) throw new Error(`Failed to update ${row.section}: ${error.message}`);
+  }
+
+  revalidatePath("/dashboard/team");
+  return { updated: rows.length };
+}
+
+/**
+ * Read a member's current permissions for a project. Used by the editor
+ * dialog to pre-populate checkboxes.
+ */
+export async function getMemberPermissions(userId: string, projectId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const myRole = (me as { role?: string } | null)?.role;
+  if (!myRole || (myRole !== "super_admin" && myRole !== "admin")) {
+    throw new Error("Only admins can view permissions");
+  }
+
+  const { data, error } = await supabase
+    .from("member_permissions")
+    .select("section, can_view, can_add, can_edit, can_complete, can_delete")
+    .eq("user_id", userId)
+    .eq("project_id", projectId);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}

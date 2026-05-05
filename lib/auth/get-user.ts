@@ -15,6 +15,12 @@ export interface UserContext {
   canManageTeam: boolean;
   canManageProjects: boolean;
   isPlatformAdmin: boolean;
+  /**
+   * Per-section permissions for the active project. Empty for admins/
+   * super-admins (they have full access by virtue of role). For members and
+   * clients, this drives sidebar nav visibility and page-level access gates.
+   */
+  permissions: Record<string, { can_view: boolean; can_add: boolean; can_edit: boolean; can_complete: boolean; can_delete: boolean }>;
 }
 
 /**
@@ -98,6 +104,26 @@ export async function getUserContext(): Promise<UserContext> {
   const preferredProjectId = cookieProjectId ?? typedProfile.active_project_id ?? projects[0]?.id;
   const activeProject = projects.find((p) => p.id === preferredProjectId) ?? projects[0] ?? null;
 
+  // Pull this user's per-section permissions for the active project. Admins
+  // and super-admins skip the lookup since they have full access regardless.
+  let permissions: UserContext["permissions"] = {};
+  if (!isAdmin && activeProject) {
+    const { data } = await supabase
+      .from("member_permissions")
+      .select("section, can_view, can_add, can_edit, can_complete, can_delete")
+      .eq("user_id", user.id)
+      .eq("project_id", activeProject.id);
+    for (const row of (data ?? []) as Array<{ section: string; can_view: boolean; can_add: boolean; can_edit: boolean; can_complete: boolean; can_delete: boolean }>) {
+      permissions[row.section] = {
+        can_view: !!row.can_view,
+        can_add: !!row.can_add,
+        can_edit: !!row.can_edit,
+        can_complete: !!row.can_complete,
+        can_delete: !!row.can_delete,
+      };
+    }
+  }
+
   return {
     userId: user.id,
     email: user.email ?? typedProfile.email,
@@ -107,6 +133,7 @@ export async function getUserContext(): Promise<UserContext> {
     canManageTeam: isAdmin,
     canManageProjects: isAdmin,
     isPlatformAdmin,
+    permissions,
   };
 }
 
@@ -130,6 +157,26 @@ export async function requirePlatformAdmin(): Promise<UserContext> {
   const ctx = await getUserContext();
   if (!ctx.isPlatformAdmin) {
     redirect("/dashboard/overview");
+  }
+  return ctx;
+}
+
+/**
+ * Page-level gate driven by member_permissions.can_view. Admins and
+ * super-admins bypass the check. Members are redirected to /dashboard if
+ * their permission row says can_view=false for the given section.
+ *
+ * Used to back up the sidebar filter — a determined user could still type
+ * the URL directly, so each gated page should also call this.
+ */
+export async function requireSection(section: string): Promise<UserContext> {
+  const ctx = await getUserContext();
+  if (ctx.canManageTeam) return ctx;          // admins always pass
+  const perm = ctx.permissions[section];
+  if (perm && perm.can_view === false) {
+    // Send them somewhere they CAN see. Sprint is the most common landing
+    // for non-admin team members; falls back to /dashboard otherwise.
+    redirect("/dashboard/sprint");
   }
   return ctx;
 }

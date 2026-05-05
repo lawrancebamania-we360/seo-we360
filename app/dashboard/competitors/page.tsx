@@ -1,4 +1,4 @@
-import { getUserContext } from "@/lib/auth/get-user";
+import { requireSection } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
@@ -22,7 +22,7 @@ interface AutoAnalysis {
 }
 
 export default async function CompetitorsPage() {
-  const ctx = await getUserContext();
+  const ctx = await requireSection("competitors");
   if (!ctx.activeProject) return <EmptyProjectState canCreate={ctx.canManageProjects} />;
 
   const supabase = await createClient();

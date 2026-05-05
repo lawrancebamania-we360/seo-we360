@@ -43,7 +43,22 @@ interface Props {
   canManageTeam: boolean;
   canManageProjects: boolean;
   health: HealthSnapshot;
+  /** Per-section permission map for the current user (empty for admins). */
+  permissions: Record<string, { can_view: boolean }>;
 }
+
+// Map nav routes to permission section keys. Routes set to `null` are
+// always visible to all members (no gating). `seo_gaps` is also used as the
+// section key for /dashboard/blog-audit (closest existing section).
+const NAV_SECTION: Record<string, string | null> = {
+  "/dashboard/overview":    "overview",
+  "/dashboard/timeline":    null,        // always visible
+  "/dashboard/tasks":       "tasks",
+  "/dashboard/keywords":    "keywords",
+  "/dashboard/competitors": "competitors",
+  "/dashboard/sprint":      "sprint",
+  "/dashboard/blog-audit":  "seo_gaps",
+};
 
 // Monochromatic we360 nav palette — primary purple for everything except Wins
 // which gets the brand yellow accent (admin-only, deserves visual emphasis).
@@ -100,7 +115,7 @@ export function Sidebar(props: Props) {
   );
 }
 
-function SidebarInner({ profile, activeProject, canManageTeam, canManageProjects, health }: Props) {
+function SidebarInner({ profile, activeProject, canManageTeam, canManageProjects, health, permissions }: Props) {
   const { collapsed, toggle } = useSidebar();
   const pathname = usePathname();
 
@@ -123,8 +138,23 @@ function SidebarInner({ profile, activeProject, canManageTeam, canManageProjects
     try { localStorage.setItem(ORDER_KEY, JSON.stringify(next)); } catch { /* ignore */ }
   };
 
+  // Filter nav items by per-section permissions. Admins (canManageTeam) skip
+  // this filter — they always see everything. For members, a nav item is
+  // hidden when its mapped section has can_view=false.
+  const isMember = !canManageTeam;
+  const isAllowed = (href: string): boolean => {
+    if (!isMember) return true;
+    const section = NAV_SECTION[href];
+    if (section === null || section === undefined) return true; // unmapped → visible
+    const perm = permissions[section];
+    // Default: if no explicit row, assume access (legacy seeded users).
+    return perm?.can_view ?? true;
+  };
+
   const navMap = new Map(DEFAULT_NAV.map((n) => [n.href, n]));
-  const orderedNav = order.map((h) => navMap.get(h)).filter(Boolean) as NavItem[];
+  const orderedNav = order
+    .map((h) => navMap.get(h))
+    .filter((item): item is NavItem => Boolean(item) && isAllowed(item!.href));
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),

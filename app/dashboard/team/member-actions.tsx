@@ -1,7 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
-import { MoreHorizontal, Trash2, Shield, Crown, User as UserIcon, UserCog } from "lucide-react";
+import { useState, useTransition } from "react";
+import { MoreHorizontal, Trash2, Shield, Crown, User as UserIcon, UserCog, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { updateMemberRole, removeMember } from "@/lib/actions/team";
-import type { Profile, UserRole } from "@/lib/types/database";
+import { PermissionsDialog } from "./permissions-dialog";
+import type { Profile, Project, UserRole } from "@/lib/types/database";
 
 const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: "Super Admin",
@@ -28,8 +29,9 @@ const ROLE_ICONS: Record<UserRole, typeof UserIcon> = {
   client: UserCog,
 };
 
-export function MemberActions({ member }: { member: Profile }) {
+export function MemberActions({ member, projects }: { member: Profile; projects: Project[] }) {
   const [pending, start] = useTransition();
+  const [permsOpen, setPermsOpen] = useState(false);
 
   const changeRole = (next: UserRole) => {
     if (next === member.role) return;
@@ -88,11 +90,22 @@ export function MemberActions({ member }: { member: Profile }) {
           );
         })}
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => setPermsOpen(true)}>
+          <KeyRound className="size-4 mr-2" />
+          Edit permissions
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={remove} className="text-rose-600 focus:text-rose-600">
           <Trash2 className="size-4 mr-2" />
           Remove member
         </DropdownMenuItem>
       </DropdownMenuContent>
+      <PermissionsDialog
+        member={member}
+        projects={projects}
+        open={permsOpen}
+        onOpenChange={setPermsOpen}
+      />
     </DropdownMenu>
   );
 }
