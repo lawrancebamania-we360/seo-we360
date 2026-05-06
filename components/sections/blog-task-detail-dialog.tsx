@@ -272,31 +272,45 @@ function BlogTaskContent({
               );
             })()}
           </div>
-          {canEdit && !editing && (
+          {/* Action buttons — split into two access tiers:
+              - Members + admins: Copy prompt, Edit brief, Generate with AI
+                (writers need these to actually do their job).
+              - Admins only: Reassign (AssigneePicker) + Delete.
+              The whole row is hidden during the inline editing state. */}
+          {!editing && (
             <div className="flex items-center gap-1.5 shrink-0 mr-6">
-              <AssigneePicker
-                taskId={task.id}
-                currentAssignee={task.team_member_id}
-                members={members}
-              />
+              {/* Admin-only: change task assignee */}
+              {canEdit && (
+                <AssigneePicker
+                  taskId={task.id}
+                  currentAssignee={task.team_member_id}
+                  members={members}
+                />
+              )}
+              {/* Everyone: copy AI prompt */}
               {!isOpsTask && (
                 <Button size="icon-sm" variant="outline" onClick={onCopyPrompt} aria-label="Copy prompt" title="Copy prompt for local AI">
                   <Copy className="size-3.5" />
                 </Button>
               )}
+              {/* Everyone: edit brief / task */}
               <Button size="icon-sm" variant="outline" onClick={() => setEditing(true)} aria-label={isOpsTask ? "Edit task" : "Edit brief"} title={isOpsTask ? "Edit task" : "Edit brief"}>
                 <Pencil className="size-3.5" />
               </Button>
-              <Button
-                size="icon-sm"
-                variant="outline"
-                onClick={() => setConfirmDelete(true)}
-                aria-label="Delete task"
-                title="Delete task"
-                className="hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
+              {/* Admin-only: delete task */}
+              {canEdit && (
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  onClick={() => setConfirmDelete(true)}
+                  aria-label="Delete task"
+                  title="Delete task"
+                  className="hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              )}
+              {/* Everyone: open article OR generate with AI */}
               {!isOpsTask && (task.article_id ? (
                 <Button variant="brand" size="sm" onClick={() => { router.push(`/dashboard/articles/${task.article_id}`); onClose(); }}>
                   <PenLine className="size-3.5" />
@@ -518,20 +532,23 @@ function BlogTaskContent({
       </Field>
 
       <Field label="Supporting links" icon={Link2}>
+        {/* Writers (members) own their supporting links — passing true so
+            they can add/remove without an admin in the loop. */}
         <SupportingLinksEditor
           taskId={task.id}
           links={task.supporting_links ?? []}
-          canEdit={canEdit}
+          canEdit={true}
           onChange={() => { /* persisted via server action */ }}
         />
       </Field>
 
       <Field label="Reference images" icon={ImageIcon}>
+        {/* Same — writers upload their own reference images. */}
         <BlogImageUploader
           taskId={task.id}
           projectId={projectId}
           images={task.reference_images ?? []}
-          canEdit={canEdit}
+          canEdit={true}
           onChange={() => { /* persisted via server action */ }}
         />
       </Field>
@@ -634,8 +651,9 @@ function BlogTaskContent({
         )}
       </div>
 
-      {canEdit && (
-        <div className="pt-4 border-t">
+      {/* Save / Move to — available to everyone so writers can save their
+          edits and move tasks across the kanban without an admin in the loop. */}
+      <div className="pt-4 border-t">
           {editing ? (
             <div className="flex items-center justify-end gap-2">
               <Button variant="outline" size="sm" onClick={cancelEdit} disabled={pending}>
@@ -662,13 +680,13 @@ function BlogTaskContent({
                 <SelectContent>
                   <SelectItem value="todo">💡 Idea</SelectItem>
                   <SelectItem value="in_progress">⚡ In progress</SelectItem>
+                  <SelectItem value="review">✓ Done</SelectItem>
                   <SelectItem value="done">✨ Published</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           )}
         </div>
-      )}
 
       {/* Delete confirmation */}
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
