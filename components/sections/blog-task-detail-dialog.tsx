@@ -147,10 +147,21 @@ function BlogTaskContent({
     // Pass data_backing through so the AI prompt includes the GSC/GA4
     // backing block — this is what tells the LLM WHY the article exists
     // and which queries already have momentum to build on.
-    const prompt = briefToMarkdownPrompt(draft, "We360.ai", "we360.ai", task.data_backing);
+    // Pass the kind so the prompt frames itself correctly:
+    // "# Blog Article Brief" / "# Landing Page Brief" / "# Blog Refresh
+    // Brief" / "# Landing Page Refresh Brief" / "# SEO Ops Task".
+    const kind = taskKindLabel(task);
+    const prompt = briefToMarkdownPrompt(
+      draft,
+      "We360.ai",
+      "we360.ai",
+      task.data_backing,
+      { action: kind.action, surface: kind.surface },
+      task.assignee?.name ?? null,
+    );
     try {
       await navigator.clipboard.writeText(prompt);
-      toast.success("Full brief + 5-pillar prompt copied — paste into any LLM");
+      toast.success(`${kind.label} brief copied — paste into any LLM`);
     } catch {
       toast.error("Couldn't copy");
     }
