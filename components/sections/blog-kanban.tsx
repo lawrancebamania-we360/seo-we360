@@ -83,7 +83,10 @@ export function BlogKanban({
   const onDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
   const onDragEnd = async (e: DragEndEvent) => {
     setActiveId(null);
-    if (!e.over || !canEdit) return;
+    // Anyone with a session can drag tasks across columns — moving status is
+    // part of doing the work. (Reassigning + delete are still admin-only,
+    // gated on the buttons inside the dialog.)
+    if (!e.over) return;
     const taskId = String(e.active.id);
     const overId = String(e.over.id);
     const toColumn =
@@ -122,7 +125,7 @@ export function BlogKanban({
   return (
     <>
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 flex-1">
           {COLUMNS.map((col) => (
             <BlogColumn
               key={col.id}
@@ -174,7 +177,9 @@ function BlogColumn({
   members: Pick<Profile, "id" | "name" | "avatar_url">[];
   onLocalUpdate: (taskId: string, patch: Partial<TaskWithAssignee>) => void;
 }) {
-  const { setNodeRef, isOver } = useSortable({ id: column.id, disabled: !canEdit });
+  // Drag-drop enabled for everyone — moving a card across columns is just
+  // a status change, which all members can do.
+  const { setNodeRef, isOver } = useSortable({ id: column.id });
   const Icon = column.icon;
 
   return (
@@ -219,7 +224,9 @@ function SortableBlogCard({
   onLocalUpdate: (taskId: string, patch: Partial<TaskWithAssignee>) => void;
 }) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
-    id: task.id, disabled: !canEdit,
+    id: task.id,
+    // No disabled — drag-and-drop is open to everyone (status change only;
+    // reassign/delete remain admin-only via dialog buttons).
   });
   const style = {
     transform: CSS.Transform.toString(transform),

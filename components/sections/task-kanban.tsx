@@ -74,7 +74,9 @@ export function TaskKanban({
 
   const onDragEnd = async (e: DragEndEvent) => {
     setActiveId(null);
-    if (!e.over || !canEdit) return;
+    // Drag-drop is open to all signed-in users (status change is part of
+    // doing the work). Sensitive actions stay gated elsewhere.
+    if (!e.over) return;
     const taskId = String(e.active.id);
     const overId = String(e.over.id);
     // Target status is either the column id or derived from the task we dropped onto
@@ -171,7 +173,7 @@ function KanbanColumn({
   members: Pick<Profile, "id" | "name" | "avatar_url">[];
   onLocalUpdate: (taskId: string, patch: Partial<TaskWithAssignee>) => void;
 }) {
-  const { setNodeRef, isOver } = useSortable({ id: column.id, disabled: !canEdit });
+  const { setNodeRef, isOver } = useSortable({ id: column.id });
   const toneClass =
     column.id === "todo" ? "border-sky-200 dark:border-sky-900"
     : column.id === "in_progress" ? "border-amber-200 dark:border-amber-900"
@@ -223,9 +225,9 @@ function SortableCard({
   members: Pick<Profile, "id" | "name" | "avatar_url">[];
   onLocalUpdate: (taskId: string, patch: Partial<TaskWithAssignee>) => void;
 }) {
+  // Drag enabled for everyone — admin gating is at the buttons level only.
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: task.id,
-    disabled: !canEdit,
   });
   const style = {
     transform: CSS.Transform.toString(transform),

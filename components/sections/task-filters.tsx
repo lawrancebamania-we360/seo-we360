@@ -77,12 +77,23 @@ function FilterFields({ members, state }: { members: HeaderProps["members"]; sta
 
       <Field label="Assigned to">
         <Select value={state.assignee} onValueChange={(v) => v && state.update("assignee", v)}>
-          <SelectTrigger className="w-full h-8"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full h-8">
+            {/* Same Select.Value render-function fix as the Blog Sprint
+                filter — without it, Base UI shows the raw UUID in the
+                collapsed trigger when the SelectItem children is JSX. */}
+            <SelectValue>
+              {(value: string | null) => {
+                if (!value || value === "all") return "Everyone";
+                if (value === "unassigned") return "Unassigned";
+                return members.find((m) => m.id === value)?.name ?? value;
+              }}
+            </SelectValue>
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Everyone</SelectItem>
             <SelectItem value="unassigned">Unassigned</SelectItem>
             {members.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
+              <SelectItem key={m.id} value={m.id} label={m.name}>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
                     {initials(m.name)}
