@@ -55,7 +55,7 @@ export default async function BlogSprintPage({
     <div className="flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-10 space-y-5 max-w-[1600px] w-full mx-auto">
       <PageHeader
         title="Blog Sprint"
-        description="Weekly topics from Apify — drag between Idea / In progress / Published."
+        description="Weekly topics — drag between Idea / In progress / Done / Published."
         actions={
           <div className="flex items-center gap-2">
             {canManage && (

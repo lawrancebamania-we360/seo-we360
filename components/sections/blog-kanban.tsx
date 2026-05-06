@@ -10,7 +10,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import {
-  Pin, Flame, CircleDot, Zap, CalendarDays, Clock, Sparkles,
+  Pin, Flame, CircleDot, Zap, CalendarDays, Clock, Sparkles, CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -28,15 +28,21 @@ import { differenceInDays, format, startOfDay } from "date-fns";
 
 type Column = { id: TaskStatus; label: string; accent: string; icon: typeof Pin };
 
+// Four-column workflow: Idea → In progress → Done (writing complete, ready
+// for QA / publish prep) → Published (live with URL). The schema already has
+// `review` status reserved for that "Done but not yet live" middle step;
+// we surface it as its own column instead of folding it into In progress.
 const COLUMNS: Column[] = [
-  { id: "todo", label: "Idea", accent: "border-violet-300 dark:border-violet-900", icon: CircleDot },
-  { id: "in_progress", label: "In progress", accent: "border-amber-300 dark:border-amber-900", icon: Zap },
-  { id: "done", label: "Published", accent: "border-emerald-300 dark:border-emerald-900", icon: Sparkles },
+  { id: "todo",        label: "Idea",        accent: "border-[#7B62FF]/40 dark:border-[#7B62FF]/40",   icon: CircleDot },
+  { id: "in_progress", label: "In progress", accent: "border-[#FEB800]/40 dark:border-[#FEB800]/40",   icon: Zap },
+  { id: "review",      label: "Done",        accent: "border-sky-300 dark:border-sky-900",             icon: CheckCircle2 },
+  { id: "done",        label: "Published",   accent: "border-emerald-300 dark:border-emerald-900",     icon: Sparkles },
 ];
 
 function bucketFor(task: TaskWithAssignee): TaskStatus {
   if (task.done || task.status === "done") return "done";
-  if (task.status === "in_progress" || task.status === "review") return "in_progress";
+  if (task.status === "review") return "review";
+  if (task.status === "in_progress") return "in_progress";
   return "todo";
 }
 
