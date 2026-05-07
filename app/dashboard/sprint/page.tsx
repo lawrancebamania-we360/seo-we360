@@ -6,6 +6,7 @@ import { BlogFiltersHeader, BlogFiltersSidebar } from "@/components/sections/blo
 import { BlogKanban } from "@/components/sections/blog-kanban";
 import { TaskSearch } from "@/components/sections/task-search";
 import { TopicClusterButton } from "@/components/sections/topic-cluster-button";
+import { BulkUploadTasksButton } from "@/components/sections/bulk-upload-tasks-button";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles } from "lucide-react";
 import type { Competition, Intent, Priority } from "@/lib/types/database";
@@ -59,10 +60,13 @@ export default async function BlogSprintPage({
         actions={
           <div className="flex items-center gap-2">
             {canManage && (
-              <TopicClusterButton
-                projectId={ctx.activeProject.id}
-                projectName={ctx.activeProject.name}
-              />
+              <>
+                <BulkUploadTasksButton projectId={ctx.activeProject.id} />
+                <TopicClusterButton
+                  projectId={ctx.activeProject.id}
+                  projectName={ctx.activeProject.name}
+                />
+              </>
             )}
             <Badge variant="secondary" className="gap-1.5">
               <Sparkles className="size-3" />
