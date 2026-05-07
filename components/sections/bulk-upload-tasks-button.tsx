@@ -41,6 +41,7 @@ interface QueuedTask extends BulkBlogTaskRow {
 const FORMAT_OPTIONS = [
   { value: "new-blog",         label: "New Blog" },
   { value: "update-blog",      label: "Update Blog" },
+  { value: "medium-blog",      label: "Medium Blog" },
   { value: "vs-page",          label: "VS Page" },
   { value: "alternative-page", label: "Alternative Page" },
   { value: "integration-page", label: "Integration Page" },
@@ -114,13 +115,21 @@ export function BulkUploadTasksButton({ projectId, members }: Props) {
       try {
         // Strip _localId before sending — server doesn't need it.
         const rows = queued.map(({ _localId: _id, ...row }) => row);
+        // eslint-disable-next-line no-console
+        console.log("[bulk-upload] sending rows:", rows);
         const { inserted } = await bulkCreateBlogTasks(projectId, rows);
         toast.success(`${inserted} task${inserted === 1 ? "" : "s"} added to Blog Sprint`);
         setQueued([]);
         resetForm();
         setOpen(false);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Bulk upload failed");
+        // eslint-disable-next-line no-console
+        console.error("[bulk-upload] failed:", e);
+        toast.error(
+          e instanceof Error
+            ? `Upload failed: ${e.message}`
+            : "Upload failed — check the browser console for details",
+        );
       }
     });
   };

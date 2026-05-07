@@ -210,7 +210,13 @@ export async function bulkCreateBlogTasks(projectId: string, rows: BulkBlogTaskR
   }
 
   const { error } = await supabase.from("tasks").insert(insertRows);
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Surface the full Postgres error so the toast tells the user exactly
+    // what failed (RLS / FK / check / unique). Otherwise users see "Upload
+    // failed" with no context.
+    console.error("[bulkCreateBlogTasks] insert failed", { error, sampleRow: insertRows[0] });
+    throw new Error(`Insert failed: ${error.message}${error.code ? ` (code ${error.code})` : ""}`);
+  }
 
   revalidatePath("/dashboard/sprint");
   revalidatePath("/dashboard/tasks");
