@@ -140,6 +140,8 @@ Update existing blog: "remote work guide",remote work guide,update-blog,high,202
 We360 vs Hubstaff,we360 vs hubstaff,vs-page,critical,2026-05-19,rahul.deswal@we360.ai
 We360 Slack Integration,we360 slack integration,integration-page,medium,,ishika.takhtani@we360.ai`;
 
+  const placeholderHint = `title,h1_keyword,format,priority,date,assignee\n…paste your rows here, or click "Use example" below`;
+
   return (
     <>
       <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setOpen(true)}>
@@ -159,13 +161,22 @@ We360 Slack Integration,we360 slack integration,integration-page,medium,,ishika.
           </DialogHeader>
 
           <div className="space-y-3">
-            <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-              Paste your rows (header on first line, comma- or tab-separated)
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+                Paste your rows (header on first line, comma- or tab-separated)
+              </div>
+              <button
+                type="button"
+                onClick={() => setText(sample)}
+                className="text-[10px] uppercase tracking-wider font-semibold text-[#5B45E0] hover:text-[#7B62FF] dark:text-[#7B62FF] dark:hover:text-[#5B45E0]"
+              >
+                Use example →
+              </button>
             </div>
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={sample}
+              placeholder={placeholderHint}
               className="font-mono text-xs h-48"
               spellCheck={false}
             />
