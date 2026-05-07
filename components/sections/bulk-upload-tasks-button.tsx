@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { Upload, Loader2, AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Upload, Loader2, Plus, Trash2, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,136 +12,112 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { bulkCreateBlogTasks, type BulkBlogTaskRow } from "@/lib/actions/tasks";
+import { initials } from "@/lib/ui-helpers";
+import type { Profile } from "@/lib/types/database";
 
 interface Props {
   projectId: string;
+  members: Pick<Profile, "id" | "name" | "email" | "avatar_url">[];
 }
 
-// Lightweight CSV/TSV parser — handles both comma-separated (paste from
-// Notion/Google Sheets export) and tab-separated (paste straight from Excel).
-// Auto-detects by counting tabs vs commas in the first non-empty line.
-// Honors quoted fields with internal commas.
-function parseRows(text: string): { headers: string[]; rows: string[][] } {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trimEnd())
-    .filter((l) => l.trim().length > 0);
-  if (!lines.length) return { headers: [], rows: [] };
+// Form mirrors the kanban card structure — title + H1 are required, every
+// other field is optional. Users add tasks one at a time to a queue, then
+// upload them all in one shot.
+interface QueuedTask extends BulkBlogTaskRow {
+  _localId: number;
+}
 
-  const tabCount = (lines[0].match(/\t/g) ?? []).length;
-  const commaCount = (lines[0].match(/,/g) ?? []).length;
-  const sep = tabCount > commaCount ? "\t" : ",";
+const FORMAT_OPTIONS = [
+  { value: "new-blog",         label: "New Blog" },
+  { value: "update-blog",      label: "Update Blog" },
+  { value: "vs-page",          label: "VS Page" },
+  { value: "alternative-page", label: "Alternative Page" },
+  { value: "integration-page", label: "Integration Page" },
+  { value: "solution-page",    label: "Solution Page" },
+  { value: "industry-page",    label: "Industry Page" },
+  { value: "india-page",       label: "India Page" },
+  { value: "pillar-blog",      label: "Pillar Blog" },
+  { value: "cluster-blog",     label: "Cluster Blog" },
+  { value: "listicle",         label: "Listicle" },
+  { value: "how-to-blog",      label: "How-to Blog" },
+];
 
-  const splitLine = (line: string): string[] => {
-    if (sep === "\t") return line.split("\t");
-    // CSV with quoted-field support
-    const out: string[] = [];
-    let cur = "";
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') {
-        if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
-        else inQuotes = !inQuotes;
-      } else if (c === "," && !inQuotes) { out.push(cur); cur = ""; }
-      else cur += c;
-    }
-    out.push(cur);
-    return out.map((s) => s.trim());
+const NONE = "__none";   // sentinel for unselected — Base UI Select rejects empty strings
+
+export function BulkUploadTasksButton({ projectId, members }: Props) {
+  const [open, setOpen] = useState(false);
+  const [queued, setQueued] = useState<QueuedTask[]>([]);
+  const [pending, start] = useTransition();
+  const [seq, setSeq] = useState(1);
+
+  // Current form draft
+  const [title, setTitle] = useState("");
+  const [h1, setH1] = useState("");
+  const [format, setFormat] = useState<string>(NONE);
+  const [priority, setPriority] = useState<string>(NONE);
+  const [dueDate, setDueDate] = useState("");
+  const [assignee, setAssignee] = useState<string>(NONE);
+
+  const resetForm = () => {
+    setTitle(""); setH1(""); setFormat(NONE); setPriority(NONE); setDueDate(""); setAssignee(NONE);
   };
 
-  const headers = splitLine(lines[0]).map((h) => h.toLowerCase().trim());
-  const rows = lines.slice(1).map(splitLine);
-  return { headers, rows };
-}
-
-// Map a header name to our known field. Lenient — accepts common variants.
-function mapHeader(h: string): keyof BulkBlogTaskRow | null {
-  const n = h.toLowerCase().replace(/[\s_-]/g, "");
-  if (["title", "task", "taskname", "name"].includes(n)) return "title";
-  if (["h1", "h1keyword", "targetkeyword", "keyword", "primarykeyword"].includes(n)) return "target_keyword";
-  if (["format", "type", "tasktype"].includes(n)) return "format";
-  if (["priority"].includes(n)) return "priority";
-  if (["date", "scheduleddate", "due", "duedate"].includes(n)) return "scheduled_date";
-  if (["assignee", "assigneeemail", "owner", "email"].includes(n)) return "assignee_email";
-  if (["wordcount", "words", "wordcounttarget"].includes(n)) return "word_count_target";
-  if (["intent", "searchintent"].includes(n)) return "intent";
-  if (["url", "slug", "page"].includes(n)) return "url";
-  return null;
-}
-
-export function BulkUploadTasksButton({ projectId }: Props) {
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState("");
-  const [pending, start] = useTransition();
-
-  const sample = `title,h1_keyword,format,priority,date,assignee
-Update existing blog: remote work guide,remote work guide,update-blog,high,2026-05-12,lokesh.kumar@we360.ai
-We360 vs Hubstaff,we360 vs hubstaff,vs-page,critical,2026-05-19,rahul.deswal@we360.ai
-We360 Slack Integration,we360 slack integration,integration-page,medium,,ishika.takhtani@we360.ai`;
-
-  // Pre-fill the textarea with a working sample the moment the dialog opens.
-  // Two reasons: (1) the previous "click 'Use example' link" was easy to miss
-  // — users hit Upload on an empty textarea and got nothing; (2) this gives
-  // immediate live documentation of the expected format. Users select-all + paste
-  // their own rows over the sample as the first action.
-  useEffect(() => {
-    if (open && text.trim().length === 0) setText(sample);
-  }, [open, text, sample]);
-
-  const { parsedRows, errors } = useMemo(() => {
-    if (!text.trim()) return { parsedRows: [] as BulkBlogTaskRow[], errors: [] as string[] };
-    const { headers, rows } = parseRows(text);
-    const headerMap = headers.map(mapHeader);
-    const titleIdx = headerMap.indexOf("title");
-    const kwIdx = headerMap.indexOf("target_keyword");
-    const errs: string[] = [];
-    if (titleIdx < 0) errs.push("Missing required column: title (or task / name)");
-    if (kwIdx < 0) errs.push("Missing required column: h1_keyword (or h1 / target_keyword / keyword)");
-    if (errs.length) return { parsedRows: [], errors: errs };
-
-    const out: BulkBlogTaskRow[] = [];
-    for (let i = 0; i < rows.length; i++) {
-      const cells = rows[i];
-      const row: BulkBlogTaskRow = { title: "", target_keyword: "" };
-      for (let c = 0; c < headerMap.length; c++) {
-        const field = headerMap[c];
-        const val = (cells[c] ?? "").trim();
-        if (!field || !val) continue;
-        if (field === "word_count_target") row[field] = Number(val) || null;
-        else if (field === "priority") {
-          const v = val.toLowerCase();
-          row[field] = (["critical", "high", "medium", "low"].includes(v) ? v : "medium") as BulkBlogTaskRow["priority"];
-        } else if (field === "intent") {
-          const v = val.toLowerCase();
-          row[field] = (["informational", "commercial", "transactional", "navigational"].includes(v) ? v : "commercial") as BulkBlogTaskRow["intent"];
-        } else {
-          // String fields — TS can't narrow the union, so cast through unknown.
-          (row as unknown as Record<string, unknown>)[field] = val;
-        }
-      }
-      if (!row.title || !row.target_keyword) {
-        errs.push(`Row ${i + 2}: missing title or h1_keyword — skipped`);
-        continue;
-      }
-      out.push(row);
+  const onOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      setTimeout(() => { setQueued([]); resetForm(); }, 200);
     }
-    return { parsedRows: out, errors: errs };
-  }, [text]);
+  };
+
+  const addToQueue = () => {
+    if (!title.trim() || !h1.trim()) {
+      toast.error("Task title and H1 keyword are required");
+      return;
+    }
+    const assigneeMember = assignee !== NONE ? members.find((m) => m.id === assignee) : null;
+    const item: QueuedTask = {
+      _localId: seq,
+      title: title.trim(),
+      target_keyword: h1.trim(),
+      format: format !== NONE ? format : null,
+      priority: priority !== NONE ? priority as BulkBlogTaskRow["priority"] : null,
+      scheduled_date: dueDate || null,
+      assignee_email: assigneeMember?.email ?? null,
+    };
+    setQueued((q) => [...q, item]);
+    setSeq((n) => n + 1);
+    resetForm();
+    toast.success("Task added to queue");
+  };
+
+  const removeFromQueue = (id: number) => {
+    setQueued((q) => q.filter((t) => t._localId !== id));
+  };
 
   const submit = () => {
-    if (!parsedRows.length) {
-      toast.error("Add at least one row with a title and h1_keyword");
+    if (!queued.length) {
+      toast.error("Add at least one task to the queue first");
       return;
     }
     start(async () => {
       try {
-        const { inserted } = await bulkCreateBlogTasks(projectId, parsedRows);
+        // Strip _localId before sending — server doesn't need it.
+        const rows = queued.map(({ _localId: _id, ...row }) => row);
+        const { inserted } = await bulkCreateBlogTasks(projectId, rows);
         toast.success(`${inserted} task${inserted === 1 ? "" : "s"} added to Blog Sprint`);
-        setText("");
+        setQueued([]);
+        resetForm();
         setOpen(false);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Bulk upload failed");
@@ -149,7 +125,7 @@ We360 Slack Integration,we360 slack integration,integration-page,medium,,ishika.
     });
   };
 
-  const placeholderHint = `title,h1_keyword,format,priority,date,assignee\n…paste your rows here`;
+  const canAdd = title.trim().length > 0 && h1.trim().length > 0;
 
   return (
     <>
@@ -157,81 +133,194 @@ We360 Slack Integration,we360 slack integration,integration-page,medium,,ishika.
         <Upload className="size-3.5" />
         Upload tasks
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl">
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Upload tasks to Blog Sprint</DialogTitle>
             <DialogDescription>
-              Paste rows from Excel / Google Sheets / CSV. Required columns: <code>title</code> and{" "}
-              <code>h1_keyword</code>. Optional: <code>format</code>, <code>priority</code>,{" "}
-              <code>date</code>, <code>assignee</code> (email), <code>word_count</code>,{" "}
-              <code>intent</code>, <code>url</code>.
+              Add tasks one at a time. Only <strong>title</strong> and <strong>H1 keyword</strong> are required —
+              format, priority, due date, and assignee are optional and can be set later on each card.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-                Edit the rows (header on line 1, comma- or tab-separated)
-              </div>
-              <button
-                type="button"
-                onClick={() => setText(sample)}
-                className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold text-[#5B45E0] hover:text-[#7B62FF] dark:text-[#7B62FF] dark:hover:text-[#5B45E0]"
-              >
-                <RotateCcw className="size-3" />
-                Reset to example
-              </button>
+          {/* Form — one task at a time */}
+          <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+            <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+              New task
             </div>
-            <Textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={placeholderHint}
-              className="font-mono text-xs h-48"
-              spellCheck={false}
-            />
 
-            {errors.length > 0 && (
-              <div className="rounded-md border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900 p-3 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 text-xs font-semibold">
-                  <AlertTriangle className="size-3.5" />
-                  {errors.length} issue{errors.length === 1 ? "" : "s"} found
-                </div>
-                <ul className="text-xs text-rose-700 dark:text-rose-400 space-y-0.5">
-                  {errors.slice(0, 5).map((e, i) => <li key={i}>• {e}</li>)}
-                  {errors.length > 5 && <li>• …and {errors.length - 5} more</li>}
-                </ul>
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">
+                Task title <span className="text-rose-600">*</span>
+              </Label>
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder='e.g. Update existing blog: "remote work guide"'
+                onKeyDown={(e) => { if (e.key === "Enter" && canAdd) addToQueue(); }}
+              />
+            </div>
 
-            {parsedRows.length > 0 && (
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900 p-3 space-y-2">
-                <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
-                  <CheckCircle2 className="size-3.5" />
-                  {parsedRows.length} task{parsedRows.length === 1 ? "" : "s"} ready to upload
-                </div>
-                <div className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 space-y-0.5 max-h-36 overflow-y-auto">
-                  {parsedRows.slice(0, 8).map((r, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px]">{i + 1}</Badge>
-                      <span className="truncate font-medium">{r.title}</span>
-                      <span className="text-emerald-700/60 dark:text-emerald-400/60">→ {r.target_keyword}</span>
-                    </div>
-                  ))}
-                  {parsedRows.length > 8 && <div>…and {parsedRows.length - 8} more</div>}
-                </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">
+                H1 keyword <span className="text-rose-600">*</span>
+              </Label>
+              <Input
+                value={h1}
+                onChange={(e) => setH1(e.target.value)}
+                placeholder="e.g. remote work guide"
+                onKeyDown={(e) => { if (e.key === "Enter" && canAdd) addToQueue(); }}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Format</Label>
+                <Select value={format} onValueChange={(v) => v && setFormat(v)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue>
+                      {(value: string | null) =>
+                        !value || value === NONE
+                          ? <span className="text-muted-foreground">(optional)</span>
+                          : FORMAT_OPTIONS.find((o) => o.value === value)?.label ?? value
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>(optional)</SelectItem>
+                    {FORMAT_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value} label={o.label}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Priority</Label>
+                <Select value={priority} onValueChange={(v) => v && setPriority(v)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue>
+                      {(value: string | null) =>
+                        !value || value === NONE
+                          ? <span className="text-muted-foreground">(optional)</span>
+                          : value.charAt(0).toUpperCase() + value.slice(1)
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>(optional)</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold flex items-center gap-1">
+                  <Calendar className="size-3" />
+                  Due date
+                </Label>
+                <Input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Assign to</Label>
+                <Select value={assignee} onValueChange={(v) => v && setAssignee(v)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue>
+                      {(value: string | null) => {
+                        if (!value || value === NONE) return <span className="text-muted-foreground">(optional)</span>;
+                        return members.find((m) => m.id === value)?.name ?? value;
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>(optional)</SelectItem>
+                    {members.map((m) => (
+                      <SelectItem key={m.id} value={m.id} label={m.name}>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
+                            {initials(m.name)}
+                          </span>
+                          {m.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full gap-1.5"
+              onClick={addToQueue}
+              disabled={!canAdd}
+            >
+              <Plus className="size-3.5" />
+              Add to queue
+            </Button>
           </div>
 
+          {/* Queue — list of tasks staged for upload */}
+          {queued.length > 0 && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900 p-3 space-y-2">
+              <div className="text-[10px] uppercase tracking-wider font-semibold text-emerald-700 dark:text-emerald-400">
+                {queued.length} task{queued.length === 1 ? "" : "s"} ready to upload
+              </div>
+              <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                {queued.map((t, i) => (
+                  <div
+                    key={t._localId}
+                    className="flex items-center gap-2 rounded-md bg-background border border-border p-2 text-xs"
+                  >
+                    <Badge variant="outline" className="text-[10px]">{i + 1}</Badge>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{t.title}</div>
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
+                        <span>→ {t.target_keyword}</span>
+                        {t.format && <Badge variant="secondary" className="text-[9px]">{t.format}</Badge>}
+                        {t.priority && <Badge variant="secondary" className="text-[9px]">{t.priority}</Badge>}
+                        {t.scheduled_date && <span>· due {t.scheduled_date}</span>}
+                        {t.assignee_email && (
+                          <span>· {members.find((m) => m.email === t.assignee_email)?.name ?? t.assignee_email}</span>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => removeFromQueue(t._localId)}
+                      className="hover:text-rose-600"
+                      aria-label="Remove from queue"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
               Cancel
             </Button>
-            <Button variant="brand" onClick={submit} disabled={pending || !parsedRows.length}>
+            <Button variant="brand" onClick={submit} disabled={pending || !queued.length}>
               {pending && <Loader2 className="size-3.5 animate-spin" />}
               <Upload className="size-3.5" />
-              Upload {parsedRows.length || ""} task{parsedRows.length === 1 ? "" : "s"}
+              Upload {queued.length || ""} task{queued.length === 1 ? "" : "s"}
             </Button>
           </DialogFooter>
         </DialogContent>

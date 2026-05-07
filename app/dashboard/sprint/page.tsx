@@ -61,7 +61,7 @@ export default async function BlogSprintPage({
           <div className="flex items-center gap-2">
             {canManage && (
               <>
-                <BulkUploadTasksButton projectId={ctx.activeProject.id} />
+                <BulkUploadTasksButton projectId={ctx.activeProject.id} members={members} />
                 <TopicClusterButton
                   projectId={ctx.activeProject.id}
                   projectName={ctx.activeProject.name}
