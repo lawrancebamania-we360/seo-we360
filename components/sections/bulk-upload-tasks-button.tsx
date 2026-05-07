@@ -143,7 +143,7 @@ export function BulkUploadTasksButton({ projectId, members }: Props) {
         Upload tasks
       </Button>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Upload tasks to Blog Sprint</DialogTitle>
             <DialogDescription>
@@ -292,13 +292,16 @@ export function BulkUploadTasksButton({ projectId, members }: Props) {
                 {queued.map((t, i) => (
                   <div
                     key={t._localId}
-                    className="flex items-center gap-2 rounded-md bg-background border border-border p-2 text-xs"
+                    className="flex items-start gap-2 rounded-md bg-background border border-border p-2 text-xs"
                   >
-                    <Badge variant="outline" className="text-[10px]">{i + 1}</Badge>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{t.title}</div>
+                    <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5">{i + 1}</Badge>
+                    {/* min-w-0 + break-words lets long titles wrap to 2 lines
+                        instead of pushing the parent flex container wider than
+                        the dialog. */}
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="font-medium line-clamp-2 break-words">{t.title}</div>
                       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
-                        <span>→ {t.target_keyword}</span>
+                        <span className="break-words">→ {t.target_keyword}</span>
                         {t.format && <Badge variant="secondary" className="text-[9px]">{t.format}</Badge>}
                         {t.priority && <Badge variant="secondary" className="text-[9px]">{t.priority}</Badge>}
                         {t.scheduled_date && <span>· due {t.scheduled_date}</span>}
@@ -311,7 +314,7 @@ export function BulkUploadTasksButton({ projectId, members }: Props) {
                       size="icon-sm"
                       variant="ghost"
                       onClick={() => removeFromQueue(t._localId)}
-                      className="hover:text-rose-600"
+                      className="hover:text-rose-600 shrink-0"
                       aria-label="Remove from queue"
                     >
                       <Trash2 className="size-3.5" />
