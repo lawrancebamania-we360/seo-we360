@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Upload, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { Upload, Loader2, AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,6 +78,20 @@ export function BulkUploadTasksButton({ projectId }: Props) {
   const [text, setText] = useState("");
   const [pending, start] = useTransition();
 
+  const sample = `title,h1_keyword,format,priority,date,assignee
+Update existing blog: remote work guide,remote work guide,update-blog,high,2026-05-12,lokesh.kumar@we360.ai
+We360 vs Hubstaff,we360 vs hubstaff,vs-page,critical,2026-05-19,rahul.deswal@we360.ai
+We360 Slack Integration,we360 slack integration,integration-page,medium,,ishika.takhtani@we360.ai`;
+
+  // Pre-fill the textarea with a working sample the moment the dialog opens.
+  // Two reasons: (1) the previous "click 'Use example' link" was easy to miss
+  // — users hit Upload on an empty textarea and got nothing; (2) this gives
+  // immediate live documentation of the expected format. Users select-all + paste
+  // their own rows over the sample as the first action.
+  useEffect(() => {
+    if (open && text.trim().length === 0) setText(sample);
+  }, [open, text, sample]);
+
   const { parsedRows, errors } = useMemo(() => {
     if (!text.trim()) return { parsedRows: [] as BulkBlogTaskRow[], errors: [] as string[] };
     const { headers, rows } = parseRows(text);
@@ -135,12 +149,7 @@ export function BulkUploadTasksButton({ projectId }: Props) {
     });
   };
 
-  const sample = `title,h1_keyword,format,priority,date,assignee
-Update existing blog: "remote work guide",remote work guide,update-blog,high,2026-05-12,lokesh.kumar@we360.ai
-We360 vs Hubstaff,we360 vs hubstaff,vs-page,critical,2026-05-19,rahul.deswal@we360.ai
-We360 Slack Integration,we360 slack integration,integration-page,medium,,ishika.takhtani@we360.ai`;
-
-  const placeholderHint = `title,h1_keyword,format,priority,date,assignee\n…paste your rows here, or click "Use example" below`;
+  const placeholderHint = `title,h1_keyword,format,priority,date,assignee\n…paste your rows here`;
 
   return (
     <>
@@ -163,14 +172,15 @@ We360 Slack Integration,we360 slack integration,integration-page,medium,,ishika.
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-                Paste your rows (header on first line, comma- or tab-separated)
+                Edit the rows (header on line 1, comma- or tab-separated)
               </div>
               <button
                 type="button"
                 onClick={() => setText(sample)}
-                className="text-[10px] uppercase tracking-wider font-semibold text-[#5B45E0] hover:text-[#7B62FF] dark:text-[#7B62FF] dark:hover:text-[#5B45E0]"
+                className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold text-[#5B45E0] hover:text-[#7B62FF] dark:text-[#7B62FF] dark:hover:text-[#5B45E0]"
               >
-                Use example →
+                <RotateCcw className="size-3" />
+                Reset to example
               </button>
             </div>
             <Textarea
