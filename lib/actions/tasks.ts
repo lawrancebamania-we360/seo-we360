@@ -67,8 +67,38 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus) {
     patch.done = false;
     patch.completed_at = null;
   }
+
+  // AI verification — moving the task BACK from Done/Published clears the
+  // verification chip so writers can iterate on the doc without showing a
+  // stale verdict. (The history rows in task_verifications stay around;
+  // only the denormalized fields on the task get cleared.)
+  if (status !== "review" && status !== "done") {
+    patch.ai_verification_status = null;
+    patch.ai_verification_summary = null;
+    patch.ai_score = null;
+    patch.ai_score_delta = null;
+    patch.ai_verified_at = null;
+  }
+
   const { error } = await supabase.from("tasks").update(patch).eq("id", taskId);
   if (error) throw error;
+
+  // AI verification queue: enqueue when the task lands in "Done" (review) or
+  // "Published" (done). The DB function handles all the work — finding the
+  // Google Doc URL in supporting_links, looking up prev score, mirroring
+  // status onto the task row, etc.
+  if (status === "review" || status === "done") {
+    const { error: queueErr } = await supabase.rpc("enqueue_task_verification", {
+      p_task_id: taskId,
+      p_trigger_status: status,
+    });
+    if (queueErr) {
+      // Don't block the status change on queue failure — log and continue.
+      // eslint-disable-next-line no-console
+      console.error("[updateTaskStatus] enqueue_task_verification failed", { taskId, queueErr });
+    }
+  }
+
   revalidatePath("/dashboard/tasks");
   revalidatePath("/dashboard/sprint");
   revalidatePath("/dashboard/overview");
@@ -123,6 +153,57 @@ export async function deleteTask(taskId: string) {
   const { error } = await supabase.from("tasks").delete().eq("id", taskId);
   if (error) throw error;
   revalidatePath("/dashboard/tasks");
+}
+
+// ----------------------------------------------------------- AI verification
+//
+// Admin-only "Re-verify" button. Inserts a fresh queued row so the worker
+// picks it up on the next 10am IST run. The DB helper handles
+// trigger_status detection from the current task status.
+export async function requeueTaskVerification(taskId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const myRole = (me as { role?: string } | null)?.role;
+  if (!myRole || (myRole !== "super_admin" && myRole !== "admin")) {
+    throw new Error("Only admins can re-trigger verification");
+  }
+
+  const { data: task } = await supabase
+    .from("tasks")
+    .select("status")
+    .eq("id", taskId)
+    .single();
+  const taskStatus = (task as { status?: string } | null)?.status;
+  if (taskStatus !== "review" && taskStatus !== "done") {
+    throw new Error("Task must be in Done or Published to re-verify");
+  }
+
+  const { error } = await supabase.rpc("enqueue_task_verification", {
+    p_task_id: taskId,
+    p_trigger_status: taskStatus,
+  });
+  if (error) throw new Error(`Failed to requeue: ${error.message}`);
+
+  revalidatePath("/dashboard/sprint");
+  revalidatePath("/dashboard/tasks");
+  return { ok: true };
+}
+
+// Fetch the latest verification (with all step results) for a task. Used by
+// the side panel to render issues + score breakdown.
+export async function getLatestVerification(taskId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("task_verifications")
+    .select("*")
+    .eq("task_id", taskId)
+    .order("queued_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 // ----------------------------------------------------------------- Bulk upload

@@ -141,6 +141,21 @@ export interface Task {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // AI verification — populated by the verify-pending-articles skill once
+  // a task is moved to Done or Published. The latest result is denormalized
+  // here for fast UI reads; full history lives in task_verifications.
+  ai_verification_status:
+    | "queued"
+    | "running"
+    | "verified"
+    | "failed"
+    | "doc_missing"
+    | null;
+  ai_verified_at: string | null;
+  ai_score: number | null;
+  ai_score_delta: number | null;
+  ai_verification_summary: string | null;
+  ai_verification_id: string | null;
 }
 
 export type IntegrationProvider =

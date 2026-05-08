@@ -25,6 +25,7 @@ import { ByokDialog } from "@/components/sections/byok-dialog";
 import { AssigneePicker } from "@/components/sections/assignee-picker";
 import { BlogImageUploader } from "@/components/sections/blog-image-uploader";
 import { SupportingLinksEditor } from "@/components/sections/supporting-links-editor";
+import { AiVerificationPanel } from "@/components/sections/ai-verification-panel";
 import { createArticle } from "@/lib/actions/articles";
 import { briefToMarkdownPrompt, type BlogBrief } from "@/lib/seo-skills/blog-brief";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
@@ -541,6 +542,23 @@ function BlogTaskContent({
           onChange={() => { /* persisted via server action */ }}
         />
       </Field>
+
+      {/* AI verification — surfaces only after the task has moved to Done
+          or Published (and a verification row exists). Sits right under
+          Supporting links because that's where writers paste the Google
+          Doc URL the AI will check. */}
+      {task.ai_verification_status && (
+        <AiVerificationPanel
+          taskId={task.id}
+          taskStatus={task.status}
+          canEdit={canEdit}
+          liveStatus={task.ai_verification_status}
+          liveScore={task.ai_score}
+          liveDelta={task.ai_score_delta}
+          liveSummary={task.ai_verification_summary}
+          liveVerifiedAt={task.ai_verified_at}
+        />
+      )}
 
       <Field label="Reference images" icon={ImageIcon}>
         {/* Same — writers upload their own reference images. */}

@@ -21,6 +21,7 @@ import { updateTaskStatus } from "@/lib/actions/tasks";
 import { BlogTaskDetailDialog } from "@/components/sections/blog-task-detail-dialog";
 import { AssigneePicker } from "@/components/sections/assignee-picker";
 import { PublishUrlDialog } from "@/components/sections/publish-url-dialog";
+import { AiVerificationBadge, shouldFlagCardRed } from "@/components/sections/ai-verification-badge";
 import { ExternalLink } from "lucide-react";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
 import type { TaskStatus, Profile } from "@/lib/types/database";
@@ -298,15 +299,29 @@ function BlogCard({
         className={cn(
           "p-4 space-y-2.5 cursor-pointer transition-shadow hover:shadow-md",
           task.done && "opacity-75",
-          dragging && "ring-2 ring-primary shadow-lg"
+          dragging && "ring-2 ring-primary shadow-lg",
+          // AI verification — flag the whole card red if the article failed
+          // QA or has no doc link. Glanceable so admins can spot problems
+          // without hovering on every card.
+          shouldFlagCardRed(task.ai_verification_status) &&
+            "ring-2 ring-rose-300/80 dark:ring-rose-700/60 border-rose-200 dark:border-rose-900",
         )}
       >
-        {/* Kind label — front-and-center so writers can scan the column
-            and see at a glance which cards are "Update Blog" vs "New Page"
-            etc. without opening the task. */}
-        <Badge className={cn("border text-[10px] font-semibold uppercase tracking-wider", kind.classes)}>
-          {kind.label}
-        </Badge>
+        {/* Kind label + AI verification chip on a single row so the card
+            stays compact. The chip only renders after a verification has
+            been queued (status is non-null). */}
+        <div className="flex items-start justify-between gap-2 flex-wrap">
+          <Badge className={cn("border text-[10px] font-semibold uppercase tracking-wider", kind.classes)}>
+            {kind.label}
+          </Badge>
+          <AiVerificationBadge
+            status={task.ai_verification_status}
+            score={task.ai_score}
+            delta={task.ai_score_delta}
+            summary={task.ai_verification_summary}
+            verifiedAt={task.ai_verified_at}
+          />
+        </div>
 
         {/* Title */}
         <div className={cn("text-base font-semibold leading-tight line-clamp-2", task.done && "line-through text-muted-foreground")}>
