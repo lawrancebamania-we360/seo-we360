@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldCheck, FileText, BarChart3 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -26,20 +26,15 @@ import {
 } from "@/lib/actions/team";
 import type { Profile, Project, SectionKey } from "@/lib/types/database";
 
-// Section catalog — what shows on each row + which nav route it controls.
-// `seo_gaps` is also used as the gate for /dashboard/blog-audit (the closest
-// existing section). Update later if we add a dedicated blog_audit section.
-const SECTION_ROWS: Array<{ key: SectionKey; label: string; helper?: string }> = [
-  { key: "overview",    label: "Overview" },
-  { key: "tasks",       label: "Web Tasks" },
-  { key: "keywords",    label: "Keywords" },
-  { key: "competitors", label: "Competitors" },
-  { key: "sprint",      label: "Blog Sprint" },
-  { key: "seo_gaps",    label: "Blog audit",  helper: "(also covers SEO gaps)" },
-  { key: "wins",        label: "Wins",        helper: "(admin-only by default)" },
-  { key: "articles",    label: "Articles" },
-  { key: "team",        label: "Team page" },
-];
+// ---------------------------------------------------------------- Access levels
+//
+// We collapse the 5 underlying booleans (view / add / edit / complete / delete)
+// into 4 access levels because admins almost never want to grant a partial
+// combination. The 5-checkbox grid was confusing — most rows ended up either
+// "all off", "view-only", or "everything except delete". A 4-state picker
+// reflects the actual mental model.
+
+type Level = "none" | "view" | "edit" | "full";
 
 interface SectionPerms {
   can_view: boolean;
@@ -49,13 +44,124 @@ interface SectionPerms {
   can_delete: boolean;
 }
 
-const DEFAULT_PERMS: SectionPerms = {
-  can_view: true,
-  can_add: false,
-  can_edit: false,
-  can_complete: false,
-  can_delete: false,
+const LEVEL_TO_PERMS: Record<Level, SectionPerms> = {
+  none: { can_view: false, can_add: false, can_edit: false, can_complete: false, can_delete: false },
+  view: { can_view: true,  can_add: false, can_edit: false, can_complete: false, can_delete: false },
+  edit: { can_view: true,  can_add: true,  can_edit: true,  can_complete: true,  can_delete: false },
+  full: { can_view: true,  can_add: true,  can_edit: true,  can_complete: true,  can_delete: true  },
 };
+
+function permsToLevel(p: SectionPerms): Level {
+  if (p.can_delete) return "full";
+  if (p.can_add || p.can_edit || p.can_complete) return "edit";
+  if (p.can_view) return "view";
+  return "none";
+}
+
+// ---------------------------------------------------------------- Section catalog
+//
+// Sections are grouped so admins can scan related rows together. Group order:
+//   1. Content   — where writers do daily work (most members live here)
+//   2. Strategy  — analyst dashboards (usually view-only for members)
+//   3. Admin     — system surfaces (off for most members)
+
+interface SectionRow {
+  key: SectionKey;
+  label: string;
+  helper?: string;
+}
+
+interface SectionGroup {
+  id: string;
+  label: string;
+  hint: string;
+  icon: typeof FileText;
+  rows: SectionRow[];
+}
+
+const GROUPS: SectionGroup[] = [
+  {
+    id: "content",
+    label: "Content",
+    hint: "What writers and editors interact with day to day.",
+    icon: FileText,
+    rows: [
+      { key: "sprint",   label: "Blog Sprint",  helper: "Kanban for blog and page tasks." },
+      { key: "articles", label: "Articles",     helper: "AI-drafted articles editor." },
+      { key: "seo_gaps", label: "Blog audit",   helper: "GSC + GA4 prune / merge / refresh decisions." },
+    ],
+  },
+  {
+    id: "strategy",
+    label: "Strategy",
+    hint: "Analyst-style dashboards. Most members stay at View.",
+    icon: BarChart3,
+    rows: [
+      { key: "overview",    label: "Overview" },
+      { key: "tasks",       label: "Web Tasks" },
+      { key: "keywords",    label: "Keywords" },
+      { key: "competitors", label: "Competitors" },
+    ],
+  },
+  {
+    id: "admin",
+    label: "Admin",
+    hint: "Off by default for members. Turn on per-row only when needed.",
+    icon: ShieldCheck,
+    rows: [
+      { key: "wins", label: "Wins" },
+      { key: "team", label: "Team page" },
+    ],
+  },
+];
+
+const ALL_SECTION_KEYS = GROUPS.flatMap((g) => g.rows.map((r) => r.key));
+
+// ---------------------------------------------------------------- Presets
+//
+// Common role shapes. "Writer" matches what Lokesh/Rahul/Ishika/Ishaan
+// actually need (work in Sprint, see overview context, nothing else).
+// "Editor" steps that up to a senior writer who can also touch Web Tasks.
+
+interface Preset {
+  id: string;
+  label: string;
+  description: string;
+  apply: () => Record<SectionKey, Level>;
+}
+
+function preset(label: string, description: string, levels: Partial<Record<SectionKey, Level>>): Preset {
+  return {
+    id: label.toLowerCase().replace(/\s+/g, "-"),
+    label,
+    description,
+    apply: () => {
+      const out = {} as Record<SectionKey, Level>;
+      for (const k of ALL_SECTION_KEYS) out[k] = levels[k] ?? "none";
+      return out;
+    },
+  };
+}
+
+const PRESETS: Preset[] = [
+  preset("Writer", "Sprint + Articles editing only.", {
+    sprint: "edit",
+    articles: "edit",
+  }),
+  preset("Editor", "Full Sprint, plus Tasks and Blog audit access.", {
+    sprint: "full",
+    articles: "full",
+    seo_gaps: "edit",
+    tasks: "view",
+    overview: "view",
+  }),
+  preset("View only", "Read every section. Cannot change anything.", {
+    sprint: "view", articles: "view", seo_gaps: "view",
+    overview: "view", tasks: "view", keywords: "view", competitors: "view",
+    wins: "view", team: "view",
+  }),
+  preset("No access", "Revoke everything for this project.", {}),
+];
 
 interface Props {
   member: Profile;
@@ -66,12 +172,11 @@ interface Props {
 
 export function PermissionsDialog({ member, projects, open, onOpenChange }: Props) {
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [perms, setPerms] = useState<Record<string, SectionPerms>>({});
+  const [levels, setLevels] = useState<Record<string, Level>>({});
   const [loading, setLoading] = useState(false);
   const [saving, startSave] = useTransition();
 
-  // Load this member's permissions for the chosen project whenever either
-  // changes (or the dialog opens).
+  // Load existing permissions and map them to levels
   useEffect(() => {
     if (!open || !projectId) return;
     let cancelled = false;
@@ -79,50 +184,51 @@ export function PermissionsDialog({ member, projects, open, onOpenChange }: Prop
     getMemberPermissions(member.id, projectId)
       .then((rows) => {
         if (cancelled) return;
-        const next: Record<string, SectionPerms> = {};
-        for (const row of SECTION_ROWS) {
-          const found = rows.find((r) => r.section === row.key);
-          next[row.key] = found
-            ? {
+        const next: Record<string, Level> = {};
+        for (const k of ALL_SECTION_KEYS) {
+          const found = rows.find((r) => r.section === k);
+          next[k] = found
+            ? permsToLevel({
                 can_view: !!found.can_view,
                 can_add: !!found.can_add,
                 can_edit: !!found.can_edit,
                 can_complete: !!found.can_complete,
                 can_delete: !!found.can_delete,
-              }
-            : { ...DEFAULT_PERMS };
+              })
+            : "none";
         }
-        setPerms(next);
+        setLevels(next);
       })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, [open, projectId, member.id]);
 
-  const togglePerm = (section: string, field: keyof SectionPerms) => {
-    setPerms((prev) => {
-      const cur = prev[section] ?? { ...DEFAULT_PERMS };
-      const next = { ...cur, [field]: !cur[field] };
-      // Disabling can_view should auto-disable everything else (no point
-      // letting a user edit something they can't see).
-      if (field === "can_view" && !next.can_view) {
-        next.can_add = false; next.can_edit = false;
-        next.can_complete = false; next.can_delete = false;
-      }
-      // Enabling any action implies can_view.
-      if (field !== "can_view" && next[field]) next.can_view = true;
-      return { ...prev, [section]: next };
-    });
+  const setOne = (key: SectionKey, level: Level) =>
+    setLevels((prev) => ({ ...prev, [key]: level }));
+
+  const applyPreset = (p: Preset) => {
+    setLevels(p.apply());
+    toast.success(`Applied "${p.label}" preset`);
   };
+
+  const dirtyCount = useMemo(
+    () => Object.values(levels).filter((l) => l !== "none").length,
+    [levels],
+  );
 
   const save = () => {
     if (!projectId) return;
     startSave(async () => {
       try {
+        const section_permissions: Record<string, SectionPerms> = {};
+        for (const k of ALL_SECTION_KEYS) {
+          section_permissions[k] = LEVEL_TO_PERMS[levels[k] ?? "none"];
+        }
         await updateMemberPermissions({
           user_id: member.id,
           project_id: projectId,
-          section_permissions: perms,
+          section_permissions,
         });
         toast.success(`${member.name}'s permissions updated`);
         onOpenChange(false);
@@ -136,18 +242,27 @@ export function PermissionsDialog({ member, projects, open, onOpenChange }: Prop
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto we360-scroll">
         <DialogHeader>
           <DialogTitle>Permissions — {member.name}</DialogTitle>
           <DialogDescription>
-            {memberOnly
-              ? "Toggle which sections this member can see and act on. Admins and super-admins always have full access."
-              : `${member.name} is an ${member.role.replace("_", " ")} — they automatically have full access to every section. These per-section permissions only apply to members and clients.`}
+            {memberOnly ? (
+              <>
+                Pick an access level per section. <strong>View</strong> lets them see the
+                page. <strong>Edit</strong> adds add / modify / complete. <strong>Full</strong> adds delete.
+              </>
+            ) : (
+              <>
+                {member.name} is an {member.role.replace("_", " ")} and has full access to
+                every section automatically. Per-section permissions only apply to members and clients.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
         {memberOnly && (
-          <>
+          <div className="space-y-4">
+            {/* Project picker */}
             <div className="space-y-1.5">
               <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
                 Project
@@ -166,40 +281,59 @@ export function PermissionsDialog({ member, projects, open, onOpenChange }: Prop
               </Select>
             </div>
 
-            <div className="border rounded-md overflow-hidden">
-              <div className="grid grid-cols-[1fr_60px_60px_60px_70px_60px] gap-1 p-2 bg-muted/40 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-                <div>Section</div>
-                <div className="text-center">View</div>
-                <div className="text-center">Add</div>
-                <div className="text-center">Edit</div>
-                <div className="text-center">Complete</div>
-                <div className="text-center">Delete</div>
+            {/* Presets */}
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+                Quick presets
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {PRESETS.map((p) => (
+                  <Button
+                    key={p.id}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => applyPreset(p)}
+                    title={p.description}
+                    className="h-7 text-xs"
+                    disabled={loading}
+                  >
+                    {p.label}
+                  </Button>
+                ))}
               </div>
-              {loading ? (
-                <div className="p-6 flex items-center justify-center text-sm text-muted-foreground gap-2">
-                  <Loader2 className="size-4 animate-spin" /> Loading…
-                </div>
+              <p className="text-[11px] text-muted-foreground">
+                Presets overwrite every row. Use them as a starting point, then adjust per section.
+              </p>
+            </div>
+
+            {/* Section groups */}
+            {loading ? (
+              <div className="p-12 flex items-center justify-center text-sm text-muted-foreground gap-2 border rounded-lg">
+                <Loader2 className="size-4 animate-spin" /> Loading permissions…
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {GROUPS.map((group) => (
+                  <SectionGroupCard
+                    key={group.id}
+                    group={group}
+                    levels={levels}
+                    onChange={setOne}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Summary */}
+            <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              {dirtyCount === 0 ? (
+                <>This member will have <strong className="text-rose-600">no access</strong> to any section in this project.</>
               ) : (
-                SECTION_ROWS.map((row) => {
-                  const cur = perms[row.key] ?? DEFAULT_PERMS;
-                  const cellClass = "flex items-center justify-center";
-                  return (
-                    <div key={row.key} className="grid grid-cols-[1fr_60px_60px_60px_70px_60px] gap-1 items-center px-2 py-2 border-t text-sm">
-                      <div className="space-y-0.5">
-                        <div className="font-medium">{row.label}</div>
-                        {row.helper && <div className="text-[10px] text-muted-foreground">{row.helper}</div>}
-                      </div>
-                      <div className={cellClass}><Checkbox checked={cur.can_view} onCheckedChange={() => togglePerm(row.key, "can_view")} /></div>
-                      <div className={cellClass}><Checkbox checked={cur.can_add} onCheckedChange={() => togglePerm(row.key, "can_add")} /></div>
-                      <div className={cellClass}><Checkbox checked={cur.can_edit} onCheckedChange={() => togglePerm(row.key, "can_edit")} /></div>
-                      <div className={cellClass}><Checkbox checked={cur.can_complete} onCheckedChange={() => togglePerm(row.key, "can_complete")} /></div>
-                      <div className={cellClass}><Checkbox checked={cur.can_delete} onCheckedChange={() => togglePerm(row.key, "can_delete")} /></div>
-                    </div>
-                  );
-                })
+                <>This member will have access to <strong className="text-foreground">{dirtyCount}</strong> of {ALL_SECTION_KEYS.length} sections.</>
               )}
             </div>
-          </>
+          </div>
         )}
 
         <DialogFooter>
@@ -215,5 +349,77 @@ export function PermissionsDialog({ member, projects, open, onOpenChange }: Prop
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------- Section group card
+
+function SectionGroupCard({
+  group,
+  levels,
+  onChange,
+}: {
+  group: SectionGroup;
+  levels: Record<string, Level>;
+  onChange: (key: SectionKey, level: Level) => void;
+}) {
+  const Icon = group.icon;
+  return (
+    <div className="rounded-lg border overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b">
+        <Icon className="size-3.5 text-muted-foreground" />
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-semibold uppercase tracking-wider">{group.label}</div>
+          <div className="text-[11px] text-muted-foreground truncate">{group.hint}</div>
+        </div>
+      </div>
+      <div className="divide-y">
+        {group.rows.map((row) => (
+          <div key={row.key} className="flex items-center gap-3 px-3 py-2.5">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium truncate">{row.label}</div>
+              {row.helper && (
+                <div className="text-[11px] text-muted-foreground truncate">{row.helper}</div>
+              )}
+            </div>
+            <LevelPicker value={levels[row.key] ?? "none"} onChange={(l) => onChange(row.key, l)} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Segmented level picker
+
+const LEVEL_OPTIONS: Array<{ id: Level; label: string; tone: string }> = [
+  { id: "none", label: "None", tone: "data-[active=true]:bg-rose-50 data-[active=true]:text-rose-700 dark:data-[active=true]:bg-rose-950/40 dark:data-[active=true]:text-rose-300" },
+  { id: "view", label: "View", tone: "data-[active=true]:bg-zinc-100 data-[active=true]:text-zinc-900 dark:data-[active=true]:bg-zinc-800 dark:data-[active=true]:text-zinc-100" },
+  { id: "edit", label: "Edit", tone: "data-[active=true]:bg-[#5B45E0]/10 data-[active=true]:text-[#5B45E0] dark:data-[active=true]:text-[#7B62FF]" },
+  { id: "full", label: "Full", tone: "data-[active=true]:bg-emerald-50 data-[active=true]:text-emerald-700 dark:data-[active=true]:bg-emerald-950/40 dark:data-[active=true]:text-emerald-300" },
+];
+
+function LevelPicker({ value, onChange }: { value: Level; onChange: (l: Level) => void }) {
+  return (
+    <div className="inline-flex shrink-0 rounded-lg border bg-muted/30 p-0.5">
+      {LEVEL_OPTIONS.map((o) => {
+        const active = value === o.id;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            data-active={active}
+            onClick={() => onChange(o.id)}
+            className={cn(
+              "text-xs px-2.5 py-1 rounded-md font-medium transition-colors",
+              active ? "shadow-sm" : "text-muted-foreground hover:text-foreground",
+              o.tone,
+            )}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

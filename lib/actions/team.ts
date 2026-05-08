@@ -141,6 +141,20 @@ export async function updateMemberPermissions(
   const parsed = PermissionsUpdateSchema.parse(input);
   const admin = createAdminClient();
 
+  // Make sure the member is in project_memberships for this project, otherwise
+  // getUserContext won't surface the project for them and the page renders
+  // "No project yet" no matter what permissions say. The unique(user_id,
+  // project_id) constraint on the table makes this an idempotent upsert.
+  {
+    const { error } = await admin
+      .from("project_memberships")
+      .upsert(
+        { user_id: parsed.user_id, project_id: parsed.project_id, added_by: user.id },
+        { onConflict: "user_id,project_id" }
+      );
+    if (error) throw new Error(`Failed to ensure project membership: ${error.message}`);
+  }
+
   // Upsert each section row. We rely on the unique(user_id, project_id, section)
   // constraint in the schema for proper conflict resolution.
   const rows = Object.entries(parsed.section_permissions).map(([section, perms]) => ({
