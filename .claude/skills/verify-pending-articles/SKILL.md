@@ -103,6 +103,33 @@ check:
     this helps", "Let's dive in"). The regex scorer already produces a
     humanization score — corroborate with your own read.
 
+11. **Live performance alignment** (Update tasks only — when
+    `payload.url_metrics` is non-empty). The page is already live and
+    has real GSC + GA4 data. Cross-check the draft against what's
+    actually working today:
+
+    - **Preserve ranking queries.** Look at `url_metrics[].gsc_top_queries`
+      for the 90d window — those are queries the page already ranks for.
+      Does the new draft still target them in H1, H2s, FAQ? If the
+      writer pivoted to a new keyword that abandons what's working, soft-
+      flag with category=`compliance`, code=`live_keyword_drift`,
+      severity=`soft`.
+    - **Don't regress engagement.** If `ga_engagement_rate` >= 0.7 (page
+      is sticky), the new draft should keep its strongest signals: TL;DR
+      placement, comparison table, FAQ. Flag if the writer stripped any
+      of those.
+    - **Address striking-distance queries.** Look for queries in
+      `gsc_top_queries` with high impressions + position 8-20 but few
+      clicks. Did the writer add specific H2/H3 coverage for those
+      queries? If position 12 query "X" has 800 impressions but the
+      draft never mentions "X", soft-flag with code=`striking_distance_missed`.
+    - **CTR opportunity.** If `gsc_ctr` < 0.02 with high impressions, the
+      title/meta isn't selling the page. Check that the new META TITLE
+      and META DESC actually have a hook (benefit + verb + number/year).
+
+    Skip section 11 entirely if `url_metrics` is empty — that means it's
+    new content, no live data to compare against.
+
 For each issue you find, decide:
 
 - **hard**: critical for SEO/brand integrity (missing target keyword, no

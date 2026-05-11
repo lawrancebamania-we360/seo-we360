@@ -153,7 +153,24 @@ const admin = createClient(
     })
     .eq("id", verificationId);
 
-  // ---- 4. Emit the prompt payload for Claude to analyze
+  // ---- 4. Pull live url_metrics for this task's URL so the AI can check
+  //         the draft against what the page is actually doing in GSC + GA4
+  //         right now. Only relevant for Update tasks (those have a real
+  //         live URL); skipped for net-new content.
+  const taskUrl = (t as unknown as { url: string | null; published_url: string | null }).url
+                  ?? (t as unknown as { published_url: string | null }).published_url;
+  let urlMetrics: Array<Record<string, unknown>> = [];
+  if (taskUrl && taskUrl.startsWith("http")) {
+    const { data: metricsData } = await admin
+      .from("url_metrics_latest")
+      .select("period, gsc_clicks, gsc_impressions, gsc_ctr, gsc_position, gsc_top_queries, ga_sessions, ga_engagement_rate, ga_avg_engagement_time")
+      .eq("project_id", (t as unknown as { project_id: string }).project_id)
+      .eq("url", taskUrl)
+      .order("period");
+    urlMetrics = (metricsData ?? []) as Array<Record<string, unknown>>;
+  }
+
+  // ---- 5. Emit the prompt payload for Claude to analyze
   const payload = {
     verification_id: verificationId,
     task_id: v.task_id,
@@ -164,6 +181,10 @@ const admin = createClient(
     partial_scores: { plagiarism, humanization, quality },
     doc_meta: meta,
     doc_text: text,
+    // Live metrics — empty array for new-content tasks, populated for
+    // Update tasks whose URL we already track in url_metrics.
+    url: taskUrl,
+    url_metrics: urlMetrics,
   };
 
   console.log(JSON.stringify(payload));
