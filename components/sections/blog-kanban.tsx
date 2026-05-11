@@ -317,9 +317,24 @@ function BlogCard({
             {kind.label}
           </Badge>
           <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Reviewer chip on the card — doubles as a quick-action button
+                for admins. When unreviewed and the task is in Done or
+                Published, admins see a dashed "Review" button; one click
+                stamps the chip without opening the detail dialog. */}
             <ReviewerChip
+              taskId={task.id}
+              taskStatus={task.status}
+              canReview={canEdit}
               reviewerName={task.reviewer?.name ?? null}
               reviewedAt={task.reviewed_at}
+              onChanged={(next) =>
+                onLocalUpdate?.(task.id, {
+                  reviewer: next.reviewer
+                    ? { id: next.reviewer.id, name: next.reviewer.name, avatar_url: null }
+                    : null,
+                  reviewed_at: next.reviewedAt,
+                })
+              }
             />
             <AiVerificationBadge
               status={task.ai_verification_status}
