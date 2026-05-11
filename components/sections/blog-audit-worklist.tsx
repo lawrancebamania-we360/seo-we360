@@ -19,6 +19,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { initials } from "@/lib/ui-helpers";
 import { createTaskFromAuditFinding, dismissAuditFinding, undismissAuditFinding } from "@/lib/actions/blog-audit";
 import { getTaskById } from "@/lib/actions/tasks";
@@ -110,13 +113,12 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden">
-          <div className="grid grid-cols-[1fr_90px_110px_110px_180px_30px] gap-2 px-4 py-3 border-b bg-muted/30 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+          <div className="grid grid-cols-[1fr_90px_110px_110px_180px] gap-2 px-4 py-3 border-b bg-muted/30 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
             <div>URL · Specific issue</div>
             <div className="text-right">Clicks</div>
             <div className="text-right">Impressions</div>
             <div className="text-right">Sessions</div>
             <div className="text-right">Action</div>
-            <div></div>
           </div>
           <div className="divide-y">
             {visible.map((f) => (
@@ -252,7 +254,7 @@ function FindingRow({
       tabIndex={0}
       onClick={onOpenDetail}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenDetail(); } }}
-      className="grid grid-cols-[1fr_90px_110px_110px_180px_30px] gap-2 items-center px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer"
+      className="grid grid-cols-[1fr_90px_110px_110px_180px] gap-2 items-center px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer"
     >
       <div className="min-w-0 space-y-1.5">
         <div className="flex items-center gap-2 flex-wrap">
@@ -279,44 +281,49 @@ function FindingRow({
       <div className="text-right tabular-nums text-sm">{finding.metrics.gsc_impressions.toLocaleString()}</div>
       <div className="text-right tabular-nums text-sm">{finding.metrics.ga_sessions.toLocaleString()}</div>
       <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-        {finding.task && ["stale", "task_open", "task_done"].includes(finding.status) && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5 h-8"
-            onClick={() => onOpenTask(finding.task!.id)}
-            disabled={isOpeningThis}
-          >
-            {isOpeningThis ? <Loader2 className="size-3.5 animate-spin" /> : null}
-            Open task
-          </Button>
-        )}
-        {canEdit && (finding.status === "open" || finding.status === "stale") && (
-          <Button size="sm" variant="brand" className="gap-1.5 h-8" onClick={onCreate}>
-            <Plus className="size-3.5" />
-            Create task
-          </Button>
-        )}
-        {canEdit && (finding.status === "open" || finding.status === "stale") && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="text-muted-foreground hover:text-rose-600"
-            onClick={toggleDismiss}
-            disabled={pendingDismiss}
-            title="Dismiss this finding"
-          >
-            {pendingDismiss ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
-          </Button>
-        )}
-        {canEdit && finding.status === "dismissed" && (
-          <Button size="sm" variant="outline" className="h-8" onClick={toggleDismiss} disabled={pendingDismiss}>
-            {pendingDismiss && <Loader2 className="size-3.5 animate-spin" />}
-            Restore
-          </Button>
+        {/* Primary button — always visible. Opens the audit finding modal
+            with full performance breakdown. For stale rows, the modal
+            also surfaces the existing linked task. */}
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 h-8"
+          onClick={onOpenDetail}
+        >
+          Open task
+        </Button>
+
+        {/* Action menu — Add to Blog Sprint + Dismiss + (Stale only)
+            View existing task. Replaces the inline buttons row so the
+            actions are deliberate and out of the way until needed. */}
+        {canEdit && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button size="icon-sm" variant="ghost" className="text-muted-foreground hover:text-foreground" title="Actions">
+                  <ChevronRight className="size-4" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onCreate}>
+                <Plus className="size-3.5 mr-2" />
+                Add to Blog Sprint
+              </DropdownMenuItem>
+              {finding.status === "stale" && finding.task && (
+                <DropdownMenuItem onClick={() => onOpenTask(finding.task!.id)} disabled={isOpeningThis}>
+                  {isOpeningThis ? <Loader2 className="size-3.5 animate-spin mr-2" /> : <ExternalLink className="size-3.5 mr-2" />}
+                  View existing task ({finding.daysSinceTaskPublished}d old)
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={toggleDismiss} disabled={pendingDismiss} className="text-rose-600 dark:text-rose-400 focus:text-rose-700 dark:focus:text-rose-300">
+                {pendingDismiss ? <Loader2 className="size-3.5 animate-spin mr-2" /> : <X className="size-3.5 mr-2" />}
+                Delete this issue
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
-      <ChevronRight className="size-4 text-muted-foreground/60" />
     </div>
   );
 }
