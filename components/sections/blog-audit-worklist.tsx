@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import {
-  RefreshCw, GitMerge, Trash2, CheckCircle2, Plus, Loader2,
-  ExternalLink, X, AlertCircle, Hourglass,
+  RefreshCw, GitMerge, Trash2, Plus, Loader2,
+  ExternalLink, X, AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -19,11 +18,27 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { initials } from "@/lib/ui-helpers";
 import { createTaskFromAuditFinding, dismissAuditFinding, undismissAuditFinding } from "@/lib/actions/blog-audit";
-import type { BlogAuditFinding, BlogAuditDecision, AuditFindingStatus } from "@/lib/data/blog-audit";
+import { getTaskById } from "@/lib/actions/tasks";
+import { BlogTaskDetailDialog } from "@/components/sections/blog-task-detail-dialog";
+import type { BlogAuditFinding, BlogAuditDecision } from "@/lib/data/blog-audit";
 import type { Profile } from "@/lib/types/database";
+import type { TaskWithAssignee } from "@/lib/data/tasks";
+
+// The audit worklist only renders things the team should act on TODAY.
+// Specifically:
+//   • status = "open"  — never had a task
+//   • status = "stale" — old task is >90 days published, refresh allowed
+//
+// Hidden from this view (they're "done" from the audit's perspective):
+//   • keep        — page is performing fine
+//   • task_open   — someone's already working on it
+//   • task_done   — task finished recently, within 90-day cooldown
+//   • dismissed   — admin explicitly said "won't fix"
+//
+// A "Show resolved (N)" link at the bottom expands the hidden rows if the
+// admin wants to audit them.
 
 interface Props {
   findings: BlogAuditFinding[];
@@ -32,53 +47,77 @@ interface Props {
   projectId: string;
 }
 
-type FilterKey = "open" | "all" | "prune" | "merge" | "refresh" | "keep" | "task_open" | "task_done" | "dismissed";
+type DecisionFilter = "all" | "refresh" | "merge" | "prune";
 
 export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Props) {
-  const [filter, setFilter] = useState<FilterKey>("open");
+  const [decisionFilter, setDecisionFilter] = useState<DecisionFilter>("all");
+  const [showResolved, setShowResolved] = useState(false);
   const [createFor, setCreateFor] = useState<BlogAuditFinding | null>(null);
+  const [openedTask, setOpenedTask] = useState<TaskWithAssignee | null>(null);
+  const [openedTaskLoading, setOpenedTaskLoading] = useState(false);
 
-  // Filter findings based on the active tab
+  // Actionable list — what the worklist shows by default.
+  const actionable = useMemo(
+    () => findings.filter((f) => f.status === "open" || f.status === "stale"),
+    [findings],
+  );
+  const resolved = useMemo(
+    () => findings.filter((f) => f.status === "task_open" || f.status === "task_done" || f.status === "dismissed"),
+    [findings],
+  );
+
+  const counts = useMemo(() => ({
+    refresh: actionable.filter((f) => f.decision === "refresh").length,
+    merge: actionable.filter((f) => f.decision === "merge").length,
+    prune: actionable.filter((f) => f.decision === "prune").length,
+  }), [actionable]);
+
   const visible = useMemo(() => {
-    switch (filter) {
-      case "open":
-        return findings.filter((f) => f.status === "open" || f.status === "stale");
-      case "all":
-        return findings;
-      case "prune":
-      case "merge":
-      case "refresh":
-      case "keep":
-        return findings.filter((f) => f.decision === filter);
-      case "task_open":
-        return findings.filter((f) => f.status === "task_open");
-      case "task_done":
-        return findings.filter((f) => f.status === "task_done");
-      case "dismissed":
-        return findings.filter((f) => f.status === "dismissed");
-    }
-  }, [findings, filter]);
+    if (decisionFilter === "all") return actionable;
+    return actionable.filter((f) => f.decision === decisionFilter);
+  }, [actionable, decisionFilter]);
+
+  const openTask = (taskId: string) => {
+    setOpenedTaskLoading(true);
+    getTaskById(taskId)
+      .then((task) => { if (task) setOpenedTask(task as TaskWithAssignee); })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load task"))
+      .finally(() => setOpenedTaskLoading(false));
+  };
 
   return (
     <div className="space-y-4">
-      <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterKey)}>
-        <TabsList>
-          <TabsTrigger value="open">
-            Open · {findings.filter((f) => f.status === "open" || f.status === "stale").length}
-          </TabsTrigger>
-          <TabsTrigger value="refresh">Refresh · {findings.filter((f) => f.decision === "refresh").length}</TabsTrigger>
-          <TabsTrigger value="merge">Merge · {findings.filter((f) => f.decision === "merge").length}</TabsTrigger>
-          <TabsTrigger value="prune">Prune · {findings.filter((f) => f.decision === "prune").length}</TabsTrigger>
-          <TabsTrigger value="keep">Keep · {findings.filter((f) => f.decision === "keep").length}</TabsTrigger>
-          <TabsTrigger value="task_open">In progress · {findings.filter((f) => f.status === "task_open").length}</TabsTrigger>
-          <TabsTrigger value="dismissed">Dismissed · {findings.filter((f) => f.status === "dismissed").length}</TabsTrigger>
-          <TabsTrigger value="all">All · {findings.length}</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Decision filter chips — only count actionable items in each bucket */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <FilterChip label={`All · ${actionable.length}`} active={decisionFilter === "all"} onClick={() => setDecisionFilter("all")} />
+        <FilterChip
+          label={`Refresh · ${counts.refresh}`}
+          active={decisionFilter === "refresh"}
+          onClick={() => setDecisionFilter("refresh")}
+          tone="violet"
+        />
+        <FilterChip
+          label={`Merge · ${counts.merge}`}
+          active={decisionFilter === "merge"}
+          onClick={() => setDecisionFilter("merge")}
+          tone="amber"
+        />
+        <FilterChip
+          label={`Prune · ${counts.prune}`}
+          active={decisionFilter === "prune"}
+          onClick={() => setDecisionFilter("prune")}
+          tone="rose"
+        />
+        <div className="ml-auto text-xs text-muted-foreground">
+          {actionable.length === 0 ? "Nothing to action right now" : `${visible.length} of ${actionable.length} actionable`}
+        </div>
+      </div>
 
       {visible.length === 0 ? (
         <Card className="border-dashed p-8 text-center text-sm text-muted-foreground">
-          Nothing in this view.
+          {actionable.length === 0
+            ? "All clear — every flagged URL has either a task in flight or is performing fine."
+            : "No findings match the current filter."}
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden">
@@ -97,10 +136,53 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
                 canEdit={canEdit}
                 projectId={projectId}
                 onCreate={() => setCreateFor(f)}
+                onOpenTask={openTask}
+                openingTask={openedTaskLoading}
               />
             ))}
           </div>
         </Card>
+      )}
+
+      {/* Resolved items — collapsed by default. Click to expand */}
+      {resolved.length > 0 && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setShowResolved((v) => !v)}
+            className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
+          >
+            <span>{showResolved ? "▾" : "▸"}</span>
+            {showResolved ? "Hide" : "Show"} {resolved.length} resolved finding{resolved.length === 1 ? "" : "s"}
+            <span className="text-muted-foreground/60">
+              (in-progress tasks, recently published, or dismissed)
+            </span>
+          </button>
+          {showResolved && (
+            <Card className="p-0 overflow-hidden opacity-70">
+              <div className="grid grid-cols-[1fr_110px_120px_120px_220px] gap-2 px-4 py-3 border-b bg-muted/30 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+                <div>URL · Reason</div>
+                <div className="text-right">90d clicks</div>
+                <div className="text-right">90d impr</div>
+                <div className="text-right">90d sessions</div>
+                <div className="text-right">Status</div>
+              </div>
+              <div className="divide-y">
+                {resolved.map((f) => (
+                  <FindingRow
+                    key={`${f.url}::${f.decision}`}
+                    finding={f}
+                    canEdit={canEdit}
+                    projectId={projectId}
+                    onCreate={() => setCreateFor(f)}
+                    onOpenTask={openTask}
+                    openingTask={openedTaskLoading}
+                  />
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
       )}
 
       {createFor && (
@@ -112,25 +194,64 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
           onOpenChange={(o) => !o && setCreateFor(null)}
         />
       )}
+
+      {/* Task detail dialog opens inline when admin clicks "Open task" */}
+      {openedTask && (
+        <BlogTaskDetailDialog
+          task={openedTask}
+          open={!!openedTask}
+          onOpenChange={(o) => !o && setOpenedTask(null)}
+          members={members}
+          canEdit={canEdit}
+          projectId={projectId}
+        />
+      )}
     </div>
+  );
+}
+
+function FilterChip({
+  label, active, onClick, tone,
+}: {
+  label: string; active: boolean; onClick: () => void; tone?: "violet" | "amber" | "rose";
+}) {
+  const activeTone = tone === "violet"
+    ? "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-800"
+    : tone === "amber"
+      ? "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+      : tone === "rose"
+        ? "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+        : "bg-foreground text-background border-foreground";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center px-2.5 py-1 rounded-md border text-xs font-medium transition-colors",
+        active ? activeTone : "bg-muted/30 text-muted-foreground border-border hover:text-foreground",
+      )}
+    >
+      {label}
+    </button>
   );
 }
 
 // ============ Single row ============
 
 function FindingRow({
-  finding, canEdit, projectId, onCreate,
+  finding, canEdit, projectId, onCreate, onOpenTask, openingTask,
 }: {
   finding: BlogAuditFinding;
   canEdit: boolean;
   projectId: string;
   onCreate: () => void;
+  onOpenTask: (taskId: string) => void;
+  openingTask: boolean;
 }) {
   const [pendingDismiss, startDismiss] = useTransition();
   const isPrune = finding.decision === "prune";
   const isMerge = finding.decision === "merge";
   const isRefresh = finding.decision === "refresh";
-  const isKeep = finding.decision === "keep";
 
   const decisionClass = isPrune
     ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-300/30"
@@ -139,14 +260,14 @@ function FindingRow({
     : isRefresh
     ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-300/30"
     : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-300/30";
-  const DecisionIcon = isPrune ? Trash2 : isMerge ? GitMerge : isRefresh ? RefreshCw : CheckCircle2;
+  const DecisionIcon = isPrune ? Trash2 : isMerge ? GitMerge : isRefresh ? RefreshCw : AlertCircle;
 
   const toggleDismiss = () => {
     startDismiss(async () => {
       try {
         if (finding.status === "dismissed") {
           await undismissAuditFinding(projectId, finding.url, finding.decision);
-          toast.success("Dismissal removed");
+          toast.success("Restored to worklist");
         } else {
           await dismissAuditFinding(projectId, finding.url, finding.decision);
           toast.success("Finding dismissed");
@@ -165,11 +286,31 @@ function FindingRow({
             <DecisionIcon className="size-3" />
             {finding.decision}
           </Badge>
-          <StatusChip status={finding.status} daysSinceTaskPublished={finding.daysSinceTaskPublished} />
+          {finding.status === "stale" && finding.daysSinceTaskPublished !== null && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-amber-700 dark:text-amber-400 border-amber-300/40">
+              Stale · last refresh {finding.daysSinceTaskPublished}d ago
+            </Badge>
+          )}
+          {finding.status === "task_open" && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-violet-700 dark:text-violet-300 border-violet-300/40">
+              Task in progress
+            </Badge>
+          )}
+          {finding.status === "task_done" && finding.daysSinceTaskPublished !== null && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-emerald-700 dark:text-emerald-300 border-emerald-300/40">
+              Published {finding.daysSinceTaskPublished}d ago
+            </Badge>
+          )}
+          {finding.status === "dismissed" && (
+            <Badge variant="outline" className="text-[10px] line-through opacity-60">
+              Dismissed
+            </Badge>
+          )}
           <a
             href={finding.url}
             target="_blank"
             rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="text-sm font-medium hover:underline truncate min-w-0"
           >
             {pathOnly(finding.url)}
@@ -177,24 +318,25 @@ function FindingRow({
           <ExternalLink className="size-3 text-muted-foreground" />
         </div>
         <div className="text-xs text-muted-foreground leading-snug">{finding.reason}</div>
-        {finding.status === "stale" && finding.daysSinceTaskPublished !== null && (
-          <div className="text-[11px] text-amber-700 dark:text-amber-400">
-            Last refreshed {finding.daysSinceTaskPublished} days ago. Cooldown passed — new task allowed.
-          </div>
-        )}
       </div>
       <div className="text-right tabular-nums text-sm">{finding.metrics.gsc_clicks.toLocaleString()}</div>
       <div className="text-right tabular-nums text-sm">{finding.metrics.gsc_impressions.toLocaleString()}</div>
       <div className="text-right tabular-nums text-sm">{finding.metrics.ga_sessions.toLocaleString()}</div>
       <div className="flex items-center justify-end gap-1.5">
-        {finding.task && (finding.status === "task_open" || finding.status === "task_done") && (
-          <Link href={`/dashboard/sprint?task=${finding.task.id}`}>
-            <Button size="sm" variant="outline" className="gap-1.5 h-8">
-              Open task
-            </Button>
-          </Link>
+        {/* Open existing task — for stale / task_open / task_done rows */}
+        {finding.task && ["stale", "task_open", "task_done"].includes(finding.status) && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 h-8"
+            onClick={() => onOpenTask(finding.task!.id)}
+            disabled={openingTask}
+          >
+            {openingTask ? <Loader2 className="size-3.5 animate-spin" /> : null}
+            Open task
+          </Button>
         )}
-        {canEdit && (finding.status === "open" || finding.status === "stale") && !isKeep && (
+        {canEdit && (finding.status === "open" || finding.status === "stale") && (
           <Button size="sm" variant="brand" className="gap-1.5 h-8" onClick={onCreate}>
             <Plus className="size-3.5" />
             Create task
@@ -223,24 +365,6 @@ function FindingRow({
   );
 }
 
-function StatusChip({ status, daysSinceTaskPublished }: { status: AuditFindingStatus; daysSinceTaskPublished: number | null }) {
-  if (status === "open") return null;
-  const map: Record<Exclude<AuditFindingStatus, "open">, { label: string; cls: string; Icon: typeof CheckCircle2 }> = {
-    keep: { label: "no action", cls: "bg-muted text-muted-foreground", Icon: CheckCircle2 },
-    task_open: { label: "task in progress", cls: "bg-violet-500/10 text-violet-700 dark:text-violet-300", Icon: Hourglass },
-    task_done: { label: daysSinceTaskPublished !== null ? `published ${daysSinceTaskPublished}d ago` : "published", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", Icon: CheckCircle2 },
-    stale: { label: "stale — refresh allowed", cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400", Icon: AlertCircle },
-    dismissed: { label: "dismissed", cls: "bg-muted text-muted-foreground line-through", Icon: X },
-  };
-  const cfg = map[status];
-  return (
-    <Badge className={cn("border-0 text-[10px] font-medium gap-1", cfg.cls)}>
-      <cfg.Icon className="size-3" />
-      {cfg.label}
-    </Badge>
-  );
-}
-
 function pathOnly(url: string): string {
   try { return new URL(url).pathname || url; } catch { return url; }
 }
@@ -263,7 +387,7 @@ function CreateTaskDialog({
   const submit = () => {
     start(async () => {
       try {
-        const { taskId } = await createTaskFromAuditFinding({
+        const { taskId: _taskId } = await createTaskFromAuditFinding({
           projectId,
           url: finding.url,
           decision: finding.decision,
@@ -271,7 +395,7 @@ function CreateTaskDialog({
           notes: notes.trim() || undefined,
         });
         toast.success("Task created in Blog Sprint", {
-          action: { label: "Open", onClick: () => { window.location.href = `/dashboard/sprint?task=${taskId}`; } },
+          description: "It's now in the audit's Resolved section. Open Blog Sprint to see it in the kanban.",
         });
         onOpenChange(false);
       } catch (e) {
@@ -328,7 +452,7 @@ function CreateTaskDialog({
             <Input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Lokesh, please rewrite the intro to lead with the answer."
+              placeholder="e.g. Rewrite the intro to lead with the answer."
             />
           </div>
         </div>

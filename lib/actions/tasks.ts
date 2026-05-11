@@ -218,6 +218,20 @@ export async function toggleTaskReviewed(taskId: string, reviewed: boolean) {
   return { ok: true };
 }
 
+// Fetch a single task by id with assignee + reviewer joined. Used by the
+// blog audit worklist when the admin clicks "Open task" on a stale finding —
+// we open the task detail dialog in-place instead of navigating to Sprint.
+export async function getTaskById(taskId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*, assignee:profiles!team_member_id(id, name, avatar_url), reviewer:profiles!reviewed_by_id(id, name, avatar_url)")
+    .eq("id", taskId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 // Fetch the latest verification (with all step results) for a task. Used by
 // the side panel to render issues + score breakdown.
 export async function getLatestVerification(taskId: string) {
