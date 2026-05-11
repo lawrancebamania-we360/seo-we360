@@ -30,6 +30,8 @@ import { LivePerformancePanel } from "@/components/sections/live-performance-pan
 import { ReviewerToggleButton } from "@/components/sections/reviewer-chip";
 import { createArticle } from "@/lib/actions/articles";
 import { briefToMarkdownPrompt, type BlogBrief } from "@/lib/seo-skills/blog-brief";
+import { formatDataBacking } from "@/lib/types/url-metrics";
+import { getDataBackingForUrl } from "@/lib/actions/url-metrics";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
 import type { Profile } from "@/lib/types/database";
 import { format, formatDistanceToNow } from "date-fns";
@@ -147,18 +149,40 @@ function BlogTaskContent({
   };
 
   const onCopyPrompt = async () => {
-    // Pass data_backing through so the AI prompt includes the GSC/GA4
-    // backing block — this is what tells the LLM WHY the article exists
-    // and which queries already have momentum to build on.
-    // Pass the kind so the prompt frames itself correctly:
-    // "# Blog Article Brief" / "# Landing Page Brief" / "# Blog Refresh
-    // Brief" / "# Landing Page Refresh Brief" / "# SEO Ops Task".
+    // Build the AI prompt's data_backing dynamically:
+    //   1. If the task has a URL, pull TODAY's url_metrics for it and use
+    //      the freshly-formatted version (clicks, impressions, CTR, top
+    //      queries, top referrers). This ensures the writer always pastes
+    //      a prompt that reflects the page's current performance — not
+    //      whatever was stored at task-creation time, which could be
+    //      months stale.
+    //   2. Fall back to the stored task.data_backing if no live metrics
+    //      exist yet (e.g., brand-new URL not yet indexed).
+    //   3. If both exist, prefer live + append stored notes underneath so
+    //      writer-curated context isn't lost.
+    let dataBacking = task.data_backing;
+    const liveUrl = task.published_url ?? task.url ?? "";
+    if (liveUrl.startsWith("http")) {
+      try {
+        const live = await getDataBackingForUrl(liveUrl, "90d");
+        if (live) {
+          const liveFormatted = formatDataBacking(live);
+          dataBacking = task.data_backing && !task.data_backing.includes("Live GSC")
+            ? `${liveFormatted}\n\n---\n\nOriginal notes:\n${task.data_backing}`
+            : liveFormatted;
+        }
+      } catch {
+        // If the fetch fails, fall through to stored data_backing — never
+        // block the writer from getting their AI prompt.
+      }
+    }
+
     const kind = taskKindLabel(task);
     const prompt = briefToMarkdownPrompt(
       draft,
       "We360.ai",
       "we360.ai",
-      task.data_backing,
+      dataBacking,
       { action: kind.action, surface: kind.surface },
       task.assignee?.name ?? null,
     );

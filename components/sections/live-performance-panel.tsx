@@ -166,12 +166,19 @@ function TopQueriesPanel({ queries }: { queries: UrlTopQuery[] }) {
       <div className="px-3 py-2 bg-muted/30 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
         Top queries (90d)
       </div>
+      {/* Column headers — clicks / impressions / position made explicit. */}
+      <div className="grid grid-cols-[1fr_60px_80px_50px] gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium text-muted-foreground border-b">
+        <div>Query</div>
+        <div className="text-right">Clicks</div>
+        <div className="text-right">Impr</div>
+        <div className="text-right">Pos</div>
+      </div>
       <div className="divide-y">
         {queries.slice(0, 8).map((q) => (
-          <div key={q.query} className="grid grid-cols-[1fr_60px_60px_50px] gap-2 px-3 py-1.5 text-xs items-center">
+          <div key={q.query} className="grid grid-cols-[1fr_60px_80px_50px] gap-2 px-3 py-1.5 text-xs items-center">
             <div className="truncate" title={q.query}>{q.query}</div>
-            <div className="text-right tabular-nums">{q.clicks}c</div>
-            <div className="text-right tabular-nums text-muted-foreground">{q.impressions}i</div>
+            <div className="text-right tabular-nums">{q.clicks}</div>
+            <div className="text-right tabular-nums text-muted-foreground">{q.impressions.toLocaleString()}</div>
             <div className="text-right">
               <Badge variant="outline" className="text-[9px] tabular-nums">
                 #{q.position.toFixed(1)}

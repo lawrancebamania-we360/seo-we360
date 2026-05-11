@@ -54,7 +54,9 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
   const [createFor, setCreateFor] = useState<BlogAuditFinding | null>(null);
   const [detailFor, setDetailFor] = useState<BlogAuditFinding | null>(null);
   const [openedTask, setOpenedTask] = useState<TaskWithAssignee | null>(null);
-  const [openingTask, setOpeningTask] = useState(false);
+  // Track which specific task is loading so only THAT row's button shows
+  // the spinner, not every Open-task button on the page.
+  const [openingTaskId, setOpeningTaskId] = useState<string | null>(null);
 
   const counts = useMemo(() => {
     const actionable = findings.filter((f) => f.status === "open" || f.status === "stale");
@@ -85,11 +87,11 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
   }, [findings, statusFilter, decisionFilter]);
 
   const openTask = (taskId: string) => {
-    setOpeningTask(true);
+    setOpeningTaskId(taskId);
     getTaskById(taskId)
       .then((task) => { if (task) setOpenedTask(task as TaskWithAssignee); })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load task"))
-      .finally(() => setOpeningTask(false));
+      .finally(() => setOpeningTaskId(null));
   };
 
   return (
@@ -138,7 +140,7 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
                 onCreate={() => setCreateFor(f)}
                 onOpenTask={openTask}
                 onOpenDetail={() => setDetailFor(f)}
-                openingTask={openingTask}
+                isOpeningThis={openingTaskId === f.task?.id}
               />
             ))}
           </div>
@@ -213,7 +215,7 @@ function FilterChip({
 // ============ Single row ============
 
 function FindingRow({
-  finding, canEdit, projectId, onCreate, onOpenTask, onOpenDetail, openingTask,
+  finding, canEdit, projectId, onCreate, onOpenTask, onOpenDetail, isOpeningThis,
 }: {
   finding: BlogAuditFinding;
   canEdit: boolean;
@@ -221,7 +223,9 @@ function FindingRow({
   onCreate: () => void;
   onOpenTask: (taskId: string) => void;
   onOpenDetail: () => void;
-  openingTask: boolean;
+  // True only while THIS row's Open-task button is loading. Spinner shows
+  // only on the clicked button, not every Open-task on the page.
+  isOpeningThis: boolean;
 }) {
   const [pendingDismiss, startDismiss] = useTransition();
   const isPrune = finding.decision === "prune";
@@ -293,9 +297,9 @@ function FindingRow({
             variant="outline"
             className="gap-1.5 h-8"
             onClick={() => onOpenTask(finding.task!.id)}
-            disabled={openingTask}
+            disabled={isOpeningThis}
           >
-            {openingTask ? <Loader2 className="size-3.5 animate-spin" /> : null}
+            {isOpeningThis ? <Loader2 className="size-3.5 animate-spin" /> : null}
             Open task
           </Button>
         )}
@@ -538,12 +542,19 @@ function TopQueries({ queries }: { queries: UrlTopQuery[] }) {
         Top search queries (90 days)
       </div>
       <div className="rounded-lg border overflow-hidden">
+        {/* Column headers — so it's obvious what 2c / 89i / #6.7 mean. */}
+        <div className="grid grid-cols-[1fr_70px_90px_60px] gap-2 px-3 py-2 bg-muted/40 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground border-b">
+          <div>Query</div>
+          <div className="text-right">Clicks</div>
+          <div className="text-right">Impressions</div>
+          <div className="text-right">Position</div>
+        </div>
         <div className="divide-y">
           {queries.slice(0, 10).map((q) => (
-            <div key={q.query} className="grid grid-cols-[1fr_70px_70px_60px] gap-2 px-3 py-1.5 text-xs items-center">
+            <div key={q.query} className="grid grid-cols-[1fr_70px_90px_60px] gap-2 px-3 py-1.5 text-xs items-center">
               <div className="truncate" title={q.query}>{q.query}</div>
-              <div className="text-right tabular-nums">{q.clicks} clk</div>
-              <div className="text-right tabular-nums text-muted-foreground">{q.impressions.toLocaleString()} imp</div>
+              <div className="text-right tabular-nums">{q.clicks.toLocaleString()}</div>
+              <div className="text-right tabular-nums text-muted-foreground">{q.impressions.toLocaleString()}</div>
               <div className="text-right">
                 <Badge variant="outline" className="text-[9px] tabular-nums">
                   #{q.position.toFixed(1)}
