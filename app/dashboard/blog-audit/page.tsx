@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BlogAuditWorklist } from "@/components/sections/blog-audit-worklist";
-import { Trash2, GitMerge, RefreshCw, CheckCircle2, FileSearch } from "lucide-react";
+import { Trash2, GitMerge, RefreshCw, FileSearch } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export const metadata = { title: "Blog audit" };
@@ -45,30 +45,23 @@ export default async function BlogAuditPage() {
         </Card>
       ) : (
         <>
-          {/* Summary strip — hero number = today's actionable count for
-              Delete/Merge/Update so it matches the worklist below. Keep
-              still shows the total since it's good news, not a worklist. */}
-          <section className="grid gap-3 grid-cols-2 md:grid-cols-4">
+          {/* Summary strip — only actionable decisions. Keep was removed
+              because this page is a worklist; pages performing well don't
+              need a card here. (The classifier still runs Keep internally
+              so we know which pages NOT to flag.) */}
+          <section className="grid gap-3 grid-cols-1 md:grid-cols-3">
             <SummaryCell icon={Trash2} tone="rose" label="Delete (410)"
               total={snapshot.counts.prune}
               open={snapshot.open_counts.prune}
-              isKeep={false}
               hint="Invisible to Google — remove permanently" />
             <SummaryCell icon={GitMerge} tone="amber" label="Merge (301)"
               total={snapshot.counts.merge}
               open={snapshot.open_counts.merge}
-              isKeep={false}
               hint="Cannibalized — redirect to stronger sibling" />
             <SummaryCell icon={RefreshCw} tone="violet" label="Update"
               total={snapshot.counts.refresh}
               open={snapshot.open_counts.refresh}
-              isKeep={false}
               hint="Striking distance — rewrite to push to top 10" />
-            <SummaryCell icon={CheckCircle2} tone="emerald" label="Keep"
-              total={snapshot.counts.keep}
-              open={0}
-              isKeep={true}
-              hint="Performing well — no action needed" />
           </section>
 
           <BlogAuditWorklist
@@ -84,33 +77,28 @@ export default async function BlogAuditPage() {
 }
 
 function SummaryCell({
-  icon: Icon, tone, label, total, open, isKeep, hint,
+  icon: Icon, tone, label, total, open, hint,
 }: {
   icon: typeof Trash2;
-  tone: "rose" | "amber" | "violet" | "emerald";
-  label: string; total: number; open: number; isKeep: boolean; hint: string;
+  tone: "rose" | "amber" | "violet";
+  label: string; total: number; open: number; hint: string;
 }) {
   const toneClass = {
     rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
     amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
     violet: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-    emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   }[tone];
 
-  // For actionable decisions, the hero number is OPEN (today's task count)
-  // so it matches the worklist below. Keep doesn't need an action so we
-  // show its total as the hero (it's good news).
-  const hero = isKeep ? total : open;
-  const subtitle = isKeep
-    ? `${total} pages performing well`
-    : total === 0
-      ? "nothing flagged"
-      : open === 0
-        ? `${total} already in Sprint`
-        : open === total
-          ? `${open} need a task`
-          : `${open} need a task · ${total - open} in Sprint`;
-  const inAction = !isKeep && open > 0;
+  // Hero number is OPEN (today's task count) so it matches the worklist
+  // below. Cards turn rose when there's actually something to action.
+  const subtitle = total === 0
+    ? "nothing flagged"
+    : open === 0
+      ? `${total} already in Sprint`
+      : open === total
+        ? `${open} need a task`
+        : `${open} need a task · ${total - open} in Sprint`;
+  const inAction = open > 0;
 
   return (
     <Card className="p-4 flex items-center gap-3">
@@ -120,7 +108,7 @@ function SummaryCell({
       <div className="min-w-0 flex-1">
         <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
         <div className="text-lg font-semibold tabular-nums leading-tight flex items-baseline gap-2">
-          <span className={cn(inAction && "text-rose-600 dark:text-rose-400")}>{hero}</span>
+          <span className={cn(inAction && "text-rose-600 dark:text-rose-400")}>{open}</span>
         </div>
         <div className="text-[10px] text-muted-foreground truncate">{subtitle}</div>
         <div className="text-[10px] text-muted-foreground/60 truncate mt-0.5">{hint}</div>
