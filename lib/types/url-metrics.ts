@@ -54,6 +54,26 @@ export interface UrlMetricsRun {
   error_message: string | null;
 }
 
+// Format a url_metric row as the human-readable data_backing string that
+// shows up in the task detail dialog + gets pasted into the AI prompt.
+export function formatDataBacking(m: UrlMetric): string {
+  const lines: string[] = [];
+  lines.push(`Live GSC (last ${m.period}):`);
+  lines.push(`  • ${m.gsc_clicks.toLocaleString()} clicks, ${m.gsc_impressions.toLocaleString()} impressions`);
+  lines.push(`  • avg position ${m.gsc_position.toFixed(1)}, CTR ${(m.gsc_ctr * 100).toFixed(2)}%`);
+  if (m.gsc_top_queries && m.gsc_top_queries.length > 0) {
+    lines.push(`  • top queries: ${m.gsc_top_queries.slice(0, 5).map((q) => `"${q.query}" (${q.clicks}c/${q.impressions}i, pos ${q.position.toFixed(1)})`).join(", ")}`);
+  }
+  lines.push("");
+  lines.push(`Live GA4 (last ${m.period}):`);
+  lines.push(`  • ${m.ga_sessions.toLocaleString()} sessions, ${m.ga_engaged_sessions.toLocaleString()} engaged`);
+  lines.push(`  • engagement rate ${(m.ga_engagement_rate * 100).toFixed(1)}%, avg time ${m.ga_avg_engagement_time}s`);
+  if (m.ga_top_referrers && m.ga_top_referrers.length > 0) {
+    lines.push(`  • top referrers: ${m.ga_top_referrers.slice(0, 3).map((r) => `${r.source} (${r.sessions})`).join(", ")}`);
+  }
+  return lines.join("\n");
+}
+
 // Decision helper — used by the blog audit page on top of url_metrics.
 export function classifyUrl(m: UrlMetric): "prune" | "merge" | "refresh" | "keep" {
   // Prune: invisible to Google AND no traffic

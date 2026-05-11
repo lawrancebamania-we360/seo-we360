@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toggleTaskDone, deleteTask } from "@/lib/actions/tasks";
+import { UrlMetricsChip } from "@/components/sections/url-metrics-chip";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
 
 export function TaskRow({ task, canComplete, canDelete }: { task: TaskWithAssignee; canComplete: boolean; canDelete: boolean }) {
@@ -85,6 +86,12 @@ export function TaskRow({ task, canComplete, canDelete }: { task: TaskWithAssign
               <ExternalLink className="size-3" />
               {new URL(task.url).pathname}
             </a>
+          )}
+          {/* Live GSC + GA4 chip — only shows once url_metrics has data for
+              this URL. Lazy-fetched per row; cheap because the latest view
+              is indexed and we only render when impressions > 0. */}
+          {task.url && task.url.startsWith("http") && (
+            <UrlMetricsChip url={task.url} />
           )}
           {task.scheduled_date && <span>Due {task.scheduled_date}</span>}
           {task.impact && <span>Impact: {task.impact}</span>}

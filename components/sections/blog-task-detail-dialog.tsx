@@ -26,6 +26,7 @@ import { AssigneePicker } from "@/components/sections/assignee-picker";
 import { BlogImageUploader } from "@/components/sections/blog-image-uploader";
 import { SupportingLinksEditor } from "@/components/sections/supporting-links-editor";
 import { AiVerificationPanel } from "@/components/sections/ai-verification-panel";
+import { LivePerformancePanel } from "@/components/sections/live-performance-panel";
 import { ReviewerToggleButton } from "@/components/sections/reviewer-chip";
 import { createArticle } from "@/lib/actions/articles";
 import { briefToMarkdownPrompt, type BlogBrief } from "@/lib/seo-skills/blog-brief";
@@ -543,6 +544,16 @@ function BlogTaskContent({
           onChange={() => { /* persisted via server action */ }}
         />
       </Field>
+
+      {/* Live performance — GSC + GA4 data for tasks that have a URL.
+          Shown above editorial review so writers see the page's current
+          state before they touch the doc. */}
+      {(task.published_url || task.url) && (task.url ?? "").startsWith("http") && (
+        <LivePerformancePanel taskId={task.id} url={(task.published_url ?? task.url)!} />
+      )}
+      {(task.published_url || task.url) && !(task.url ?? "").startsWith("http") && task.published_url && (
+        <LivePerformancePanel taskId={task.id} url={task.published_url} />
+      )}
 
       {/* Human reviewer sign-off (e.g. Lokesh checking writers' work).
           Independent of AI verification — captures the editorial pass.
