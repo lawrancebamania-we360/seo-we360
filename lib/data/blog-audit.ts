@@ -21,6 +21,7 @@ export interface BlogAuditFinding {
   url: string;
   decision: BlogAuditDecision;
   reason: string;
+  diagnostic: string;                  // one-line "what's actually wrong" headline
   status: AuditFindingStatus;
   // metrics for the 90-day window (largest sample, most stable signal)
   metrics: UrlMetric;
@@ -52,6 +53,62 @@ function decisionReason(d: BlogAuditDecision, m: UrlMetric): string {
       return `Striking distance — position ${m.gsc_position.toFixed(1)} with ${m.gsc_impressions.toLocaleString()} impressions but only ${m.gsc_clicks} clicks.`;
     case "keep":
       return `Performing well — position ${m.gsc_position.toFixed(1)}, ${m.gsc_clicks} clicks.`;
+  }
+}
+
+// One-line "what's actually wrong" diagnostic — surfaces the specific
+// failure metric instead of the generic decision label. Shown prominently
+// on each finding row so the admin doesn't have to do the math.
+export function diagnoseIssue(d: BlogAuditDecision, m: UrlMetric): string {
+  const ctrPct = m.gsc_ctr * 100;
+  const engagedPct = m.ga_engagement_rate * 100;
+
+  switch (d) {
+    case "prune":
+      return "Indexed but invisible — 0 impressions and 0 sessions for 90 days. Safe to 410 and remove from sitemap.";
+
+    case "merge": {
+      const parts: string[] = [];
+      if (m.gsc_position > 30) parts.push(`buried at position ${m.gsc_position.toFixed(0)}`);
+      if (m.ga_sessions < 20) parts.push(`only ${m.ga_sessions} sessions`);
+      if (engagedPct < 30) parts.push(`${engagedPct.toFixed(0)}% engagement`);
+      return parts.length > 0
+        ? `Cannibalized — ${parts.join(", ")}. Redirect into a stronger sibling.`
+        : "Cannibalized signals. Redirect into a stronger sibling.";
+    }
+
+    case "refresh": {
+      // Pick the worst-performing dimension as the headline issue.
+      const parts: string[] = [];
+      if (m.gsc_position >= 8 && m.gsc_position <= 20) {
+        parts.push(`stuck at position ${m.gsc_position.toFixed(0)}`);
+      }
+      if (ctrPct < 2 && m.gsc_impressions > 100) {
+        parts.push(`CTR ${ctrPct.toFixed(2)}% (target 2%+)`);
+      }
+      const ratio = m.gsc_impressions > 0 ? m.gsc_clicks / m.gsc_impressions : 0;
+      if (ratio < 0.005 && m.gsc_impressions > 1000) {
+        parts.push("very high impressions, near-zero clicks");
+      }
+      if (engagedPct < 50 && m.ga_sessions > 50) {
+        parts.push(`only ${engagedPct.toFixed(0)}% engaged sessions`);
+      }
+      // Mention the top query so the admin knows what's pulling traffic.
+      const topQ = m.gsc_top_queries?.[0];
+      const suffix = topQ
+        ? ` Top query: "${topQ.query}" (${topQ.clicks}c / ${topQ.impressions}i, pos ${topQ.position.toFixed(1)}).`
+        : "";
+      return parts.length > 0
+        ? `${parts.join(", ")}.${suffix}`
+        : `Striking distance for improvement at position ${m.gsc_position.toFixed(1)}.${suffix}`;
+    }
+
+    case "keep": {
+      const topQ = m.gsc_top_queries?.[0];
+      return topQ
+        ? `Healthy — pos ${m.gsc_position.toFixed(1)}, CTR ${ctrPct.toFixed(1)}%. Top query "${topQ.query}" at pos ${topQ.position.toFixed(1)}.`
+        : `Healthy — pos ${m.gsc_position.toFixed(1)}, CTR ${ctrPct.toFixed(1)}%.`;
+    }
   }
 }
 
@@ -134,6 +191,7 @@ export async function getBlogAudit(projectId: string): Promise<BlogAuditSnapshot
       url,
       decision,
       reason: decisionReason(decision, m90),
+      diagnostic: diagnoseIssue(decision, m90),
       status,
       metrics: m90,
       windows,

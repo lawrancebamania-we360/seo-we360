@@ -3,6 +3,7 @@ import { getBlogAudit } from "@/lib/data/blog-audit";
 import { getTeamMembers } from "@/lib/data/tasks";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
+import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BlogAuditWorklist } from "@/components/sections/blog-audit-worklist";
@@ -44,17 +45,17 @@ export default async function BlogAuditPage() {
         </Card>
       ) : (
         <>
-          {/* Summary strip — Open count is what's actionable today */}
+          {/* Summary strip — big number = total flagged, small number = actionable today */}
           <section className="grid gap-3 grid-cols-2 md:grid-cols-4">
-            <SummaryCell icon={Trash2} tone="rose" label="Prune (410)"
+            <SummaryCell icon={Trash2} tone="rose" label="Delete (410)"
               total={snapshot.counts.prune}
               open={snapshot.open_counts.prune}
-              hint="Invisible to Google — delete permanently" />
+              hint="Invisible to Google — remove permanently" />
             <SummaryCell icon={GitMerge} tone="amber" label="Merge (301)"
               total={snapshot.counts.merge}
               open={snapshot.open_counts.merge}
               hint="Cannibalized — redirect to stronger sibling" />
-            <SummaryCell icon={RefreshCw} tone="violet" label="Refresh"
+            <SummaryCell icon={RefreshCw} tone="violet" label="Update"
               total={snapshot.counts.refresh}
               open={snapshot.open_counts.refresh}
               hint="Striking distance — rewrite to push to top 10" />
@@ -96,11 +97,16 @@ function SummaryCell({
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
-        <div className="text-lg font-semibold tabular-nums leading-tight">
-          {total}
-          {open > 0 && (
-            <span className="text-xs font-normal text-rose-600 dark:text-rose-400 ml-2">
-              {open} open
+        <div className="text-lg font-semibold tabular-nums leading-tight flex items-baseline gap-2">
+          <span>{total}</span>
+          {total > 0 && (
+            <span className={cn(
+              "text-xs font-normal",
+              open > 0
+                ? "text-rose-600 dark:text-rose-400"
+                : "text-muted-foreground",
+            )}>
+              {open > 0 ? `${open} open` : "all in flight"}
             </span>
           )}
         </div>
