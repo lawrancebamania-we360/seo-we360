@@ -59,14 +59,20 @@ export default async function BlogSprintPage({
         description="Weekly topics — drag between Idea / In progress / Done / Published."
         actions={
           <div className="flex items-center gap-2">
+            {/* Upload tasks is open to everyone. Members can only assign
+                to themselves (enforced both in the dialog and server-side
+                in bulkCreateBlogTasks). Topic cluster stays admin-only. */}
+            <BulkUploadTasksButton
+              projectId={ctx.activeProject.id}
+              members={members}
+              canAssignToOthers={canManage}
+              currentUserEmail={ctx.email}
+            />
             {canManage && (
-              <>
-                <BulkUploadTasksButton projectId={ctx.activeProject.id} members={members} />
-                <TopicClusterButton
-                  projectId={ctx.activeProject.id}
-                  projectName={ctx.activeProject.name}
-                />
-              </>
+              <TopicClusterButton
+                projectId={ctx.activeProject.id}
+                projectName={ctx.activeProject.name}
+              />
             )}
             <Badge variant="secondary" className="gap-1.5">
               <Sparkles className="size-3" />

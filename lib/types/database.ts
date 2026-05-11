@@ -156,6 +156,10 @@ export interface Task {
   ai_score_delta: number | null;
   ai_verification_summary: string | null;
   ai_verification_id: string | null;
+  // Human reviewer sign-off (e.g. Lokesh checking writers' work).
+  // Independent of AI verification — captures who's done the editorial pass.
+  reviewed_by_id: string | null;
+  reviewed_at: string | null;
 }
 
 export type IntegrationProvider =

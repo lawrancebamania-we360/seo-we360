@@ -66,7 +66,9 @@
       "Bash(npm install *)",
       "Bash(node -e \"const e = require\\('exceljs'\\); console.log\\('exceljs', e.version || 'loaded'\\);\")",
       "Bash(git fetch *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

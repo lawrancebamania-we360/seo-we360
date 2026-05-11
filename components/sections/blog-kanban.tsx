@@ -22,6 +22,7 @@ import { BlogTaskDetailDialog } from "@/components/sections/blog-task-detail-dia
 import { AssigneePicker } from "@/components/sections/assignee-picker";
 import { PublishUrlDialog } from "@/components/sections/publish-url-dialog";
 import { AiVerificationBadge, shouldFlagCardRed } from "@/components/sections/ai-verification-badge";
+import { ReviewerChip } from "@/components/sections/reviewer-chip";
 import { ExternalLink } from "lucide-react";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
 import type { TaskStatus, Profile } from "@/lib/types/database";
@@ -307,20 +308,27 @@ function BlogCard({
             "ring-2 ring-rose-300/80 dark:ring-rose-700/60 border-rose-200 dark:border-rose-900",
         )}
       >
-        {/* Kind label + AI verification chip on a single row so the card
-            stays compact. The chip only renders after a verification has
-            been queued (status is non-null). */}
+        {/* Kind label + AI verification chip + reviewer chip on a single
+            row so the card stays compact. The verification chip only
+            renders after a verification has been queued (status non-null);
+            the reviewer chip only renders after an editor signed off. */}
         <div className="flex items-start justify-between gap-2 flex-wrap">
           <Badge className={cn("border text-[10px] font-semibold uppercase tracking-wider", kind.classes)}>
             {kind.label}
           </Badge>
-          <AiVerificationBadge
-            status={task.ai_verification_status}
-            score={task.ai_score}
-            delta={task.ai_score_delta}
-            summary={task.ai_verification_summary}
-            verifiedAt={task.ai_verified_at}
-          />
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <ReviewerChip
+              reviewerName={task.reviewer?.name ?? null}
+              reviewedAt={task.reviewed_at}
+            />
+            <AiVerificationBadge
+              status={task.ai_verification_status}
+              score={task.ai_score}
+              delta={task.ai_score_delta}
+              summary={task.ai_verification_summary}
+              verifiedAt={task.ai_verified_at}
+            />
+          </div>
         </div>
 
         {/* Title */}

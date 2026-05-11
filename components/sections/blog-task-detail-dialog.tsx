@@ -26,6 +26,7 @@ import { AssigneePicker } from "@/components/sections/assignee-picker";
 import { BlogImageUploader } from "@/components/sections/blog-image-uploader";
 import { SupportingLinksEditor } from "@/components/sections/supporting-links-editor";
 import { AiVerificationPanel } from "@/components/sections/ai-verification-panel";
+import { ReviewerToggleButton } from "@/components/sections/reviewer-chip";
 import { createArticle } from "@/lib/actions/articles";
 import { briefToMarkdownPrompt, type BlogBrief } from "@/lib/seo-skills/blog-brief";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
@@ -542,6 +543,22 @@ function BlogTaskContent({
           onChange={() => { /* persisted via server action */ }}
         />
       </Field>
+
+      {/* Human reviewer sign-off (e.g. Lokesh checking writers' work).
+          Independent of AI verification — captures the editorial pass.
+          Admin-only toggle; members see a read-only chip if reviewed. */}
+      <div className="space-y-2">
+        <div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+          Editorial review
+        </div>
+        <ReviewerToggleButton
+          taskId={task.id}
+          reviewer={task.reviewer ? { id: task.reviewer.id, name: task.reviewer.name } : null}
+          reviewedAt={task.reviewed_at}
+          canReview={canEdit}
+          onChanged={() => { /* card refreshes from the parent's localTasks */ }}
+        />
+      </div>
 
       {/* AI verification — surfaces only after the task has moved to Done
           or Published (and a verification row exists). Sits right under

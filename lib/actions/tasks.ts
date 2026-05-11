@@ -191,6 +191,33 @@ export async function requeueTaskVerification(taskId: string) {
   return { ok: true };
 }
 
+// ---------------------------------------------------------------- Human review
+//
+// Toggle the "reviewed by X" stamp on a task. Used by editors (Lokesh at
+// We360) doing the editorial pass on writers' articles. Independent of AI
+// verification — they cover different things (one is automated quality,
+// one is human sign-off).
+export async function toggleTaskReviewed(taskId: string, reviewed: boolean) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const myRole = (me as { role?: string } | null)?.role;
+  if (!myRole || (myRole !== "super_admin" && myRole !== "admin")) {
+    throw new Error("Only admins can sign off as reviewer");
+  }
+
+  const patch = reviewed
+    ? { reviewed_by_id: user.id, reviewed_at: new Date().toISOString() }
+    : { reviewed_by_id: null, reviewed_at: null };
+  const { error } = await supabase.from("tasks").update(patch).eq("id", taskId);
+  if (error) throw error;
+
+  revalidatePath("/dashboard/sprint");
+  revalidatePath("/dashboard/tasks");
+  return { ok: true };
+}
+
 // Fetch the latest verification (with all step results) for a task. Used by
 // the side panel to render issues + score breakdown.
 export async function getLatestVerification(taskId: string) {
@@ -227,13 +254,21 @@ export async function bulkCreateBlogTasks(projectId: string, rows: BulkBlogTaskR
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  const myRole = (me as { role?: string } | null)?.role;
-  if (!myRole || (myRole !== "super_admin" && myRole !== "admin")) {
-    throw new Error("Only admins can bulk-upload tasks");
-  }
+  const { data: me } = await supabase.from("profiles").select("id, role, email").eq("id", user.id).single();
+  const myProfile = me as { id: string; role: string; email: string } | null;
+  if (!myProfile) throw new Error("Profile not found");
+  const isAdmin = myProfile.role === "super_admin" || myProfile.role === "admin";
+  // Members and clients can upload too — but only for themselves. Admins
+  // and super-admins can upload tasks assigned to anyone on the team.
 
   if (!rows.length) return { inserted: 0 };
+
+  // Force-override assignee for non-admins so a member can't sneak a task
+  // onto someone else's queue. Admins keep whatever assignee_email the row
+  // specified.
+  if (!isAdmin) {
+    rows = rows.map((r) => ({ ...r, assignee_email: myProfile.email }));
+  }
 
   // Resolve assignee emails → profile IDs in one query
   const emails = Array.from(new Set(

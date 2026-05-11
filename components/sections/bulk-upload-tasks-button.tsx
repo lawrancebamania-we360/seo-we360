@@ -29,6 +29,10 @@ import type { Profile } from "@/lib/types/database";
 interface Props {
   projectId: string;
   members: Pick<Profile, "id" | "name" | "email" | "avatar_url">[];
+  // Admins can pick any team member as the assignee. Members can only
+  // assign tasks to themselves (server also enforces this).
+  canAssignToOthers: boolean;
+  currentUserEmail: string;
 }
 
 // Form mirrors the kanban card structure — title + H1 are required, every
@@ -56,7 +60,8 @@ const FORMAT_OPTIONS = [
 
 const NONE = "__none";   // sentinel for unselected — Base UI Select rejects empty strings
 
-export function BulkUploadTasksButton({ projectId, members }: Props) {
+export function BulkUploadTasksButton({ projectId, members, canAssignToOthers, currentUserEmail }: Props) {
+  const myMember = members.find((m) => m.email.toLowerCase() === currentUserEmail.toLowerCase());
   const [open, setOpen] = useState(false);
   const [queued, setQueued] = useState<QueuedTask[]>([]);
   const [pending, start] = useTransition();
@@ -86,7 +91,11 @@ export function BulkUploadTasksButton({ projectId, members }: Props) {
       toast.error("Task title and H1 keyword are required");
       return;
     }
-    const assigneeMember = assignee !== NONE ? members.find((m) => m.id === assignee) : null;
+    // For members, the assignee is always themselves regardless of the
+    // form state. Admins use whatever they selected.
+    const assigneeMember = canAssignToOthers
+      ? (assignee !== NONE ? members.find((m) => m.id === assignee) : null)
+      : myMember;
     const item: QueuedTask = {
       _localId: seq,
       title: title.trim(),
@@ -243,29 +252,41 @@ export function BulkUploadTasksButton({ projectId, members }: Props) {
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Assign to</Label>
-                <Select value={assignee} onValueChange={(v) => v && setAssignee(v)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue>
-                      {(value: string | null) => {
-                        if (!value || value === NONE) return <span className="text-muted-foreground">(optional)</span>;
-                        return members.find((m) => m.id === value)?.name ?? value;
-                      }}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>(optional)</SelectItem>
-                    {members.map((m) => (
-                      <SelectItem key={m.id} value={m.id} label={m.name}>
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
-                            {initials(m.name)}
+                {canAssignToOthers ? (
+                  <Select value={assignee} onValueChange={(v) => v && setAssignee(v)}>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue>
+                        {(value: string | null) => {
+                          if (!value || value === NONE) return <span className="text-muted-foreground">(optional)</span>;
+                          return members.find((m) => m.id === value)?.name ?? value;
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>(optional)</SelectItem>
+                      {members.map((m) => (
+                        <SelectItem key={m.id} value={m.id} label={m.name}>
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
+                              {initials(m.name)}
+                            </span>
+                            {m.name}
                           </span>
-                          {m.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  // Members can only assign to themselves. Show a read-only
+                  // chip so they know what's happening without a dropdown.
+                  <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-muted/30 text-sm">
+                    <span className="size-5 rounded-full bg-muted text-[10px] inline-flex items-center justify-center font-medium">
+                      {myMember ? initials(myMember.name) : "?"}
+                    </span>
+                    <span className="text-muted-foreground">You</span>
+                    {myMember && <span className="font-medium truncate">({myMember.name})</span>}
+                  </div>
+                )}
               </div>
             </div>
 

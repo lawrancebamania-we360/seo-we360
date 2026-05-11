@@ -3,6 +3,7 @@ import type { Task, Profile, Pillar, Priority, TaskKind, Competition, Intent } f
 
 export interface TaskWithAssignee extends Task {
   assignee: { id: string; name: string; avatar_url: string | null } | null;
+  reviewer: { id: string; name: string; avatar_url: string | null } | null;
 }
 
 export interface TaskFilterParams {
@@ -22,7 +23,7 @@ export async function getTasks(projectId: string, filters: TaskFilterParams = {}
   const supabase = await createClient();
   let q = supabase
     .from("tasks")
-    .select("*, assignee:profiles!team_member_id(id, name, avatar_url)")
+    .select("*, assignee:profiles!team_member_id(id, name, avatar_url), reviewer:profiles!reviewed_by_id(id, name, avatar_url)")
     .eq("project_id", projectId);
 
   if (filters.kind) q = q.eq("kind", filters.kind);

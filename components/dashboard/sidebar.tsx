@@ -21,6 +21,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import Image from "next/image";
 import {
   LayoutDashboard, ListChecks, Search, Swords,
   CalendarRange, Trophy, Users, FolderCog, GitBranch, FileSearch,
@@ -177,10 +178,43 @@ function SidebarInner({ profile, activeProject, canManageTeam, canManageProjects
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="hidden lg:flex shrink-0 flex-col border-r border-border bg-sidebar/50 backdrop-blur-sm sticky top-0 h-svh overflow-hidden"
     >
-      <div className={cn("flex h-12 items-center border-b border-border shrink-0 px-2", collapsed ? "justify-center" : "justify-end")}>
-        <Button variant="ghost" size="icon-sm" onClick={toggle} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
-          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-        </Button>
+      {/* Top bar: we360 logo + collapse toggle. The logo links to Overview;
+          when the sidebar is collapsed only the mark is shown and the
+          toggle button moves below it on its own row. */}
+      <div className={cn("flex flex-col border-b border-border shrink-0", collapsed ? "items-center gap-1 py-2" : "px-3 py-2")}>
+        <div className={cn("flex items-center w-full", collapsed ? "justify-center" : "justify-between gap-2")}>
+          <Link href="/dashboard/overview" className="flex items-center min-w-0 group" aria-label="We360 home">
+            {collapsed ? (
+              <Image
+                src="/we360-mark.png"
+                alt="We360"
+                width={28}
+                height={28}
+                priority
+                className="rounded-md transition-transform group-hover:scale-105"
+              />
+            ) : (
+              <Image
+                src="/we360-logo.webp"
+                alt="We360.ai"
+                width={108}
+                height={28}
+                priority
+                className="h-7 w-auto object-contain transition-transform group-hover:scale-[1.02]"
+              />
+            )}
+          </Link>
+          {!collapsed && (
+            <Button variant="ghost" size="icon-sm" onClick={toggle} aria-label="Collapse sidebar">
+              <PanelLeftClose className="size-4" />
+            </Button>
+          )}
+        </div>
+        {collapsed && (
+          <Button variant="ghost" size="icon-sm" onClick={toggle} aria-label="Expand sidebar">
+            <PanelLeftOpen className="size-4" />
+          </Button>
+        )}
       </div>
 
       <nav className={cn("flex-1 overflow-y-auto min-h-0 we360-scroll", collapsed ? "px-2" : "px-3", "pb-3")}>
