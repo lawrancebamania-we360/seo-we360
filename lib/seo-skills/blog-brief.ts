@@ -286,7 +286,7 @@ const WE360_BRAND = {
   trustLine:      "120K+ users · 10K+ companies · 21+ countries trust We360.ai",
   authorTitle:    "SEO Expert at We360.ai",  // override per-author if you have actual titles
   competitorRef:  "https://www.timechamp.io/solutions/workforce-management",
-  voice:          "Professional, outcome-driven, NOT sales-heavy. Speak to operations leaders / HR managers in India and APAC. ROI-aware. Use Indian rupee (₹) for pricing.",
+  voice:          "Professional, outcome driven, NOT sales heavy. Speak to operations leaders and HR managers in India and APAC. ROI aware. Use Indian rupee (₹) for pricing.",
 };
 
 const TODAY_ISO = () => new Date().toISOString().slice(0, 10);
@@ -313,7 +313,7 @@ export function briefToMarkdownPrompt(
     wt >= 2500 ? "2500+ words" : wt >= 1800 ? "1800–2200 words" : "1200–1500 words";
 
   const list = (arr: string[]) => arr.map((x, i) => `${i + 1}. ${x}`).join("\n");
-  const bullets = (arr: string[]) => arr.map((x) => `- ${x}`).join("\n");
+  const bullets = (arr: string[]) => arr.map((x) => `• ${x}`).join("\n");
 
   const isPage = k.surface === "Page";
   const isUpdate = k.action === "Update";
@@ -335,16 +335,16 @@ Read the brief end to end, then output exactly this block first, before the H1 a
 
 \`\`\`
 ✅ Brief understood
-- Topic: <one-line summary of what this ${isPage ? "page" : "post"} covers>
-- Target keyword: <keyword> · Intent: <intent>
-- Audience: <who reads this. Be specific. Example: "HR managers at Indian SMBs, 50–500 employees">
-- Format: ${k.action} ${k.surface}
-- Tone: ${WE360_BRAND.voice.split(".")[0]}.
-- Word count target: ${wt} words. Hit this exactly. Don't compress.
+• Topic: <one line summary of what this ${isPage ? "page" : "post"} covers>
+• Target keyword: <keyword> · Intent: <intent>
+• Audience: <who reads this. Be specific. Example: "HR managers at Indian SMBs, 50 to 500 employees">
+• Format: ${k.action} ${k.surface}
+• Tone: ${WE360_BRAND.voice.split(".")[0]}.
+• Word count target: ${wt} words. Hit this exactly. Don't compress.
 
 ⚠️  Flags or questions before writing
-- <anything unclear, missing, or inconsistent with the URL/intent>
-- <leave empty as "(none)" if everything checks out>
+• <anything unclear, missing, or inconsistent with the URL or intent>
+• <leave empty as "(none)" if everything checks out>
 \`\`\`
 
 Then write \`---\` on its own line.
@@ -359,7 +359,7 @@ If Flags is (none), proceed to the full ${isPage ? "page" : "article"} below.`;
   let backingHeading: string;
   if (isOps) {
     header = "# SEO ops task";
-    opener = `Plan and execute an SEO operations task for **${projectName}** (${projectDomain}). This isn't content writing. It's site-wide hygiene and governance work.\n\n**Assignee:** ${author} · **Today:** ${today}`;
+    opener = `Plan and execute an SEO operations task for **${projectName}** (${projectDomain}). This isn't content writing. It's site wide hygiene and governance work.\n\n**Assignee:** ${author} · **Today:** ${today}`;
     backingHeading = "## Context";
   } else if (isUpdate && isPage) {
     header = "# Landing page refresh brief";
@@ -371,11 +371,11 @@ If Flags is (none), proceed to the full ${isPage ? "page" : "article"} below.`;
     backingHeading = "## Why we're refreshing this post (live SEO + analytics)";
   } else if (isPage) {
     header = "# Landing page brief, We360.ai";
-    opener = `Build a complete, publish-ready **landing page** for **${projectName}** (${projectDomain}).\n\n**Assignee:** ${author} · **Today:** ${today}\n\nPages exist to convert. Every section should push the visitor toward the CTA, not just inform. Follow the structure below exactly.`;
+    opener = `Build a complete, publish ready **landing page** for **${projectName}** (${projectDomain}).\n\n**Assignee:** ${author} · **Today:** ${today}\n\nPages exist to convert. Every section should push the visitor toward the CTA, not just inform. Follow the structure below exactly.`;
     backingHeading = "## Why this page matters (live SEO + analytics)";
   } else {
     header = "# Blog article brief, We360.ai";
-    opener = `Write a complete, publish-ready blog article for **${projectName}** (${projectDomain}).\n\n**Assignee and author:** ${author} · **Publish date:** ${today}`;
+    opener = `Write a complete, publish ready blog article for **${projectName}** (${projectDomain}).\n\n**Assignee and author:** ${author} · **Publish date:** ${today}`;
     backingHeading = "## Why this article matters (live SEO + analytics)";
   }
 
@@ -388,17 +388,17 @@ If Flags is (none), proceed to the full ${isPage ? "page" : "article"} below.`;
 
 Use these verbatim. Don't invent your own.
 
-- **Voice:** ${WE360_BRAND.voice}
-- **Primary CTA (filled button):** \`${WE360_BRAND.primaryCta}\`
-- **Secondary CTA (outlined button):** \`${WE360_BRAND.secondaryCta}\`
-- **Pricing line:** \`${WE360_BRAND.pricingLine}\`
-- **Trust line:** \`${WE360_BRAND.trustLine}\`
-- **Author and updated:** \`${author}\` · \`${today}\`
-${isPage ? `- **Reference page (visual style guide):** ${WE360_BRAND.competitorRef}\n` : ""}`;
+• **Voice:** ${WE360_BRAND.voice}
+• **Primary CTA (filled button):** \`${WE360_BRAND.primaryCta}\`
+• **Secondary CTA (outlined button):** \`${WE360_BRAND.secondaryCta}\`
+• **Pricing line:** \`${WE360_BRAND.pricingLine}\`
+• **Trust line:** \`${WE360_BRAND.trustLine}\`
+• **Author and updated:** \`${author}\` · \`${today}\`
+${isPage ? `• **Reference page (visual style guide):** ${WE360_BRAND.competitorRef}\n` : ""}`;
 
   // -------------------------------------------------------------- OPS — short flow
   if (isOps) {
-    return `${header}\n\n${opener}\n${backingBlock}\n${verification}\n\n${brandBlock}\n## Task\n- **Title:** ${brief.recommended_h1 || brief.target_keyword}\n- **Target keyword (if applicable):** ${brief.target_keyword}\n- **Word count for any deliverable doc:** ${wt} words\n\n## Context and writer notes\n${bullets(brief.writer_notes)}\n\n## Deliverable\n\nOutput a short execution plan in Markdown.\n\n1. **Goal.** One sentence on what this task achieves.\n2. **Context.** What's currently broken or missing.\n3. **Steps.** A numbered list of 5–10 concrete, verifiable actions.\n4. **Owner and ETA.** Who does what, by when.\n5. **Verification.** How we'll confirm the task is actually done.\n\nReturn only the Markdown plan. No commentary.`;
+    return `${header}\n\n${opener}\n${backingBlock}\n${verification}\n\n${brandBlock}\n## Task\n• **Title:** ${brief.recommended_h1 || brief.target_keyword}\n• **Target keyword (if applicable):** ${brief.target_keyword}\n• **Word count for any deliverable doc:** ${wt} words\n\n## Context and writer notes\n${bullets(brief.writer_notes)}\n\n## Deliverable\n\nOutput a short execution plan in Markdown.\n\n1. **Goal.** One sentence on what this task achieves.\n2. **Context.** What's currently broken or missing.\n3. **Steps.** A numbered list of 5–10 concrete, verifiable actions.\n4. **Owner and ETA.** Who does what, by when.\n5. **Verification.** How we'll confirm the task is actually done.\n\nReturn only the Markdown plan. No commentary.`;
   }
 
   // -------------------------------------------------------------- PAGE template
@@ -413,10 +413,10 @@ ${isPage ? `- **Reference page (visual style guide):** ${WE360_BRAND.competitorR
       : "";
 
     return `${header}\n\n${opener}\n${backingBlock}${updateExtras}\n${verification}\n\n${brandBlock}\n## Core
-- **Target keyword:** ${brief.target_keyword}
-- **Search intent:** ${brief.intent}
-- **Target length:** ${wt} words (${lengthBand})
-- **Secondary keywords to use:** ${brief.secondary_keywords.join(", ")}
+• **Target keyword:** ${brief.target_keyword}
+• **Search intent:** ${brief.intent}
+• **Target length:** ${wt} words (${lengthBand})
+• **Secondary keywords to use:** ${brief.secondary_keywords.join(", ")}
 
 ## Required H1
 ${brief.recommended_h1}
@@ -425,7 +425,7 @@ ${brief.recommended_h1}
 
 Use these as the structure of the page.
 
-**H2 sections (${brief.recommended_h2s.length}). Turn each into a detailed feature section, with image placement alternating left/right.**
+**H2 sections (${brief.recommended_h2s.length}). Turn each into a detailed feature section, with image placement alternating left and right.**
 ${list(brief.recommended_h2s)}
 
 **H3 subsections that drill into the H2s.**
@@ -450,77 +450,77 @@ Output this first, before the H1. Use a fenced code block, not an HTML comment.
 
 \`\`\`
 META TITLE: <55–60 chars. Include the target keyword and brand. Example: "Employee Monitoring Software 2026 | We360.ai">
-META DESC:  <150–160 chars. Benefit-led with a CTA verb. Example: "Track productivity, manage attendance, and prove ROI with ethical employee monitoring software. Start free with We360.ai.">
+META DESC:  <150–160 chars. Benefit led with a CTA verb. Example: "Track productivity, manage attendance, and prove ROI with ethical employee monitoring software. Start free with We360.ai.">
 SLUG:       /<kebab-case-from-h1>
 CANONICAL:  https://we360.ai/<slug>
 H1:         <the Required H1>
 \`\`\`
 
 ### 1. Hero section
-- **H1:** the Required H1 above. Outcome-focused, not feature-focused.
-- **Sub-headline:** one line that promises the outcome in plain language.
-- **Primary CTA and Secondary CTA** (use the brand-fixed CTAs above).
-- **Trust line:** \`${WE360_BRAND.trustLine}\` on one line below the CTAs.
-- **Image:** \`> [Image: Hero, We360.ai dashboard showing ${brief.target_keyword} overview · placement: RIGHT · alt='We360.ai dashboard showing ${brief.target_keyword}']\`
+• **H1:** the Required H1 above. Focus on the outcome, not the feature.
+• **Subheadline:** one line that promises the outcome in plain language.
+• **Primary CTA and Secondary CTA** (use the brand fixed CTAs above).
+• **Trust line:** \`${WE360_BRAND.trustLine}\` on one line below the CTAs.
+• **Image:** \`> [Image: Hero, We360.ai dashboard showing ${brief.target_keyword} overview · placement: RIGHT · alt='We360.ai dashboard showing ${brief.target_keyword}']\`
 
 ### 2. Problem section
-- **H2:** pain-point framing. Example: "Why managing a workforce manually doesn't scale".
-- 4–5 short bullet points. Each one a specific pain a manager feels today.
-- No paragraphs. Bullets only.
+• **H2:** pain point framing. Example: "Why managing a workforce manually doesn't scale".
+• 4–5 short bullet points. Each one a specific pain a manager feels today.
+• No paragraphs. Bullets only.
 
 ### 3. Solution intro
-- **H2:** how We360.ai solves this.
-- 2–3 short paragraphs. Lead with the answer, then explain the how.
-- **Weave in 1–2 inline internal links** (e.g. "...with [workforce analytics](/solutions/workforce-analytics) built in"). Don't just list them at the bottom.
+• **H2:** how We360.ai solves this.
+• 2–3 short paragraphs. Lead with the answer, then explain the how.
+• **Weave in 1–2 inline internal links** (e.g. "...with [workforce analytics](/solutions/workforce-analytics) built in"). Don't just list them at the bottom.
 
 ### 4. Key features grid
-- **H2:** "What [target keyword] does".
-- 4–6 feature cards. Each card has an icon name, the feature name, and a one-line description.
+• **H2:** "What [target keyword] does".
+• 4–6 feature cards. Each card has an icon name, the feature name, and a one line description.
 
 ### 5. Detailed feature sections
 
 One per H2 from the source data. For each one:
-- **H2** that targets a keyword variant from secondary_keywords.
-- 4–6 short bullet points. No paragraphs.
-- One \`> [Image: <feature name>, placement: <Left/Right alternating> · alt='We360.ai dashboard showing <feature>']\` placeholder.
-- **Weave at least one inline internal link per 2–3 sections** to /solutions/*, /integrations/*, /vs/*, or /alternative/*.
+• **H2** that targets a keyword variant from secondary_keywords.
+• 4–6 short bullet points. No paragraphs.
+• One \`> [Image: <feature name>, placement: <Left/Right alternating> · alt='We360.ai dashboard showing <feature>']\` placeholder.
+• **Weave at least one inline internal link per 2–3 sections** to /solutions/*, /integrations/*, /vs/*, or /alternative/*.
 
 ### 6. Comparison table
 
 Use a proper Markdown table. Don't fall back to a wall of text.
 
-- **H2:** "Why use We360.ai for ${brief.target_keyword}?"
-- Use this exact Markdown table syntax:
+• **H2:** "Why use We360.ai for ${brief.target_keyword}?"
+• Use this exact Markdown table syntax:
 
 \`\`\`
 | Without We360.ai                          | With We360.ai                                 |
 |-------------------------------------------|------------------------------------------------|
-| Manual attendance tracking                | Automated, real-time attendance dashboard      |
-| Productivity based on manager guesses     | Data-backed productivity scoring per employee  |
+| Manual attendance tracking                | Automated real time attendance dashboard       |
+| Productivity based on manager guesses     | Data backed productivity scoring per employee  |
 | ... (5–7 rows total)                      | ... (matching 5–7 rows)                        |
 \`\`\`
 
 ### 7. Use cases
-- **H2:** "Who uses ${brief.target_keyword}?"
-- 6–8 industry or role chips. Pick the most relevant 6–8 from: BPO, IT services, Banking, EdTech, Healthcare, Consulting, Real Estate, Retail, Manufacturing.
-- Each chip is the role or industry name plus a one-line use case.
+• **H2:** "Who uses ${brief.target_keyword}?"
+• 6–8 industry or role chips. Pick the most relevant 6–8 from: BPO, IT services, Banking, EdTech, Healthcare, Consulting, Real Estate, Retail, Manufacturing.
+• Each chip is the role or industry name plus a one line use case.
 
-### 8. Mid-page CTA
-- **H2:** action-oriented. Example: "See We360.ai in action".
-- One short paragraph.
-- Both CTAs (primary and secondary).
+### 8. Mid page CTA
+• **H2:** action oriented. Example: "See We360.ai in action".
+• One short paragraph.
+• Both CTAs (primary and secondary).
 
 ### 9. FAQ section
-- **H2:** "Frequently Asked Questions".
-- 5–7 Q&A pairs. Use the People Also Ask above as the questions. Answer in 30–60 words each, answer-first.
-- The FAQPage JSON-LD goes in section 11 below. Don't duplicate inline.
+• **H2:** "Frequently Asked Questions".
+• 5–7 Q&A pairs. Use the People Also Ask above as the questions. Answer in 30–60 words each, and answer first.
+• The FAQPage JSON-LD goes in section 11 below. Don't duplicate inline.
 
 ### 10. Final CTA
-- **H2:** outcome statement. Example: "Ready to manage your workforce smarter?"
-- 2–3 sentences.
-- Both CTAs.
-- Pricing line: \`${WE360_BRAND.pricingLine}\`.
-- \`> [Image: HR manager reviewing dashboard · placement: BOTTOM · alt='HR manager reviewing ${brief.target_keyword} dashboard on We360.ai']\`
+• **H2:** outcome statement. Example: "Ready to manage your workforce smarter?"
+• 2–3 sentences.
+• Both CTAs.
+• Pricing line: \`${WE360_BRAND.pricingLine}\`.
+• \`> [Image: HR manager reviewing dashboard · placement: BOTTOM · alt='HR manager reviewing ${brief.target_keyword} dashboard on We360.ai']\`
 
 ### 11. Schema
 
@@ -566,29 +566,29 @@ All three JSON-LD blocks are required. Skipping any one is a fail. Output each a
 The page must satisfy all five.
 
 ### SEO
-- Single H1 with the target keyword near the start. H2s use keyword variations.
-- 0.8–1.5% keyword density. Don't stuff.
-- Schema: SoftwareApplication, FAQPage, BreadcrumbList.
+• Single H1 with the target keyword near the start. H2s use keyword variations.
+• 0.8–1.5% keyword density. Don't stuff.
+• Schema: SoftwareApplication, FAQPage, BreadcrumbList.
 
 ### AEO
-- The hero subhead and Problem section bullets answer the query in the first viewport.
-- FAQ uses answer-first paragraphs (30–60 words).
-- FAQPage JSON-LD wraps the FAQ section.
+• The hero subhead and Problem section bullets answer the query in the first viewport.
+• FAQ uses answer first paragraphs (30–60 words).
+• FAQPage JSON-LD wraps the FAQ section.
 
 ### GEO and E-E-A-T
-- Trust line plus customer logos or badges visible above the fold.
-- Cite 2–3 authoritative sources inline (link to gov, Wikipedia, industry body).
-- Use named entities (specific industries, regulations, integrations).
+• Trust line plus customer logos or badges visible above the fold.
+• Cite 2–3 authoritative sources inline (link to gov, Wikipedia, or an industry body).
+• Use named entities (specific industries, regulations, and integrations).
 
 ### SXO
-- Bullets over paragraphs everywhere.
-- Visual hierarchy: hero → problem → features → comparison → social proof → CTA.
-- Repeat the primary CTA every 1–2 viewports.
+• Bullets over paragraphs everywhere.
+• Visual hierarchy: hero → problem → features → comparison → social proof → CTA.
+• Repeat the primary CTA every 1–2 viewports.
 
 ### AIO
-- Each claim standalone. No "as mentioned earlier".
-- Fact-first sentences.
-- The comparison table is structured data, so LLMs can extract it cleanly.
+• Each claim standalone. No "as mentioned earlier".
+• Fact first sentences.
+• The comparison table is structured data, so LLMs can extract it cleanly.
 
 Return only the page Markdown. No commentary.`;
   }
@@ -602,10 +602,10 @@ Return only the page Markdown. No commentary.`;
     : "";
 
   return `${header}\n\n${opener}\n${backingBlock}${updateExtras}\n${verification}\n\n${brandBlock}\n## Core
-- **Target keyword:** ${brief.target_keyword}
-- **Search intent:** ${brief.intent}
-- **Target length:** ${wt} words (${lengthBand})
-- **Secondary keywords to use:** ${brief.secondary_keywords.join(", ")}
+• **Target keyword:** ${brief.target_keyword}
+• **Search intent:** ${brief.intent}
+• **Target length:** ${wt} words (${lengthBand})
+• **Secondary keywords to use:** ${brief.secondary_keywords.join(", ")}
 
 ## Required H1
 ${brief.recommended_h1}
@@ -640,7 +640,7 @@ Output this first, before the H1. Use a fenced code block.
 
 \`\`\`
 META TITLE: <55–60 chars. Include the target keyword and brand.>
-META DESC:  <150–160 chars. Benefit-led with a CTA verb.>
+META DESC:  <150–160 chars. Benefit led with a CTA verb.>
 SLUG:       /blog/<kebab-case-from-h1>
 CANONICAL:  https://we360.ai/blog/<slug>
 H1:         <the Required H1>
@@ -652,11 +652,11 @@ H1:         <the Required H1>
 \`*By ${author}, ${WE360_BRAND.authorTitle}. ${isUpdate ? "Last updated" : "Published"}: ${today}.*\`
 
 ### 3. TL;DR blockquote
-\`> **TL;DR:** <2–4 sentences, answer-first, AEO win>\`
+\`> **TL;DR:** <2–4 sentences, answer first, AEO win>\`
 
 ### 4. Key takeaways
 
-3–5 scannable bullets. AIO-friendly.
+3–5 scannable bullets that are friendly to AI overview parsers.
 
 ### 5. Intro paragraph
 
@@ -666,10 +666,10 @@ H1:         <the Required H1>
 
 Follow the H2 and H3 lists above.
 
-- **Weave 3–5 inline internal links** into the body at natural mention points. Example: when you mention "attendance tracking", link to [/solutions/attendance-tracking-software](). Don't dump links at the end. Integrate them inline.
-- Drop 2–3 \`> [Image: description, placement: inline · alt='alt text']\` placeholders mid-body where a visual would help.
+• **Weave 3–5 inline internal links** into the body at natural mention points. Example: when you mention "attendance tracking", link to [/solutions/attendance-tracking-software](). Don't dump links at the end. Integrate them inline.
+• Drop 2–3 \`> [Image: description, placement: inline · alt='alt text']\` placeholders mid body where a visual would help.
 
-### 7. Inline mid-post CTA
+### 7. Inline mid post CTA
 
 A soft CTA after value is delivered, around 60% of the way through.
 
@@ -679,12 +679,12 @@ A soft CTA after value is delivered, around 60% of the way through.
 
 ### 9. Final CTA paragraph
 
-2–3 outcome-focused sentences. Use both CTAs (primary and secondary).
+2–3 outcome focused sentences. Use both CTAs (primary and secondary).
 
 ### 10. FAQ section
-- \`## Frequently Asked Questions\` plus 5–7 Q&A from the PAA list above.
-- Answer-first, 30–60 words each.
-- The FAQPage JSON-LD goes in section 12 below. Don't duplicate inline.
+• \`## Frequently Asked Questions\` plus 5–7 Q&A from the PAA list above.
+• Answer first, 30–60 words each.
+• The FAQPage JSON-LD goes in section 12 below. Don't duplicate inline.
 
 ### 11. Author bio (2 lines)
 \`*${author} is the ${WE360_BRAND.authorTitle.toLowerCase()}. Writes about workforce productivity, employee monitoring, and modern SEO. Connect on LinkedIn.*\`
@@ -730,31 +730,31 @@ All three JSON-LD blocks are required. Output each as a fenced \`\`\`json code b
 The article must satisfy all five.
 
 ### SEO
-- Single H1 with the primary keyword near the start.
-- 4+ H2 sections with keyword variations. 0.8–1.5% keyword density.
-- 3–5 internal links formatted as \`[anchor](/path)\`.
-- META line at the end.
+• Single H1 with the primary keyword near the start.
+• 4+ H2 sections with keyword variations. 0.8–1.5% keyword density.
+• 3–5 internal links formatted as \`[anchor](/path)\`.
+• META line at the end.
 
 ### AEO (answer engine)
-- TL;DR and Key takeaways near the top.
-- Answer-first paragraphs (topic sentence in sentence 1).
-- FAQPage JSON-LD wraps the FAQ section.
+• TL;DR and Key takeaways near the top.
+• Answer first paragraphs (topic sentence in sentence 1).
+• FAQPage JSON-LD wraps the FAQ section.
 
 ### GEO and E-E-A-T
-- Author byline at top with credential and date.
-- Cite 2–3 authoritative external sources inline.
-- Named entities (places, brands, regulations).
+• Author byline at top with credential and date.
+• Cite 2–3 authoritative external sources inline.
+• Named entities (places, brands, regulations).
 
 ### SXO
-- Short paragraphs (max 4 sentences).
-- Bullets and numbered lists generously.
-- Inline mid-post CTA and final CTA paragraph.
-- 2–3 image prompts.
+• Short paragraphs (max 4 sentences).
+• Bullets and numbered lists generously.
+• Inline mid post CTA and final CTA paragraph.
+• 2–3 image prompts.
 
 ### AIO
-- Each claim standalone. No "as mentioned earlier".
-- Fact-first sentences.
-- Schema block listing JSON-LD types at end.
+• Each claim standalone. No "as mentioned earlier".
+• Fact first sentences.
+• Schema block listing JSON-LD types at end.
 
 Return only the article Markdown. No commentary.`;
 }
