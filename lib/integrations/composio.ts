@@ -19,6 +19,15 @@ function apiKey(): string {
   return key;
 }
 
+// The entity / user_id under which the Composio connections live. Composio
+// scopes connected accounts per user, so every tool execution must pass the
+// user_id that owns the GA4 / GSC connection. We initiated both connections
+// under "lawrance" during setup — override via env if you re-OAuth under a
+// different name.
+function entityId(): string {
+  return process.env.COMPOSIO_ENTITY_ID ?? "lawrance";
+}
+
 // Generic action execution. Tool slugs look like `GOOGLE_ANALYTICS_RUN_REPORT`
 // and `GOOGLE_SEARCH_CONSOLE_QUERY_ANALYTICS` — find the exact slug for any
 // connector at https://app.composio.dev/toolkits/<app>.
@@ -26,11 +35,16 @@ export async function executeAction<T = unknown>(
   toolSlug: string,
   input: Record<string, unknown>,
   options: { connectedAccountId?: string; userId?: string } = {},
-): Promise<{ data: T; successful: boolean; error?: string }> {
+): Promise<{ data: T; successful: boolean; error?: unknown }> {
   const url = `${COMPOSIO_BASE}/tools/execute/${toolSlug}`;
-  const body: Record<string, unknown> = { arguments: input };
+  // Every call must include user_id so Composio can pick the right
+  // connected account. Default comes from COMPOSIO_ENTITY_ID env, but caller
+  // can override on a per-call basis.
+  const body: Record<string, unknown> = {
+    arguments: input,
+    user_id: options.userId ?? entityId(),
+  };
   if (options.connectedAccountId) body.connected_account_id = options.connectedAccountId;
-  if (options.userId) body.user_id = options.userId;
 
   const resp = await fetch(url, {
     method: "POST",
@@ -42,15 +56,22 @@ export async function executeAction<T = unknown>(
   });
 
   const text = await resp.text();
-  let json: { data?: T; successful?: boolean; error?: string };
+  let json: { data?: T; successful?: boolean; error?: unknown };
   try {
-    json = JSON.parse(text) as { data?: T; successful?: boolean; error?: string };
+    json = JSON.parse(text) as { data?: T; successful?: boolean; error?: unknown };
   } catch {
-    throw new Error(`Composio ${toolSlug}: HTTP ${resp.status}: ${text.slice(0, 300)}`);
+    throw new Error(`Composio ${toolSlug}: HTTP ${resp.status}: ${text.slice(0, 500)}`);
   }
 
   if (!resp.ok || json.successful === false) {
-    throw new Error(`Composio ${toolSlug}: ${json.error ?? `HTTP ${resp.status}`}`);
+    // Composio's error field is sometimes a string and sometimes an object —
+    // stringify defensively so we don't blow up the logs with [object Object].
+    const errMsg = typeof json.error === "string"
+      ? json.error
+      : json.error
+        ? JSON.stringify(json.error)
+        : `HTTP ${resp.status}`;
+    throw new Error(`Composio ${toolSlug}: ${errMsg} (full response: ${text.slice(0, 400)})`);
   }
 
   return { data: json.data as T, successful: json.successful ?? true, error: json.error };
@@ -185,22 +206,24 @@ export async function gscSearchAnalytics(params: {
   const start = new Date(today); start.setDate(start.getDate() - params.startDaysAgo);
   const end = new Date(today); end.setDate(end.getDate() - (params.endDaysAgo ?? 0));
 
-  const requestBody: Record<string, unknown> = {
-    startDate: iso(start),
-    endDate: iso(end),
+  // Composio expects flat snake_case fields, not the nested GSC requestBody
+  // shape Google's own API uses.
+  const args: Record<string, unknown> = {
+    site_url: params.siteUrl,
+    start_date: iso(start),
+    end_date: iso(end),
     dimensions: params.dimensions,
-    rowLimit: params.rowLimit ?? 25,
+    row_limit: params.rowLimit ?? 25,
   };
   if (params.pageUrl) {
-    requestBody.dimensionFilterGroups = [
+    args.dimension_filter_groups = [
       { filters: [{ dimension: "page", operator: "equals", expression: params.pageUrl }] },
     ];
   }
 
-  const result = await executeAction<GSCResponse>("GOOGLE_SEARCH_CONSOLE_QUERY_ANALYTICS", {
-    siteUrl: params.siteUrl,
-    requestBody,
-  });
+  // Composio's actual slug for GSC search-analytics query (verified via
+  // dashboard toolkit list at app.composio.dev/toolkits/google_search_console).
+  const result = await executeAction<GSCResponse>("GOOGLE_SEARCH_CONSOLE_SEARCH_ANALYTICS_QUERY", args);
   return result.data;
 }
 
