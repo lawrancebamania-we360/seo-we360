@@ -46,11 +46,9 @@ interface Props {
 }
 
 type DecisionFilter = "all" | "refresh" | "merge" | "prune";
-type StatusFilter = "actionable" | "all" | "in_flight" | "dismissed";
 
 export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Props) {
   const [decisionFilter, setDecisionFilter] = useState<DecisionFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("actionable");
   const [createFor, setCreateFor] = useState<BlogAuditFinding | null>(null);
   const [detailFor, setDetailFor] = useState<BlogAuditFinding | null>(null);
   const [openedTask, setOpenedTask] = useState<TaskWithAssignee | null>(null);
@@ -58,33 +56,26 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
   // the spinner, not every Open-task button on the page.
   const [openingTaskId, setOpeningTaskId] = useState<string | null>(null);
 
-  const counts = useMemo(() => {
-    const actionable = findings.filter((f) => f.status === "open" || f.status === "stale");
-    return {
-      total: findings.length,
-      actionable: actionable.length,
-      in_flight: findings.filter((f) => f.status === "task_open" || f.status === "task_done").length,
-      dismissed: findings.filter((f) => f.status === "dismissed").length,
-      refresh: actionable.filter((f) => f.decision === "refresh").length,
-      merge: actionable.filter((f) => f.decision === "merge").length,
-      prune: actionable.filter((f) => f.decision === "prune").length,
-    };
-  }, [findings]);
+  // The audit page is a worklist. We show ONLY findings that need a task
+  // created today (status = open or stale). Items with an in-flight task,
+  // a recently-published task, or that were dismissed simply don't appear
+  // here — once a task exists, the finding's life moves to Blog Sprint.
+  const actionable = useMemo(
+    () => findings.filter((f) => f.status === "open" || f.status === "stale"),
+    [findings],
+  );
+
+  const counts = useMemo(() => ({
+    total: actionable.length,
+    refresh: actionable.filter((f) => f.decision === "refresh").length,
+    merge: actionable.filter((f) => f.decision === "merge").length,
+    prune: actionable.filter((f) => f.decision === "prune").length,
+  }), [actionable]);
 
   const visible = useMemo(() => {
-    let pool = findings;
-    if (statusFilter === "actionable") {
-      pool = pool.filter((f) => f.status === "open" || f.status === "stale");
-    } else if (statusFilter === "in_flight") {
-      pool = pool.filter((f) => f.status === "task_open" || f.status === "task_done");
-    } else if (statusFilter === "dismissed") {
-      pool = pool.filter((f) => f.status === "dismissed");
-    }
-    if (decisionFilter !== "all") {
-      pool = pool.filter((f) => f.decision === decisionFilter);
-    }
-    return pool;
-  }, [findings, statusFilter, decisionFilter]);
+    if (decisionFilter === "all") return actionable;
+    return actionable.filter((f) => f.decision === decisionFilter);
+  }, [actionable, decisionFilter]);
 
   const openTask = (taskId: string) => {
     setOpeningTaskId(taskId);
@@ -96,28 +87,25 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
 
   return (
     <div className="space-y-4">
-      {/* Two filter rows: status (actionable / in-flight / dismissed / all)
-          and decision type (update / merge / delete). */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <FilterChip label={`Actionable · ${counts.actionable}`} active={statusFilter === "actionable"} onClick={() => setStatusFilter("actionable")} />
-          <FilterChip label={`In flight · ${counts.in_flight}`} active={statusFilter === "in_flight"} onClick={() => setStatusFilter("in_flight")} />
-          <FilterChip label={`Dismissed · ${counts.dismissed}`} active={statusFilter === "dismissed"} onClick={() => setStatusFilter("dismissed")} />
-          <FilterChip label={`All · ${counts.total}`} active={statusFilter === "all"} onClick={() => setStatusFilter("all")} />
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Decision</span>
-          <FilterChip label={`All`} active={decisionFilter === "all"} onClick={() => setDecisionFilter("all")} small />
-          <FilterChip label={`Update · ${counts.refresh}`} active={decisionFilter === "refresh"} onClick={() => setDecisionFilter("refresh")} small tone="violet" />
-          <FilterChip label={`Merge · ${counts.merge}`} active={decisionFilter === "merge"} onClick={() => setDecisionFilter("merge")} small tone="amber" />
-          <FilterChip label={`Delete · ${counts.prune}`} active={decisionFilter === "prune"} onClick={() => setDecisionFilter("prune")} small tone="rose" />
+      {/* Single filter row — decision type only. No status tabs, no
+          in-flight / dismissed views. Tasks that exist live in Blog Sprint;
+          the audit page strictly shows what still needs a task created. */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <FilterChip label={`All · ${counts.total}`} active={decisionFilter === "all"} onClick={() => setDecisionFilter("all")} />
+        <FilterChip label={`Update · ${counts.refresh}`} active={decisionFilter === "refresh"} onClick={() => setDecisionFilter("refresh")} tone="violet" />
+        <FilterChip label={`Merge · ${counts.merge}`} active={decisionFilter === "merge"} onClick={() => setDecisionFilter("merge")} tone="amber" />
+        <FilterChip label={`Delete · ${counts.prune}`} active={decisionFilter === "prune"} onClick={() => setDecisionFilter("prune")} tone="rose" />
+        <div className="ml-auto text-xs text-muted-foreground">
+          {actionable.length === 0
+            ? "All clear — every flagged URL already has a task in Sprint or is performing fine."
+            : `${visible.length} of ${actionable.length} need a task`}
         </div>
       </div>
 
       {visible.length === 0 ? (
         <Card className="border-dashed p-8 text-center text-sm text-muted-foreground">
-          {counts.actionable === 0 && statusFilter === "actionable"
-            ? "All clear — every flagged URL has a task in flight or is performing fine. Try the In flight tab to see what's being worked on."
+          {actionable.length === 0
+            ? "Nothing to do here. New audit findings will show up after the next morning sync."
             : "No findings match the current filter."}
         </Card>
       ) : (

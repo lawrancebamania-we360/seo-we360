@@ -45,23 +45,29 @@ export default async function BlogAuditPage() {
         </Card>
       ) : (
         <>
-          {/* Summary strip — big number = total flagged, small number = actionable today */}
+          {/* Summary strip — hero number = today's actionable count for
+              Delete/Merge/Update so it matches the worklist below. Keep
+              still shows the total since it's good news, not a worklist. */}
           <section className="grid gap-3 grid-cols-2 md:grid-cols-4">
             <SummaryCell icon={Trash2} tone="rose" label="Delete (410)"
               total={snapshot.counts.prune}
               open={snapshot.open_counts.prune}
+              isKeep={false}
               hint="Invisible to Google — remove permanently" />
             <SummaryCell icon={GitMerge} tone="amber" label="Merge (301)"
               total={snapshot.counts.merge}
               open={snapshot.open_counts.merge}
+              isKeep={false}
               hint="Cannibalized — redirect to stronger sibling" />
             <SummaryCell icon={RefreshCw} tone="violet" label="Update"
               total={snapshot.counts.refresh}
               open={snapshot.open_counts.refresh}
+              isKeep={false}
               hint="Striking distance — rewrite to push to top 10" />
             <SummaryCell icon={CheckCircle2} tone="emerald" label="Keep"
               total={snapshot.counts.keep}
               open={0}
+              isKeep={true}
               hint="Performing well — no action needed" />
           </section>
 
@@ -78,11 +84,11 @@ export default async function BlogAuditPage() {
 }
 
 function SummaryCell({
-  icon: Icon, tone, label, total, open, hint,
+  icon: Icon, tone, label, total, open, isKeep, hint,
 }: {
   icon: typeof Trash2;
   tone: "rose" | "amber" | "violet" | "emerald";
-  label: string; total: number; open: number; hint: string;
+  label: string; total: number; open: number; isKeep: boolean; hint: string;
 }) {
   const toneClass = {
     rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
@@ -90,6 +96,22 @@ function SummaryCell({
     violet: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
     emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   }[tone];
+
+  // For actionable decisions, the hero number is OPEN (today's task count)
+  // so it matches the worklist below. Keep doesn't need an action so we
+  // show its total as the hero (it's good news).
+  const hero = isKeep ? total : open;
+  const subtitle = isKeep
+    ? `${total} pages performing well`
+    : total === 0
+      ? "nothing flagged"
+      : open === 0
+        ? `${total} already in Sprint`
+        : open === total
+          ? `${open} need a task`
+          : `${open} need a task · ${total - open} in Sprint`;
+  const inAction = !isKeep && open > 0;
+
   return (
     <Card className="p-4 flex items-center gap-3">
       <div className={`flex size-9 items-center justify-center rounded-lg ${toneClass}`}>
@@ -98,19 +120,10 @@ function SummaryCell({
       <div className="min-w-0 flex-1">
         <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
         <div className="text-lg font-semibold tabular-nums leading-tight flex items-baseline gap-2">
-          <span>{total}</span>
-          {total > 0 && (
-            <span className={cn(
-              "text-xs font-normal",
-              open > 0
-                ? "text-rose-600 dark:text-rose-400"
-                : "text-muted-foreground",
-            )}>
-              {open > 0 ? `${open} open` : "all in flight"}
-            </span>
-          )}
+          <span className={cn(inAction && "text-rose-600 dark:text-rose-400")}>{hero}</span>
         </div>
-        <div className="text-[10px] text-muted-foreground truncate">{hint}</div>
+        <div className="text-[10px] text-muted-foreground truncate">{subtitle}</div>
+        <div className="text-[10px] text-muted-foreground/60 truncate mt-0.5">{hint}</div>
       </div>
     </Card>
   );
