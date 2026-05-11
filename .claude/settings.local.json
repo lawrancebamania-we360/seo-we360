@@ -70,5 +70,8 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)"
     ]
+  },
+  "enabledPlugins": {
+    "composio-mcp@composio": true
   }
 }
