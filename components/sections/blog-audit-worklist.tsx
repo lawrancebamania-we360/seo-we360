@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import {
   RefreshCw, GitMerge, Trash2, Plus, Loader2,
   ExternalLink, X, AlertCircle, ChevronRight, TrendingUp, TrendingDown, Minus,
-  CheckCircle2,
+  CheckCircle2, ArrowUp, ArrowDown, ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -49,9 +49,25 @@ interface Props {
 }
 
 type DecisionFilter = "all" | "refresh" | "merge" | "prune";
+type SortKey = "impressions" | "clicks" | "sessions" | "position" | "ctr";
+type SortDir = "asc" | "desc";
 
 export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Props) {
   const [decisionFilter, setDecisionFilter] = useState<DecisionFilter>("all");
+  // Default sort: impressions desc — biggest visible-traffic loss at the top.
+  // Click a header to toggle; clicking the same column again flips direction.
+  const [sortKey, setSortKey] = useState<SortKey>("impressions");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const toggleSort = (k: SortKey) => {
+    if (sortKey === k) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(k);
+      // First click on a new column: clicks/impressions/sessions/ctr default
+      // to desc (most traffic first); position defaults to asc (best rank first).
+      setSortDir(k === "position" ? "asc" : "desc");
+    }
+  };
   const [createFor, setCreateFor] = useState<BlogAuditFinding | null>(null);
   const [detailFor, setDetailFor] = useState<BlogAuditFinding | null>(null);
   const [openedTask, setOpenedTask] = useState<TaskWithAssignee | null>(null);
@@ -76,9 +92,19 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
   }), [actionable]);
 
   const visible = useMemo(() => {
-    if (decisionFilter === "all") return actionable;
-    return actionable.filter((f) => f.decision === decisionFilter);
-  }, [actionable, decisionFilter]);
+    const filtered = decisionFilter === "all"
+      ? actionable
+      : actionable.filter((f) => f.decision === decisionFilter);
+    // Sort a copy so we don't mutate the parent findings array.
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      const av = sortValue(a, sortKey);
+      const bv = sortValue(b, sortKey);
+      const cmp = av - bv;
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [actionable, decisionFilter, sortKey, sortDir]);
 
   const openTask = (taskId: string) => {
     setOpeningTaskId(taskId);
@@ -113,11 +139,12 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden">
-          <div className="grid grid-cols-[1fr_90px_110px_110px_180px] gap-2 px-4 py-3 border-b bg-muted/30 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+          <div className="grid grid-cols-[1fr_90px_110px_90px_110px_180px] gap-2 px-4 py-3 border-b bg-muted/30 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
             <div>URL · Specific issue</div>
-            <div className="text-right">Clicks</div>
-            <div className="text-right">Impressions</div>
-            <div className="text-right">Sessions</div>
+            <SortHeader label="Clicks"      active={sortKey === "clicks"}      dir={sortDir} onClick={() => toggleSort("clicks")} />
+            <SortHeader label="Impressions" active={sortKey === "impressions"} dir={sortDir} onClick={() => toggleSort("impressions")} />
+            <SortHeader label="Position"    active={sortKey === "position"}    dir={sortDir} onClick={() => toggleSort("position")} />
+            <SortHeader label="Sessions"    active={sortKey === "sessions"}    dir={sortDir} onClick={() => toggleSort("sessions")} />
             <div className="text-right">Action</div>
           </div>
           <div className="divide-y">
@@ -171,6 +198,53 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
       )}
     </div>
   );
+}
+
+// ============ Sortable column header ============
+
+function SortHeader({
+  label, active, dir, onClick,
+}: {
+  label: string;
+  active: boolean;
+  dir: SortDir;
+  onClick: () => void;
+}) {
+  // Subtle hover: column header is clickable, but it's still a header — we
+  // don't want it to look like a button. Active state shows the up/down
+  // arrow; inactive shows the neutral two-headed arrow so users know it
+  // can be sorted.
+  const Icon = !active ? ArrowUpDown : dir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-center justify-end gap-1 text-right transition-colors hover:text-foreground",
+        active && "text-foreground",
+      )}
+    >
+      <span>{label}</span>
+      <Icon className={cn("size-3 shrink-0", active ? "text-foreground" : "text-muted-foreground/50")} />
+    </button>
+  );
+}
+
+// Lookup the numeric value for a finding by sort key. Centralised so the
+// SortHeader and the sort comparator stay in sync.
+function sortValue(f: BlogAuditFinding, key: SortKey): number {
+  const m = f.metrics;
+  switch (key) {
+    case "clicks":      return m.gsc_clicks;
+    case "impressions": return m.gsc_impressions;
+    case "sessions":    return m.ga_sessions;
+    case "ctr":         return m.gsc_ctr;
+    // Position: 0 impressions = no real position. Push those to the end
+    // regardless of direction so the sort doesn't lead with "ranked #0"
+    // rows, which are meaningless. Use a sentinel large number that
+    // sorts last on asc (best-first) and first on desc (worst-first).
+    case "position":    return m.gsc_impressions === 0 ? 9999 : m.gsc_position;
+  }
 }
 
 // ============ Filter chip ============
@@ -254,7 +328,7 @@ function FindingRow({
       tabIndex={0}
       onClick={onOpenDetail}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenDetail(); } }}
-      className="grid grid-cols-[1fr_90px_110px_110px_180px] gap-2 items-center px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer"
+      className="grid grid-cols-[1fr_90px_110px_90px_110px_180px] gap-2 items-center px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer"
     >
       <div className="min-w-0 space-y-1.5">
         <div className="flex items-center gap-2 flex-wrap">
@@ -279,6 +353,11 @@ function FindingRow({
       </div>
       <div className="text-right tabular-nums text-sm">{finding.metrics.gsc_clicks.toLocaleString()}</div>
       <div className="text-right tabular-nums text-sm">{finding.metrics.gsc_impressions.toLocaleString()}</div>
+      <div className="text-right tabular-nums text-sm text-muted-foreground">
+        {finding.metrics.gsc_impressions > 0
+          ? `#${finding.metrics.gsc_position.toFixed(1)}`
+          : "—"}
+      </div>
       <div className="text-right tabular-nums text-sm">{finding.metrics.ga_sessions.toLocaleString()}</div>
       <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
         {/* Primary button — always visible. Opens the audit finding modal
