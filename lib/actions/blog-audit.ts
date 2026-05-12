@@ -41,11 +41,24 @@ export async function createTaskFromAuditFinding(input: CreateTaskInput): Promis
 
   // Don't recreate if there's already an in-flight task for this URL.
   // Published tasks ≥ 90 days old don't block (that's the stale state).
-  const { data: existing } = await supabase
-    .from("tasks")
-    .select("id, status, completed_at")
-    .eq("project_id", input.projectId)
-    .or(`url.eq.${input.url},published_url.eq.${input.url}`);
+  //
+  // NOTE: we run two separate queries instead of one `.or(url.eq.X,
+  // published_url.eq.X)` because URLs frequently contain commas (e.g.
+  // tracking params) which PostgREST treats as filter separators inside
+  // the .or() syntax. Two .eq() queries are safer and the merge is trivial.
+  const [byUrlRes, byPubRes] = await Promise.all([
+    supabase
+      .from("tasks")
+      .select("id, status, completed_at")
+      .eq("project_id", input.projectId)
+      .eq("url", input.url),
+    supabase
+      .from("tasks")
+      .select("id, status, completed_at")
+      .eq("project_id", input.projectId)
+      .eq("published_url", input.url),
+  ]);
+  const existing = [...(byUrlRes.data ?? []), ...(byPubRes.data ?? [])];
   for (const t of (existing ?? []) as Array<{ id: string; status: string; completed_at: string | null }>) {
     if (["todo", "in_progress", "review"].includes(t.status)) {
       throw new Error(`A task already exists for this URL (id: ${t.id.slice(0, 8)}). Open that one instead.`);
@@ -105,7 +118,15 @@ export async function createTaskFromAuditFinding(input: CreateTaskInput): Promis
     .insert(insertRow)
     .select("id")
     .single();
-  if (error) throw new Error(`Insert failed: ${error.message}`);
+  if (error) {
+    // Surface the full Postgres error so the client toast shows what's
+    // actually wrong (enum mismatch, FK violation, etc) instead of a
+    // generic "Server Components render error" — which is what happens
+    // when this throws and the page revalidation re-renders against
+    // partial state.
+    console.error("[createTaskFromAuditFinding] insert failed:", { error, insertRow });
+    throw new Error(`Insert failed: ${error.message} (${error.code ?? "no-code"})`);
+  }
 
   revalidatePath("/dashboard/blog-audit");
   revalidatePath("/dashboard/sprint");

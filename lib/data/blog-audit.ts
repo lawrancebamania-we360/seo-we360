@@ -167,22 +167,32 @@ export async function getBlogAudit(projectId: string): Promise<BlogAuditSnapshot
   // ---- 2. Pull dismissals and existing tasks for these URLs in one shot each
   const urls = [...byUrl.keys()];
 
+  // Fetch ALL dismissals for the project and filter in-memory. With 422
+  // URLs the `.in()` query string was ballooning past PostgREST's URL
+  // limit and silently returning no data — and worse, this happened on
+  // page re-render after a task insert, which surfaced as a "Server
+  // Components render" error in the browser.
   const { data: dismissals } = await supabase
     .from("blog_audit_dismissals")
     .select("url, decision, dismissed_at, reason")
-    .eq("project_id", projectId)
-    .in("url", urls.length ? urls : ["__none__"]);
+    .eq("project_id", projectId);
   const dismissalByKey = new Map<string, { dismissed_at: string; reason: string | null }>();
   for (const d of (dismissals ?? []) as Array<{ url: string; decision: string; dismissed_at: string; reason: string | null }>) {
     dismissalByKey.set(`${d.url}::${d.decision}`, { dismissed_at: d.dismissed_at, reason: d.reason });
   }
 
+  // Same pattern for tasks — fetch all tasks once, filter in memory.
+  // Tasks count is small (hundreds at most) so the .or(url.in.(...))
+  // megaquery was wasteful even before it became a correctness bug.
   const { data: tasksData } = await supabase
     .from("tasks")
     .select("id, title, status, completed_at, url, published_url, scheduled_date, created_at")
-    .eq("project_id", projectId)
-    .or(`url.in.(${quoteForIn(urls)}),published_url.in.(${quoteForIn(urls)})`);
-  const tasksByUrl = groupTasksByUrl((tasksData ?? []) as TaskRow[]);
+    .eq("project_id", projectId);
+  const urlSet = new Set(urls);
+  const relevantTasks = ((tasksData ?? []) as TaskRow[]).filter((t) => {
+    return (t.url && urlSet.has(t.url)) || (t.published_url && urlSet.has(t.published_url));
+  });
+  const tasksByUrl = groupTasksByUrl(relevantTasks);
 
   // ---- 3. Build findings
   const findings: BlogAuditFinding[] = [];
