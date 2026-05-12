@@ -389,7 +389,10 @@ function FindingDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+      {/* Wider dialog — old max-w-3xl (768px) wasn't enough for the
+          5-column trend table plus padding, which pushed content under
+          the right edge and clipped the footer buttons. */}
+      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto we360-scroll">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap">
             <span>{DECISION_LABEL[finding.decision]} candidate</span>
@@ -403,7 +406,7 @@ function FindingDetailDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* Specific issue diagnostic — prominent */}
           <div className="rounded-lg border bg-muted/30 p-3">
             <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-1">
@@ -412,24 +415,28 @@ function FindingDetailDialog({
             <div className="text-sm">{finding.diagnostic}</div>
           </div>
 
-          {/* Trend table — all three windows */}
+          {/* Trend table — all three windows. overflow-x-auto so on a
+              narrow viewport (or huge numbers) the table scrolls inside
+              the dialog instead of bursting out and clipping the footer. */}
           <div>
             <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2">
               Performance trend
             </div>
-            <div className="rounded-lg border overflow-hidden">
-              <div className="grid grid-cols-[80px_repeat(5,1fr)] gap-2 px-3 py-2 bg-muted/40 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-                <div>Window</div>
-                <div className="text-right">Clicks</div>
-                <div className="text-right">Impressions</div>
-                <div className="text-right">CTR</div>
-                <div className="text-right">Position</div>
-                <div className="text-right">Sessions</div>
-              </div>
-              <div className="divide-y">
-                <TrendRow label="30 days" current={m30} prev={null} />
-                <TrendRow label="60 days" current={m60} prev={m30} />
-                <TrendRow label="90 days" current={m90} prev={m60} />
+            <div className="rounded-lg border overflow-x-auto">
+              <div className="min-w-[640px]">
+                <div className="grid grid-cols-[90px_repeat(5,1fr)] gap-2 px-3 py-2 bg-muted/40 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground border-b">
+                  <div>Window</div>
+                  <div className="text-right">Clicks</div>
+                  <div className="text-right">Impressions</div>
+                  <div className="text-right">CTR</div>
+                  <div className="text-right">Position</div>
+                  <div className="text-right">Sessions</div>
+                </div>
+                <div className="divide-y">
+                  <TrendRow label="30 days" current={m30} prev={null} />
+                  <TrendRow label="60 days" current={m60} prev={m30} />
+                  <TrendRow label="90 days" current={m90} prev={m60} />
+                </div>
               </div>
             </div>
           </div>
@@ -479,16 +486,18 @@ function FindingDetailDialog({
 }
 
 function TrendRow({ label, current, prev }: { label: string; current?: UrlMetric; prev?: UrlMetric | null }) {
+  // Column template MUST match the header grid above
+  // (grid-cols-[90px_repeat(5,1fr)]) or the columns drift.
   if (!current) {
     return (
-      <div className="grid grid-cols-[80px_repeat(5,1fr)] gap-2 px-3 py-2 text-xs">
+      <div className="grid grid-cols-[90px_repeat(5,1fr)] gap-2 px-3 py-2 text-xs">
         <div className="font-medium">{label}</div>
         <div className="col-span-5 text-muted-foreground italic">no data</div>
       </div>
     );
   }
   return (
-    <div className="grid grid-cols-[80px_repeat(5,1fr)] gap-2 px-3 py-2 text-xs">
+    <div className="grid grid-cols-[90px_repeat(5,1fr)] gap-2 px-3 py-2 text-xs">
       <div className="font-medium">{label}</div>
       <NumberCell value={current.gsc_clicks} prev={prev?.gsc_clicks} />
       <NumberCell value={current.gsc_impressions} prev={prev?.gsc_impressions} />
