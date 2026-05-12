@@ -54,8 +54,6 @@ export function AiVerificationPanel({
     return () => { cancelled = true; };
   }, [taskId, liveStatus, liveVerifiedAt]);
 
-  if (!liveStatus) return null;
-
   const reverify = () => {
     startReverify(async () => {
       try {
@@ -66,6 +64,39 @@ export function AiVerificationPanel({
       }
     });
   };
+
+  // Safety net: when a task is in review/done but ai_verification_status is
+  // null (verification never enqueued — happens for tasks moved into review
+  // before the feature shipped, or via code paths that bypass
+  // updateTaskStatus), show a "Start verification" prompt instead of
+  // hiding the panel. Admin clicks once -> RPC enqueues -> next 10am
+  // window picks it up.
+  if (!liveStatus) {
+    const eligible = taskStatus === "review" || taskStatus === "done";
+    if (!eligible) return null;
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+          <ShieldCheck className="size-3.5" /> AI verification
+        </div>
+        <div className="rounded-lg border border-dashed bg-muted/20 p-3 space-y-2">
+          <div className="text-sm">Verification not yet queued for this task.</div>
+          <div className="text-xs text-muted-foreground">
+            Tasks in <span className="font-medium">review</span> or <span className="font-medium">done</span> normally
+            get queued automatically on the status change — this one was missed (likely created before
+            the feature shipped or moved via a bulk update).
+          </div>
+          {canEdit && (
+            <Button size="sm" variant="outline" onClick={reverify} disabled={pending} className="gap-1.5">
+              {pending && <Loader2 className="size-3.5 animate-spin" />}
+              <RefreshCw className="size-3.5" />
+              Start verification
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const isQueued = liveStatus === "queued" || liveStatus === "running";
   const isDocMissing = liveStatus === "doc_missing";
