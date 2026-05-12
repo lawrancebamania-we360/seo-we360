@@ -1,0 +1,55 @@
+# Weekly Apify content-gap enrichment for blog tasks.
+#
+# Runs every Sunday late evening UTC -> Monday early morning IST so the
+# enriched briefs are ready when the team starts the week.
+#
+# Picks at most 2 blog tasks per run (oldest unenriched by impressions desc).
+# Worst-case cost = 2 × $0.40 × 4 weeks = $3.20/month — fits well inside
+# the $5 Apify free plan with headroom for ad-hoc enrichment.
+#
+# Secrets required (Settings -> Secrets and variables -> Actions):
+#   - NEXT_PUBLIC_SUPABASE_URL
+#   - SUPABASE_SERVICE_ROLE_KEY
+#   - APIFY_TOKEN
+
+name: Weekly content-gap enrichment
+
+on:
+  schedule:
+    # Sunday 20:30 UTC == Monday 02:00 IST.
+    # Cron format: minute hour day-of-month month day-of-week (0=Sun)
+    - cron: "30 20 * * 0"
+
+  # Manual trigger from Actions tab.
+  workflow_dispatch:
+    inputs:
+      cap:
+        description: "Max tasks to enrich (default 2)"
+        required: false
+        default: "2"
+
+jobs:
+  enrich:
+    name: Run content-gap agent
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run weekly enrichment
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+        run: npx tsx scripts/composio/weekly-content-gap.ts --cap=${{ github.event.inputs.cap || '2' }}

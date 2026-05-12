@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { BlogAuditDecision } from "@/lib/data/blog-audit";
 import { formatDataBacking, type UrlMetric } from "@/lib/types/url-metrics";
+import {
+  callSerp, mergeSerpIntoBrief, formatSerpEnrichmentSummary, stripPriorEnrichment,
+  type BriefSeed,
+} from "@/lib/apify/serp";
 
 // ============ Create a Sprint task from an audit finding ============
 //
@@ -127,11 +131,38 @@ export async function createTaskFromAuditFinding(input: CreateTaskInput): Promis
     console.error("[createTaskFromAuditFinding] insert failed:", { error, insertRow });
     throw new Error(`Insert failed: ${error.message} (${error.code ?? "no-code"})`);
   }
+  const taskId = (inserted as { id: string }).id;
+
+  // ---- Inline SERP enrichment (Apify google-search-scraper, ~$0.005) ----
+  //
+  // Only for blog/page tasks with a target_keyword (skip merge/prune).
+  // Runs synchronously so the dialog waits ~6-10s and returns a fully
+  // enriched task. If Apify fails we log + continue — the task is still
+  // created with GSC/GA4 backing, just no SERP data.
+  if (target_keyword && (kind === "blog_task" || task_type === "Update Page")) {
+    try {
+      const serp = await callSerp(target_keyword);
+      if (serp) {
+        const mergedBrief = mergeSerpIntoBrief(null, target_keyword, serp);
+        const mergedDataBacking = stripPriorEnrichment(insertRow.data_backing ?? "") + formatSerpEnrichmentSummary(serp);
+        const { error: updErr } = await supabase
+          .from("tasks")
+          .update({ brief: mergedBrief as BriefSeed, data_backing: mergedDataBacking })
+          .eq("id", taskId);
+        if (updErr) {
+          console.error("[createTaskFromAuditFinding] SERP write failed:", updErr);
+        }
+      }
+    } catch (e) {
+      console.error("[createTaskFromAuditFinding] SERP enrichment failed:", e instanceof Error ? e.message : e);
+      // Don't throw — task was created, enrichment is optional cherry-on-top.
+    }
+  }
 
   revalidatePath("/dashboard/blog-audit");
   revalidatePath("/dashboard/sprint");
   revalidatePath("/dashboard/tasks");
-  return { taskId: (inserted as { id: string }).id };
+  return { taskId };
 }
 
 // ============ Dismiss / undismiss findings ============
