@@ -415,6 +415,59 @@ function FindingDetailDialog({
             <div className="text-sm">{finding.diagnostic}</div>
           </div>
 
+          {/* Suggested merge target — only for merge candidates that we
+              were able to match to a stronger sibling in the same project.
+              Without this block the user gets "redirect into a stronger
+              sibling" but no idea WHICH sibling. */}
+          {finding.decision === "merge" && finding.mergeTarget && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <GitMerge className="size-3.5 text-amber-600 dark:text-amber-400" />
+                <div className="text-[10px] uppercase tracking-wider font-semibold text-amber-700 dark:text-amber-400">
+                  Suggested redirect target
+                </div>
+              </div>
+              <a
+                href={finding.mergeTarget.url}
+                target="_blank"
+                rel="noreferrer"
+                className="block text-sm font-medium hover:underline break-all"
+              >
+                {finding.mergeTarget.url}
+                <ExternalLink className="size-3 inline ml-1 text-muted-foreground" />
+              </a>
+              <div className="text-xs text-muted-foreground">
+                Out-ranks this page on{" "}
+                <span className="font-medium text-foreground">&ldquo;{finding.mergeTarget.query}&rdquo;</span>:{" "}
+                position{" "}
+                <span className="font-medium text-foreground tabular-nums">
+                  #{finding.mergeTarget.targetPosition.toFixed(1)}
+                </span>{" "}
+                vs your{" "}
+                <span className="tabular-nums">#{finding.mergeTarget.myPosition.toFixed(1)}</span>
+                {finding.mergeTarget.targetClicks > 0 && (
+                  <> · {finding.mergeTarget.targetClicks.toLocaleString()} clicks last 90d</>
+                )}
+              </div>
+              <div className="text-[10px] text-muted-foreground/80 leading-relaxed">
+                Action: 301-redirect this URL into the target, then de-index this page from
+                sitemap.xml. Move any unique sections from this post into the target.
+              </div>
+            </div>
+          )}
+          {finding.decision === "merge" && !finding.mergeTarget && (
+            <div className="rounded-lg border border-dashed bg-muted/20 p-3 space-y-1">
+              <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+                No obvious merge target
+              </div>
+              <div className="text-xs text-muted-foreground">
+                No stronger sibling found in url_metrics for this page&rsquo;s top queries.
+                Pick a target manually (use the Top queries below to spot what it&rsquo;s
+                competing for), or consider prune instead of merge.
+              </div>
+            </div>
+          )}
+
           {/* Trend table — all three windows. overflow-x-auto so on a
               narrow viewport (or huge numbers) the table scrolls inside
               the dialog instead of bursting out and clipping the footer. */}
@@ -611,17 +664,23 @@ function CreateTaskDialog({
 }) {
   const [ownerId, setOwnerId] = useState<string>("__none");
   const [notes, setNotes] = useState("");
+  // Pre-fill with the auto-detected merge target so the admin sees what
+  // we're suggesting; they can override if our index found the wrong sibling.
+  const [mergeTargetUrl, setMergeTargetUrl] = useState<string>(finding.mergeTarget?.url ?? "");
   const [pending, start] = useTransition();
 
   const submit = () => {
     start(async () => {
       try {
+        const trimmedTarget = mergeTargetUrl.trim();
         await createTaskFromAuditFinding({
           projectId,
           url: finding.url,
           decision: finding.decision,
           ownerId: ownerId === "__none" ? null : ownerId,
           notes: notes.trim() || undefined,
+          mergeTargetUrl: finding.decision === "merge" && trimmedTarget ? trimmedTarget : undefined,
+          mergeTargetQuery: finding.decision === "merge" && trimmedTarget ? finding.mergeTarget?.query : undefined,
         });
         toast.success("Task created in Blog Sprint", {
           description: "Finding moved to In flight. Open Blog Sprint to see the kanban card.",
@@ -675,6 +734,30 @@ function CreateTaskDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {finding.decision === "merge" && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold flex items-center gap-1.5">
+                <GitMerge className="size-3" />
+                Redirect destination
+                {finding.mergeTarget && (
+                  <span className="text-muted-foreground font-normal">
+                    (auto-detected — outranks on &ldquo;{finding.mergeTarget.query}&rdquo;)
+                  </span>
+                )}
+              </Label>
+              <Input
+                value={mergeTargetUrl}
+                onChange={(e) => setMergeTargetUrl(e.target.value)}
+                placeholder="https://we360.ai/blog/stronger-sibling"
+                className="font-mono text-xs"
+              />
+              <div className="text-[10px] text-muted-foreground">
+                This URL is what the cannibalized page will 301-redirect into. Override if our
+                guess is wrong.
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold">Notes <span className="text-muted-foreground font-normal">(optional)</span></Label>

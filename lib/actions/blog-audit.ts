@@ -22,6 +22,11 @@ interface CreateTaskInput {
   decision: BlogAuditDecision;
   ownerId: string | null;          // profile id; null = unassigned
   notes?: string;
+  // For merge decisions, the URL we want to 301-redirect into. Auto-detected
+  // by the audit page but admin can override in the create dialog before
+  // submitting (in case the suggested target is wrong).
+  mergeTargetUrl?: string;
+  mergeTargetQuery?: string;
 }
 
 export async function createTaskFromAuditFinding(input: CreateTaskInput): Promise<{ taskId: string }> {
@@ -73,6 +78,7 @@ export async function createTaskFromAuditFinding(input: CreateTaskInput): Promis
     slug,
     isBlogPath,
     metric,
+    mergeTargetUrl: input.mergeTargetUrl,
   });
   const data_backing = metric ? formatDataBacking(metric) : null;
 
@@ -88,7 +94,7 @@ export async function createTaskFromAuditFinding(input: CreateTaskInput): Promis
     source: "ai_suggestion" as const,
     created_by: user.id,
     team_member_id: input.ownerId,
-    impact: notesWithDecision(input.decision, input.notes),
+    impact: notesWithDecision(input.decision, input.notes, input.mergeTargetUrl, input.mergeTargetQuery),
     data_backing,
     word_count_target: input.decision === "refresh" ? (metric?.gsc_impressions && metric.gsc_impressions > 1000 ? 2000 : 1500) : null,
     intent: "informational",
@@ -160,6 +166,7 @@ interface BuildArgs {
   slug: string;
   isBlogPath: boolean;
   metric: UrlMetric | null;
+  mergeTargetUrl?: string;
 }
 
 interface TaskShape {
@@ -170,7 +177,7 @@ interface TaskShape {
   priority: "critical" | "high" | "medium" | "low";
 }
 
-function buildTaskShape({ decision, slug, isBlogPath, metric }: BuildArgs): TaskShape {
+function buildTaskShape({ decision, slug, isBlogPath, metric, mergeTargetUrl }: BuildArgs): TaskShape {
   const top = metric?.gsc_top_queries?.[0]?.query ?? null;
 
   if (decision === "refresh") {
@@ -183,8 +190,14 @@ function buildTaskShape({ decision, slug, isBlogPath, metric }: BuildArgs): Task
     };
   }
   if (decision === "merge") {
+    // Include the target slug in the title when we know it so the writer
+    // sees "Merge X -> Y" on the kanban card without opening the task.
+    const targetSlug = mergeTargetUrl ? safePath(mergeTargetUrl).split("/").filter(Boolean).pop() : null;
+    const title = targetSlug
+      ? `Merge ${prettySlug(slug)} -> ${prettySlug(targetSlug)} (301 redirect)`
+      : `Merge cannibalized URL: ${prettySlug(slug)}`;
     return {
-      title: `Merge cannibalized URL: ${prettySlug(slug)}`,
+      title,
       kind: "web_task",
       task_type: "Modify Page",
       target_keyword: top,
@@ -218,7 +231,25 @@ function safePath(url: string): string {
   try { return new URL(url).pathname; } catch { return url; }
 }
 
-function notesWithDecision(d: BlogAuditDecision, notes?: string): string {
-  const prefix = `Blog audit finding: ${d.toUpperCase()}.`;
-  return notes ? `${prefix} ${notes}` : prefix;
+function notesWithDecision(
+  d: BlogAuditDecision,
+  notes?: string,
+  mergeTargetUrl?: string,
+  mergeTargetQuery?: string,
+): string {
+  const parts: string[] = [`Blog audit finding: ${d.toUpperCase()}.`];
+  if (d === "merge" && mergeTargetUrl) {
+    parts.push(`Redirect destination: ${mergeTargetUrl}.`);
+    if (mergeTargetQuery) {
+      parts.push(`Cannibalized keyword: "${mergeTargetQuery}".`);
+    }
+    parts.push(
+      "Steps: 1) add 301 from this URL to the destination in next.config / hosting redirects; "
+      + "2) merge any unique sections from this post into the destination; "
+      + "3) remove this URL from sitemap.xml; "
+      + "4) update internal links pointing to this URL.",
+    );
+  }
+  if (notes) parts.push(notes);
+  return parts.join(" ");
 }

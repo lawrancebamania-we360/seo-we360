@@ -6,7 +6,7 @@
 // sync into url_metrics is the source of truth.
 
 import { createClient } from "@/lib/supabase/server";
-import { classifyUrl, type UrlMetric, type MetricPeriod } from "@/lib/types/url-metrics";
+import { classifyUrl, type UrlMetric, type MetricPeriod, type UrlTopQuery } from "@/lib/types/url-metrics";
 
 export type BlogAuditDecision = "prune" | "merge" | "refresh" | "keep";
 export type AuditFindingStatus =
@@ -16,6 +16,17 @@ export type AuditFindingStatus =
   | "stale"         // task was Published >90 days ago — needs a fresh task if metrics regressed
   | "keep"          // classifyUrl says no action needed
   | "dismissed";    // admin marked "won't fix"
+
+// Suggested redirect target for a merge candidate — the sibling URL on the
+// same site that ranks BEST for one of our cannibalized queries. Computed
+// by an inverted index over gsc_top_queries across all 90d snapshots.
+export interface MergeTarget {
+  url: string;
+  query: string;          // the shared keyword the target out-ranks us on
+  targetPosition: number; // sibling's avg position for that query
+  myPosition: number;     // our avg position for the same query
+  targetClicks: number;   // sibling's clicks for that query (last 90d)
+}
 
 export interface BlogAuditFinding {
   url: string;
@@ -31,6 +42,9 @@ export interface BlogAuditFinding {
   task: { id: string; title: string; status: string; completed_at: string | null } | null;
   daysSinceTaskPublished: number | null;  // null unless task_done or stale
   dismissal: { dismissed_at: string; reason: string | null } | null;
+  // Populated for merge candidates only. null = no obvious stronger sibling
+  // found (rare — usually means the page ranks for very unique queries).
+  mergeTarget: MergeTarget | null;
 }
 
 export interface BlogAuditSnapshot {
@@ -130,6 +144,26 @@ export async function getBlogAudit(projectId: string): Promise<BlogAuditSnapshot
     entry[m.period as MetricPeriod] = m;
   }
 
+  // ---- Inverted index for merge-target detection
+  //
+  // query → list of (url, position, clicks, impressions) entries, drawn from
+  // every URL's 90d gsc_top_queries. For a merge candidate ranking #71 for
+  // "jobs to be done", any URL ranking #5 for the same query is a stronger
+  // sibling and a sensible redirect destination.
+  //
+  // We only index 90d so the suggestion is based on a stable sample, and
+  // we lowercase the query key so casing variants ("CRM" vs "crm") collapse.
+  const queryIndex = new Map<string, Array<{ url: string; position: number; clicks: number; impressions: number }>>();
+  for (const m of metrics) {
+    if (m.period !== "90d") continue;
+    for (const q of m.gsc_top_queries ?? []) {
+      const key = q.query.toLowerCase();
+      const arr = queryIndex.get(key) ?? [];
+      arr.push({ url: m.url, position: q.position, clicks: q.clicks, impressions: q.impressions });
+      queryIndex.set(key, arr);
+    }
+  }
+
   // ---- 2. Pull dismissals and existing tasks for these URLs in one shot each
   const urls = [...byUrl.keys()];
 
@@ -187,11 +221,22 @@ export async function getBlogAudit(projectId: string): Promise<BlogAuditSnapshot
       open_counts[decision]++;
     }
 
+    // Compute the suggested merge target only for merge candidates — every
+    // other decision either has nothing to redirect to (keep, refresh) or
+    // is a hard delete (prune).
+    const mergeTarget = decision === "merge"
+      ? findMergeTarget(url, m90.gsc_top_queries ?? [], queryIndex)
+      : null;
+
+    const diagnosticWithTarget = decision === "merge" && mergeTarget
+      ? `${diagnoseIssue(decision, m90)} Suggested target: ${mergeTarget.url} (ranks #${mergeTarget.targetPosition.toFixed(1)} for "${mergeTarget.query}").`
+      : diagnoseIssue(decision, m90);
+
     findings.push({
       url,
       decision,
       reason: decisionReason(decision, m90),
-      diagnostic: diagnoseIssue(decision, m90),
+      diagnostic: diagnosticWithTarget,
       status,
       metrics: m90,
       windows,
@@ -200,6 +245,7 @@ export async function getBlogAudit(projectId: string): Promise<BlogAuditSnapshot
         : null,
       daysSinceTaskPublished,
       dismissal: dismissalByKey.get(`${url}::${decision}`) ?? null,
+      mergeTarget,
     });
   }
 
@@ -256,6 +302,51 @@ function groupTasksByUrl(rows: TaskRow[]): Map<string, TaskRow[]> {
     }
   }
   return out;
+}
+
+// Find the strongest sibling URL to redirect a cannibalized page into.
+//
+// Strategy: walk the candidate's top 10 queries (the keywords IT ranks for),
+// look up every other URL in the project that also ranks for the same query
+// at a BETTER (lower-number) position, and pick the highest-scoring one.
+//
+// Scoring weights position heavily (lower is better) and adds clicks/impressions
+// as a tiebreaker so we prefer pages that are actually pulling traffic on the
+// shared keyword, not just nominally ranking #5 with zero clicks.
+function findMergeTarget(
+  candidateUrl: string,
+  candidateQueries: UrlTopQuery[],
+  queryIndex: Map<string, Array<{ url: string; position: number; clicks: number; impressions: number }>>,
+): MergeTarget | null {
+  let best: { target: MergeTarget; score: number } | null = null;
+
+  for (const myQ of candidateQueries.slice(0, 10)) {
+    const competitors = queryIndex.get(myQ.query.toLowerCase()) ?? [];
+    for (const c of competitors) {
+      if (c.url === candidateUrl) continue;
+      // Only a sensible target if it actually ranks better than us. We use a
+      // 5-position threshold so we don't recommend pages that are only
+      // marginally ahead (#65 vs #71 isn't a clear winner).
+      if (c.position >= myQ.position - 5) continue;
+
+      // Position is the dominant factor; clicks/impressions break ties.
+      const score = (100 - c.position) * 10 + c.clicks * 5 + c.impressions * 0.05;
+      if (!best || score > best.score) {
+        best = {
+          target: {
+            url: c.url,
+            query: myQ.query,
+            targetPosition: c.position,
+            myPosition: myQ.position,
+            targetClicks: c.clicks,
+          },
+          score,
+        };
+      }
+    }
+  }
+
+  return best?.target ?? null;
 }
 
 // Pick the most relevant task to link to from this URL's history.
