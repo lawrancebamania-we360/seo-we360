@@ -3,9 +3,11 @@
 //
 // Usage: npx tsx scripts/composio/sync-url-metrics.ts
 //
-// Reads COMPOSIO_API_KEY from .env.local. Pulls URLs from the tasks table
-// plus a fixed list of important pages. Sleeps 350ms between calls to stay
-// well under Composio's rate limit (20K-100K/10min depending on plan).
+// Reads COMPOSIO_API_KEY from .env.local. Coverage: every <loc> in the
+// site's sitemap (handles sitemap indexes one level deep), plus URLs
+// referenced by task rows, plus a small fixed list of critical pages.
+// All three sources are deduped. Sleeps 350ms between calls to stay
+// under Composio's rate limit (20K-100K/10min depending on plan).
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 import { ga4UrlSnapshot, gscUrlSnapshot, urlToPagePath } from "@/lib/integrations/composio";
@@ -19,7 +21,17 @@ const admin = createClient(
 const PROJECT_ID = "11111111-1111-4111-8111-000000000001";
 const GA4_PROPERTY_ID = "273620287";
 const GSC_SITE_URL = "https://we360.ai/";
+const SITEMAP_URL = "https://we360.ai/sitemap.xml";
 const PERIODS = [30, 60, 90] as const;
+
+// Hard cap on URLs per run so an accidentally enormous sitemap doesn't
+// blow the GitHub Action timeout or burn Composio quota on a single day.
+// Adjust upward later if you genuinely have more pages worth syncing.
+const URL_CAP = 500;
+
+// Restrict sitemap URLs to we360.ai paths only — outbound links from
+// the sitemap (rare but possible) get filtered out.
+const ALLOWED_HOST = "we360.ai";
 
 const FIXED_URLS = [
   "https://we360.ai/",
@@ -28,22 +40,118 @@ const FIXED_URLS = [
 ];
 
 async function listUrls(): Promise<string[]> {
+  const set = new Set<string>(FIXED_URLS);
+
+  // 1. Sitemap — every public URL the site advertises to search engines.
+  //    This is the canonical "everything we want indexed" list.
+  try {
+    const sitemapUrls = await fetchSitemapUrls(SITEMAP_URL);
+    for (const u of sitemapUrls) set.add(normalize(u));
+    console.log(`  sitemap: ${sitemapUrls.length} URLs`);
+  } catch (e) {
+    console.error(`  sitemap fetch failed: ${e instanceof Error ? e.message : e}`);
+    console.error("  continuing with task URLs only");
+  }
+
+  // 2. Task URLs — catches things in flight that may not be in sitemap yet
+  //    (e.g. blog tasks where the published_url was filled before indexing).
   const { data } = await admin
     .from("tasks")
     .select("published_url, url")
     .eq("project_id", PROJECT_ID);
-
-  const set = new Set<string>(FIXED_URLS);
   for (const t of (data ?? []) as Array<{ published_url: string | null; url: string | null }>) {
     if (t.published_url) set.add(normalize(t.published_url));
     if (t.url && t.url.startsWith("http")) set.add(normalize(t.url));
   }
-  return [...set].sort();
+
+  // Cap so a runaway sitemap can't burn the whole Composio quota.
+  let urls = [...set].filter((u) => isOwnDomain(u)).sort();
+  if (urls.length > URL_CAP) {
+    console.log(`  ⚠ capping ${urls.length} URLs to ${URL_CAP} (raise URL_CAP if needed)`);
+    urls = urls.slice(0, URL_CAP);
+  }
+  return urls;
 }
 
 function normalize(url: string): string {
   try { const u = new URL(url); u.hash = ""; return u.toString(); }
   catch { return url; }
+}
+
+function isOwnDomain(url: string): boolean {
+  try { return new URL(url).hostname.endsWith(ALLOWED_HOST); }
+  catch { return false; }
+}
+
+// Fetch a sitemap and recursively expand sitemap-index entries one level
+// deep. Returns the union of all <loc> values found. Same-domain filter
+// happens in listUrls().
+async function fetchSitemapUrls(url: string, depth = 0): Promise<string[]> {
+  if (depth > 2) return [];                          // guard against loops
+  // we360.ai's sitemap currently points to Google Drive — the default
+  // download URL serves an HTML "virus scan warning" interstitial, not
+  // the XML. Rewrite to drive.usercontent.google.com with &confirm=t.
+  const fetchUrl = rewriteDriveDownload(url);
+  const resp = await fetch(fetchUrl, {
+    headers: { "User-Agent": "We360-SEO-Sync/1.0" },
+  });
+  if (!resp.ok) throw new Error(`sitemap ${url} returned HTTP ${resp.status}`);
+  const xml = await resp.text();
+
+  // Sitemap index — contains <sitemap><loc>...</loc></sitemap> entries
+  // pointing to sub-sitemaps. Fetch each, recurse.
+  if (/<sitemapindex\b/i.test(xml)) {
+    const subs = extractLocs(xml);
+    const all: string[] = [];
+    for (const sub of subs) {
+      try {
+        const inner = await fetchSitemapUrls(sub, depth + 1);
+        all.push(...inner);
+      } catch (e) {
+        console.error(`    sub-sitemap ${sub} failed: ${e instanceof Error ? e.message : e}`);
+      }
+    }
+    return all;
+  }
+
+  // Plain urlset — <url><loc>...</loc></url> entries.
+  return extractLocs(xml);
+}
+
+function extractLocs(xml: string): string[] {
+  const out: string[] = [];
+  const re = /<loc>\s*([^<\s]+)\s*<\/loc>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml)) !== null) {
+    const u = decodeXmlEntities(m[1].trim());
+    if (u.startsWith("http")) out.push(u);
+  }
+  return out;
+}
+
+// Sitemaps follow XML rules — `&` becomes `&amp;` etc. If we hand a raw
+// `&amp;` URL to fetch() it 400s. Decode the five standard entities.
+// Rewrite a Google Drive "uc?export=download&id=X" URL into the
+// userdrive form that bypasses the interstitial. No-op for any URL
+// that isn't a drive.google.com download link.
+function rewriteDriveDownload(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.hostname !== "drive.google.com") return url;
+    const id = u.searchParams.get("id");
+    if (!id) return url;
+    return `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`;
+  } catch { return url; }
+}
+
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)));
 }
 
 async function startRun(): Promise<string> {
