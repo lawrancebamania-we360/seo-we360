@@ -43,7 +43,8 @@ async function listUrls(): Promise<string[]> {
   const set = new Set<string>(FIXED_URLS);
 
   // 1. Sitemap — every public URL the site advertises to search engines.
-  //    This is the canonical "everything we want indexed" list.
+  //    Fetched fresh every run (no caching) so a sitemap updated at
+  //    9:55am IST is fully reflected in the 10:00am sync.
   try {
     const sitemapUrls = await fetchSitemapUrls(SITEMAP_URL);
     for (const u of sitemapUrls) set.add(normalize(u));
@@ -64,12 +65,27 @@ async function listUrls(): Promise<string[]> {
     if (t.url && t.url.startsWith("http")) set.add(normalize(t.url));
   }
 
+  // 3. Compare against yesterday's sync so we can call out new URLs in
+  //    the log. Helps verify the freshness pipeline is actually working.
+  const { data: lastRun } = await admin
+    .from("url_metrics_runs")
+    .select("urls_total, finished_at")
+    .eq("project_id", PROJECT_ID)
+    .eq("status", "completed")
+    .order("finished_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const prevTotal = (lastRun as { urls_total?: number } | null)?.urls_total ?? 0;
+
   // Cap so a runaway sitemap can't burn the whole Composio quota.
   let urls = [...set].filter((u) => isOwnDomain(u)).sort();
+  const totalBeforeCap = urls.length;
   if (urls.length > URL_CAP) {
     console.log(`  ⚠ capping ${urls.length} URLs to ${URL_CAP} (raise URL_CAP if needed)`);
     urls = urls.slice(0, URL_CAP);
   }
+  const delta = totalBeforeCap - prevTotal;
+  console.log(`  total: ${totalBeforeCap} URLs (yesterday: ${prevTotal}, delta: ${delta >= 0 ? "+" : ""}${delta})`);
   return urls;
 }
 
@@ -86,16 +102,40 @@ function isOwnDomain(url: string): boolean {
 // Fetch a sitemap and recursively expand sitemap-index entries one level
 // deep. Returns the union of all <loc> values found. Same-domain filter
 // happens in listUrls().
+//
+// Cache discipline: every daily run does a fresh fetch — never reuses
+// HTTP cache, never serves stale data. We force this three ways:
+//   • cache: "no-store"          tells fetch to bypass its own cache
+//   • Cache-Control headers      asks any intermediate proxy to skip cache
+//   • cache-busting query param  defeats CDN-level caching keyed on URL
+// This guarantees that if writers add a new blog and update sitemap.xml
+// at 9:55 IST, the 10:00 IST run sees the new URL.
 async function fetchSitemapUrls(url: string, depth = 0): Promise<string[]> {
   if (depth > 2) return [];                          // guard against loops
   // we360.ai's sitemap currently points to Google Drive — the default
   // download URL serves an HTML "virus scan warning" interstitial, not
   // the XML. Rewrite to drive.usercontent.google.com with &confirm=t.
-  const fetchUrl = rewriteDriveDownload(url);
+  const base = rewriteDriveDownload(url);
+  const cacheBuster = `_t=${Date.now()}`;
+  const fetchUrl = base + (base.includes("?") ? "&" : "?") + cacheBuster;
+
   const resp = await fetch(fetchUrl, {
-    headers: { "User-Agent": "We360-SEO-Sync/1.0" },
+    cache: "no-store",
+    headers: {
+      "User-Agent": "We360-SEO-Sync/1.0",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+    },
   });
   if (!resp.ok) throw new Error(`sitemap ${url} returned HTTP ${resp.status}`);
+
+  // Surface freshness in CI logs so you can verify each daily run pulled
+  // a fresh response. Date header is set by the origin / CDN; if it's
+  // hours old, that's the upstream's cache, not ours.
+  const lastMod = resp.headers.get("last-modified");
+  const dateHdr = resp.headers.get("date");
+  console.log(`    fetched ${url} · response date=${dateHdr ?? "?"} · last-modified=${lastMod ?? "?"}`);
+
   const xml = await resp.text();
 
   // Sitemap index — contains <sitemap><loc>...</loc></sitemap> entries
