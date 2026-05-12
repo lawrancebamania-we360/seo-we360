@@ -389,10 +389,10 @@ function FindingDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Wider dialog — old max-w-3xl (768px) wasn't enough for the
-          5-column trend table plus padding, which pushed content under
-          the right edge and clipped the footer buttons. */}
-      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto we360-scroll">
+      {/* Wider dialog so long-tail keywords aren't truncated to "can organ…".
+          5xl = 1024px on desktop, full-bleed on mobile thanks to DialogContent's
+          built-in inset; max-h-[90vh] keeps vertical scroll inside the dialog. */}
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto we360-scroll">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap">
             <span>{DECISION_LABEL[finding.decision]} candidate</span>
@@ -540,32 +540,38 @@ function NumberCell({
 }
 
 function TopQueries({ queries }: { queries: UrlTopQuery[] }) {
+  // Query column is generous (min 360px) so most long-tail keywords fit on one
+  // line; very long ones wrap (break-words) instead of getting truncated to
+  // "can organ…". The outer overflow-x-auto + min-w-[720px] keeps the table
+  // readable on narrow viewports — it scrolls horizontally inside the dialog
+  // instead of squishing the metric columns.
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2">
         Top search queries (90 days)
       </div>
-      <div className="rounded-lg border overflow-hidden">
-        {/* Column headers — so it's obvious what 2c / 89i / #6.7 mean. */}
-        <div className="grid grid-cols-[1fr_70px_90px_60px] gap-2 px-3 py-2 bg-muted/40 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground border-b">
-          <div>Query</div>
-          <div className="text-right">Clicks</div>
-          <div className="text-right">Impressions</div>
-          <div className="text-right">Position</div>
-        </div>
-        <div className="divide-y">
-          {queries.slice(0, 10).map((q) => (
-            <div key={q.query} className="grid grid-cols-[1fr_70px_90px_60px] gap-2 px-3 py-1.5 text-xs items-center">
-              <div className="truncate" title={q.query}>{q.query}</div>
-              <div className="text-right tabular-nums">{q.clicks.toLocaleString()}</div>
-              <div className="text-right tabular-nums text-muted-foreground">{q.impressions.toLocaleString()}</div>
-              <div className="text-right">
-                <Badge variant="outline" className="text-[9px] tabular-nums">
-                  #{q.position.toFixed(1)}
-                </Badge>
+      <div className="rounded-lg border overflow-x-auto">
+        <div className="min-w-[720px]">
+          <div className="grid grid-cols-[minmax(360px,1fr)_80px_100px_70px] gap-2 px-3 py-2 bg-muted/40 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground border-b">
+            <div>Query</div>
+            <div className="text-right">Clicks</div>
+            <div className="text-right">Impressions</div>
+            <div className="text-right">Position</div>
+          </div>
+          <div className="divide-y">
+            {queries.slice(0, 10).map((q) => (
+              <div key={q.query} className="grid grid-cols-[minmax(360px,1fr)_80px_100px_70px] gap-2 px-3 py-1.5 text-xs items-center">
+                <div className="break-words pr-2" title={q.query}>{q.query}</div>
+                <div className="text-right tabular-nums">{q.clicks.toLocaleString()}</div>
+                <div className="text-right tabular-nums text-muted-foreground">{q.impressions.toLocaleString()}</div>
+                <div className="text-right">
+                  <Badge variant="outline" className="text-[9px] tabular-nums">
+                    #{q.position.toFixed(1)}
+                  </Badge>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -578,11 +584,11 @@ function TopReferrers({ referrers }: { referrers: UrlTopReferrer[] }) {
       <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2">
         Top referrers (90 days)
       </div>
-      <div className="rounded-lg border overflow-hidden">
-        <div className="divide-y">
+      <div className="rounded-lg border overflow-x-auto">
+        <div className="min-w-[420px] divide-y">
           {referrers.slice(0, 5).map((r) => (
-            <div key={r.source} className="grid grid-cols-[1fr_80px] gap-2 px-3 py-1.5 text-xs">
-              <div className="truncate">{r.source}</div>
+            <div key={r.source} className="grid grid-cols-[minmax(260px,1fr)_120px] gap-2 px-3 py-1.5 text-xs">
+              <div className="break-words pr-2" title={r.source}>{r.source}</div>
               <div className="text-right tabular-nums">{r.sessions.toLocaleString()} sessions</div>
             </div>
           ))}
