@@ -746,6 +746,14 @@ function CreateTaskDialog({
   // Pre-fill with the auto-detected merge target so the admin sees what
   // we're suggesting; they can override if our index found the wrong sibling.
   const [mergeTargetUrl, setMergeTargetUrl] = useState<string>(finding.mergeTarget?.url ?? "");
+  // Default due date = 14 days out (sensible refresh / merge / prune window).
+  // Admin can clear it via the date input or pick anything else. Stored as
+  // YYYY-MM-DD so it goes straight into tasks.scheduled_date (a date column).
+  const [scheduledDate, setScheduledDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().slice(0, 10);
+  });
   const [pending, start] = useTransition();
 
   const submit = () => {
@@ -758,6 +766,7 @@ function CreateTaskDialog({
           decision: finding.decision,
           ownerId: ownerId === "__none" ? null : ownerId,
           notes: notes.trim() || undefined,
+          scheduledDate: scheduledDate.trim() || undefined,
           mergeTargetUrl: finding.decision === "merge" && trimmedTarget ? trimmedTarget : undefined,
           mergeTargetQuery: finding.decision === "merge" && trimmedTarget ? finding.mergeTarget?.query : undefined,
         });
@@ -787,31 +796,48 @@ function CreateTaskDialog({
             <div className="text-muted-foreground">{finding.diagnostic}</div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Assign to</Label>
-            <Select value={ownerId} onValueChange={(v) => v && setOwnerId(v)}>
-              <SelectTrigger className="w-full h-9">
-                <SelectValue>
-                  {(value: string | null) => {
-                    if (!value || value === "__none") return <span className="text-muted-foreground">(unassigned)</span>;
-                    return members.find((m) => m.id === value)?.name ?? value;
-                  }}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none">(unassigned)</SelectItem>
-                {members.map((m) => (
-                  <SelectItem key={m.id} value={m.id} label={m.name}>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
-                        {initials(m.name)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Assign to</Label>
+              <Select value={ownerId} onValueChange={(v) => v && setOwnerId(v)}>
+                <SelectTrigger className="w-full h-9">
+                  <SelectValue>
+                    {(value: string | null) => {
+                      if (!value || value === "__none") return <span className="text-muted-foreground">(unassigned)</span>;
+                      return members.find((m) => m.id === value)?.name ?? value;
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">(unassigned)</SelectItem>
+                  {members.map((m) => (
+                    <SelectItem key={m.id} value={m.id} label={m.name}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
+                          {initials(m.name)}
+                        </span>
+                        {m.name}
                       </span>
-                      {m.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Due date — defaults to today + 14d so the task shows up on the
+                kanban with a sensible deadline; clear or change to override. */}
+            <div className="space-y-1.5">
+              <Label htmlFor="audit-due-date" className="text-xs font-semibold">
+                Due date
+              </Label>
+              <Input
+                id="audit-due-date"
+                type="date"
+                value={scheduledDate}
+                onChange={(e) => setScheduledDate(e.target.value)}
+                className="h-9"
+              />
+            </div>
           </div>
 
           {finding.decision === "merge" && (

@@ -26,6 +26,9 @@ interface CreateTaskInput {
   decision: BlogAuditDecision;
   ownerId: string | null;          // profile id; null = unassigned
   notes?: string;
+  // YYYY-MM-DD — gets stored as tasks.scheduled_date so the task surfaces
+  // on the kanban with the right deadline. Optional; null = unscheduled.
+  scheduledDate?: string;
   // For merge decisions, the URL we want to 301-redirect into. Auto-detected
   // by the audit page but admin can override in the create dialog before
   // submitting (in case the suggested target is wrong).
@@ -115,6 +118,7 @@ export async function createTaskFromAuditFinding(input: CreateTaskInput): Promis
     data_backing,
     word_count_target: input.decision === "refresh" ? (metric?.gsc_impressions && metric.gsc_impressions > 1000 ? 2000 : 1500) : null,
     intent: "informational",
+    scheduled_date: input.scheduledDate ?? null,
   };
 
   const { data: inserted, error } = await supabase
