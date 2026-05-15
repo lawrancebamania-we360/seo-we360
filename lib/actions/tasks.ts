@@ -58,6 +58,25 @@ export async function toggleTaskDone(taskId: string, done: boolean) {
 
 export async function updateTaskStatus(taskId: string, status: TaskStatus) {
   const supabase = await createClient();
+
+  // Server-side guard: a task moving to "done" (Published) MUST have a
+  // published_url already on the row. Drag-drop on the kanban opens the
+  // publish-URL dialog when this isn't the case, but the dropdown in the
+  // task detail dialog (and any future code path) called updateTaskStatus
+  // directly without that check — which let blog tasks land in Published
+  // with no live link. This is the canonical enforcement point.
+  if (status === "done") {
+    const { data: existing } = await supabase
+      .from("tasks")
+      .select("published_url")
+      .eq("id", taskId)
+      .single();
+    const url = (existing as { published_url?: string | null } | null)?.published_url ?? null;
+    if (!url || url.trim() === "") {
+      throw new Error("Cannot publish without a live URL. Paste the published link first.");
+    }
+  }
+
   const patch: Record<string, unknown> = { status };
   if (status === "done") {
     patch.done = true;
@@ -136,6 +155,22 @@ export async function updateTask(
   const supabase = await createClient();
   const updates: Record<string, unknown> = { ...patch };
   if (patch.status === "done") {
+    // Same guard as updateTaskStatus — published_url is required to move
+    // to Published. Two cases to accept: the patch itself includes a
+    // published_url (writer is publishing in the same submit), or the row
+    // already has one stored from a prior step.
+    const patchUrl = patch.published_url?.trim();
+    if (!patchUrl) {
+      const { data: existing } = await supabase
+        .from("tasks")
+        .select("published_url")
+        .eq("id", taskId)
+        .single();
+      const url = (existing as { published_url?: string | null } | null)?.published_url ?? null;
+      if (!url || url.trim() === "") {
+        throw new Error("Cannot publish without a live URL. Paste the published link first.");
+      }
+    }
     updates.done = true;
     updates.completed_at = new Date().toISOString();
   } else if (patch.status) {

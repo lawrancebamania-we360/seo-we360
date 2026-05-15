@@ -28,6 +28,7 @@ import { SupportingLinksEditor } from "@/components/sections/supporting-links-ed
 import { AiVerificationPanel } from "@/components/sections/ai-verification-panel";
 import { LivePerformancePanel } from "@/components/sections/live-performance-panel";
 import { ReviewerToggleButton } from "@/components/sections/reviewer-chip";
+import { PublishUrlDialog } from "@/components/sections/publish-url-dialog";
 import { createArticle } from "@/lib/actions/articles";
 import { briefToMarkdownPrompt, type BlogBrief } from "@/lib/seo-skills/blog-brief";
 import { formatDataBacking } from "@/lib/types/url-metrics";
@@ -217,7 +218,17 @@ function BlogTaskContent({
     });
   };
 
+  // Intercept move-to-Published when there's no live URL on the row yet.
+  // Mirrors the kanban drag-drop behavior: open the publish-URL dialog so
+  // the user pastes the link before the server flips status -> done.
+  // Without this, the server guard throws and the user sees a generic
+  // "Move failed" toast with no clear path to fix it.
+  const [publishOpen, setPublishOpen] = useState(false);
   const moveStage = (status: "todo" | "in_progress" | "done") => {
+    if (status === "done" && !task.published_url) {
+      setPublishOpen(true);
+      return;
+    }
     start(async () => {
       try {
         await updateTask(task.id, { status });
@@ -791,6 +802,22 @@ function BlogTaskContent({
         competition={task.competition}
         mode="full"
         onGenerated={onGenerated}
+      />
+
+      {/* Publish-URL prompt — opens when the user picks "Published" in the
+          Move-to dropdown but there's no live URL on the task yet. Same
+          dialog the kanban drag-drop uses; on save it flips status -> done
+          and persists the URL atomically via the server action. */}
+      <PublishUrlDialog
+        open={publishOpen}
+        onOpenChange={setPublishOpen}
+        taskId={task.id}
+        taskTitle={task.title.replace(/^Write article:\s*/i, "")}
+        onSaved={() => {
+          setPublishOpen(false);
+          toast.success("Published");
+          onClose();
+        }}
       />
     </motion.div>
   );
