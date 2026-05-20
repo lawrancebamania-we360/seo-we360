@@ -42,6 +42,14 @@ export function combineVerdict(input: VerdictInput): Verdict {
   const hard: string[] = [];
   const soft: string[] = [];
 
+  // Google Docs are fetched as a plain-text export, which strips heading,
+  // hyperlink, and paragraph-break markup. That makes the regex quality
+  // scorer's structure checks (FAQ heading, internal/external links, TL;DR
+  // blockquote, paragraph length) unreliable — they false-fail. For Google
+  // Doc sources we skip those automated checks and rely on the LLM reviewer,
+  // which reads the actual doc and judges structure correctly.
+  const isGoogleDoc = (doc.url ?? "").includes("docs.google.com");
+
   // ============ Doc accessibility ============
   if (!doc.ok) {
     hard.push("doc_not_accessible");
@@ -68,7 +76,11 @@ export function combineVerdict(input: VerdictInput): Verdict {
   const targetKw = (brief.target_keyword || "").toLowerCase().trim();
 
   // ============ Target keyword ============
-  if (targetKw) {
+  // Only run when we actually have the doc text. finalize.ts combines the
+  // verdict without re-fetching the doc (text === ""), and the LLM reviewer
+  // already checks keyword placement — so skip the regex check rather than
+  // false-fail on an empty string.
+  if (targetKw && text.length > 0) {
     const firstParagraph = text.slice(0, 800).toLowerCase();
     if (!firstParagraph.includes(targetKw)) {
       hard.push("kw_missing_in_first_paragraph");
@@ -143,7 +155,9 @@ export function combineVerdict(input: VerdictInput): Verdict {
     }
 
     // ============ FAQ ============
-    if (!quality.hasFaqSection) {
+    // FAQPage JSON-LD is proof of an FAQ section even when the plain-text
+    // export hides the heading — don't hard-fail if the schema is present.
+    if (!quality.hasFaqSection && !quality.jsonLdBlocks.includes("FAQPage")) {
       hard.push("no_faq_section");
       issues.push({
         severity: "hard",
@@ -166,7 +180,9 @@ export function combineVerdict(input: VerdictInput): Verdict {
       });
     }
 
-    if (quality.internalLinks < 3) {
+    // Link counts and TL;DR detection rely on markup the Google Doc export
+    // strips — skip for Google Doc sources (the LLM reviewer judges these).
+    if (!isGoogleDoc && quality.internalLinks < 3) {
       soft.push("internal_links_low");
       issues.push({
         severity: "soft",
@@ -177,7 +193,7 @@ export function combineVerdict(input: VerdictInput): Verdict {
       });
     }
 
-    if (quality.externalCitations < 2) {
+    if (!isGoogleDoc && quality.externalCitations < 2) {
       soft.push("external_citations_low");
       issues.push({
         severity: "soft",
@@ -188,7 +204,7 @@ export function combineVerdict(input: VerdictInput): Verdict {
       });
     }
 
-    if (!quality.hasTldr) {
+    if (!isGoogleDoc && !quality.hasTldr) {
       soft.push("no_tldr");
       issues.push({
         severity: "soft",
@@ -230,7 +246,9 @@ export function combineVerdict(input: VerdictInput): Verdict {
       });
     }
 
-    if (quality.averageParagraphSentences > 5) {
+    // Paragraph length needs paragraph breaks the plain-text export drops —
+    // skip for Google Docs (the LLM reviewer judges readability instead).
+    if (!isGoogleDoc && quality.averageParagraphSentences > 5) {
       soft.push("paragraph_too_long");
       issues.push({
         severity: "soft",
@@ -254,7 +272,12 @@ export function combineVerdict(input: VerdictInput): Verdict {
   }
 
   // ============ Plagiarism ============
-  if (plagiarism && plagiarism.matchPercent > 25) {
+  // Only enforce plagiarism when the check ran on Google Programmable
+  // Search (reliable). The DuckDuckGo fallback scraper returns garbage
+  // match data (every "matched URL" is duckduckgo.com itself) so a high
+  // match % there is meaningless — surface it as an info note instead of
+  // hard-failing a clean article.
+  if (plagiarism && plagiarism.matchPercent > 25 && plagiarism.searchEngine === "google_pse") {
     hard.push("plagiarism_high");
     const sample = plagiarism.matches.slice(0, 2).map((m) => `"${m.phrase.slice(0, 80)}…"`).join(", ");
     issues.push({
@@ -264,6 +287,14 @@ export function combineVerdict(input: VerdictInput): Verdict {
       message: `Plagiarism flagged ${plagiarism.matchesFound} of ${plagiarism.phrasesChecked} sample phrases (${plagiarism.matchPercent}%).`,
       suggestion: "Rewrite flagged phrases in original wording.",
       evidence: sample,
+    });
+  } else if (plagiarism && plagiarism.searchEngine !== "google_pse") {
+    issues.push({
+      severity: "info",
+      category: "plagiarism",
+      code: "plagiarism_not_verified",
+      message: "Plagiarism couldn't be reliably checked — Google Programmable Search isn't configured, so the fallback engine was used.",
+      suggestion: "Set GOOGLE_PSE_API_KEY + GOOGLE_PSE_CX to enable a real plagiarism gate.",
     });
   }
 
