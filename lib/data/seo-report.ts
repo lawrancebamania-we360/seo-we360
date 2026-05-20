@@ -1,13 +1,16 @@
 // SEO Report data layer.
 //
 // Powers /dashboard/reports — a CEO/SEO-Head facing view of COMPLETED work
-// (blog posts + web pages shipped to Published). For each completed task we
-// join: the live GSC + GA4 metrics (url_metrics, 90d window), sitemap.xml
-// membership, and a computed health + issues verdict.
+// (blog posts + web pages shipped to Published) that live ON the we360.ai
+// website. For each completed task we:
+//   1. Verify the page is actually live (HTTP fetch of the published URL)
+//   2. Check whether it appears in we360.ai/sitemap.xml
+//   3. Join live GSC + GA4 metrics (url_metrics) — 90d window for display,
+//      30d vs 90d to compute a ranking-trend arrow
+//   4. Compute a Health verdict + Issues list
 //
-// Off-domain pages (e.g. posts published to Medium) can't be tracked by our
-// GSC/GA4 sync or appear in the we360.ai sitemap — they're surfaced with a
-// distinct "external" health so they aren't false-flagged.
+// Pages published off the we360.ai domain (e.g. on Medium) are EXCLUDED —
+// this report is about pages on our own site.
 
 import { createClient } from "@/lib/supabase/server";
 import type { UrlMetric } from "@/lib/types/url-metrics";
@@ -15,7 +18,12 @@ import type { UrlMetric } from "@/lib/types/url-metrics";
 const OWN_HOST = "we360.ai";
 const SITEMAP_URL = "https://we360.ai/sitemap.xml";
 
-export type ReportHealth = "winning" | "watch" | "problem" | "external";
+export type ReportHealth = "winning" | "watch" | "problem";
+
+export interface PositionTrend {
+  delta: number;                          // positions improved (+) or lost (-)
+  direction: "up" | "down" | "flat";      // up = ranking improved
+}
 
 export interface SeoReportRow {
   taskId: string;
@@ -23,22 +31,23 @@ export interface SeoReportRow {
   kind: "blog_task" | "web_task";
   taskType: string | null;
   targetKeyword: string | null;
-  liveUrl: string | null;          // published_url ?? url
+  liveUrl: string | null;
   completedAt: string | null;
   daysLive: number | null;
   assigneeName: string | null;
   aiVerificationStatus: string | null;
-  isExternal: boolean;             // published off the we360.ai domain
-  inSitemap: boolean | null;       // null = not applicable (external / no url)
+  pageExists: boolean | null;             // HTTP check — null if no URL
+  inSitemap: boolean | null;
   metrics: {
     clicks: number;
     impressions: number;
-    ctr: number;          // 0-1
+    ctr: number;
     position: number;
     sessions: number;
-    engagementRate: number; // 0-1
+    engagementRate: number;
     conversions: number;
-  } | null;                 // null = no url_metrics row (off-domain / not yet synced)
+  } | null;
+  positionTrend: PositionTrend | null;    // 30d vs 90d ranking movement
   health: ReportHealth;
   issues: string[];
 }
@@ -47,11 +56,11 @@ export interface SeoReportRollup {
   shipped: number;
   rankingTop10: number;
   rankingTop3: number;
-  zeroTraffic: number;       // we360.ai pages, 30d+ live, 0 clicks + 0 sessions
+  zeroTraffic: number;
   totalClicks: number;
   totalImpressions: number;
   problemCount: number;
-  externalCount: number;
+  notLiveCount: number;       // pages that failed the HTTP existence check
 }
 
 export interface SeoReportSnapshot {
@@ -60,8 +69,8 @@ export interface SeoReportSnapshot {
 }
 
 interface ReportFilters {
-  start?: string;   // ISO date — filter completed_at >=
-  end?: string;     // ISO date — filter completed_at <=
+  start?: string;
+  end?: string;
 }
 
 export async function getSeoReport(projectId: string, filters: ReportFilters = {}): Promise<SeoReportSnapshot> {
@@ -82,42 +91,51 @@ export async function getSeoReport(projectId: string, filters: ReportFilters = {
     id: string; title: string; kind: "blog_task" | "web_task"; task_type: string | null;
     target_keyword: string | null; url: string | null; published_url: string | null;
     completed_at: string | null; ai_verification_status: string | null;
-    // PostgREST returns embedded resources as an array; normalize below.
     assignee: { name: string } | { name: string }[] | null;
   };
   const tasks = (tasksData ?? []) as unknown as TaskRow[];
-
-  // Embedded profile join may come back as an array — flatten to one name.
   const assigneeName = (a: TaskRow["assignee"]): string | null => {
     if (!a) return null;
     if (Array.isArray(a)) return a[0]?.name ?? null;
     return a.name ?? null;
   };
 
-  // ---- 2. url_metrics (90d window) keyed by normalized URL
+  // Only keep tasks whose live URL is on the we360.ai domain — Medium and
+  // other off-domain posts are excluded from this report entirely.
+  const onDomain = tasks.filter((t) => {
+    const live = t.published_url ?? t.url;
+    return live ? isOwnDomain(live) : false;
+  });
+
+  // ---- 2. url_metrics — pull 30d + 90d so we can show a ranking trend
   const { data: metricsData } = await supabase
     .from("url_metrics_latest")
     .select("*")
     .eq("project_id", projectId)
-    .eq("period", "90d");
-  const metricByUrl = new Map<string, UrlMetric>();
+    .in("period", ["30d", "90d"]);
+  const m90 = new Map<string, UrlMetric>();
+  const m30 = new Map<string, UrlMetric>();
   for (const m of (metricsData ?? []) as UrlMetric[]) {
-    metricByUrl.set(normalizeUrl(m.url), m);
+    const key = normalizeUrl(m.url);
+    if (m.period === "90d") m90.set(key, m);
+    else if (m.period === "30d") m30.set(key, m);
   }
 
-  // ---- 3. Sitemap membership set (cached fetch, 1h)
+  // ---- 3. Sitemap membership set + live-URL HTTP checks (parallel)
   const sitemapSet = await fetchSitemapUrlSet();
+  const liveUrls = [...new Set(onDomain.map((t) => t.published_url ?? t.url).filter(Boolean) as string[])];
+  const liveStatus = await checkUrlsLive(liveUrls);
 
   // ---- 4. Build rows
   const rows: SeoReportRow[] = [];
-  for (const t of tasks) {
+  for (const t of onDomain) {
     const liveUrl = t.published_url ?? t.url ?? null;
-    const isExternal = liveUrl ? !isOwnDomain(liveUrl) : false;
+    const key = liveUrl ? normalizeUrl(liveUrl) : "";
     const daysLive = t.completed_at
       ? Math.floor((Date.now() - new Date(t.completed_at).getTime()) / 86400000)
       : null;
 
-    const metricRow = liveUrl && !isExternal ? metricByUrl.get(normalizeUrl(liveUrl)) ?? null : null;
+    const metricRow = m90.get(key) ?? null;
     const metrics = metricRow
       ? {
           clicks: metricRow.gsc_clicks,
@@ -130,9 +148,22 @@ export async function getSeoReport(projectId: string, filters: ReportFilters = {
         }
       : null;
 
-    const inSitemap = liveUrl && !isExternal ? sitemapSet.has(normalizeUrl(liveUrl)) : null;
+    // Ranking trend — 30d (recent) vs 90d (broader). Lower position is
+    // better, so 30d < 90d means the page climbed since the work landed.
+    let positionTrend: PositionTrend | null = null;
+    const recent = m30.get(key);
+    if (metricRow && recent && metricRow.gsc_position > 0 && recent.gsc_position > 0) {
+      const delta = metricRow.gsc_position - recent.gsc_position; // + = improved
+      positionTrend = {
+        delta: Math.abs(delta),
+        direction: delta > 0.3 ? "up" : delta < -0.3 ? "down" : "flat",
+      };
+    }
 
-    const { health, issues } = computeHealth({ isExternal, inSitemap, metrics, daysLive });
+    const inSitemap = liveUrl ? sitemapSet.has(key) : null;
+    const pageExists = liveUrl ? (liveStatus.get(liveUrl) ?? null) : null;
+
+    const { health, issues } = computeHealth({ pageExists, inSitemap, metrics, daysLive });
 
     rows.push({
       taskId: t.id,
@@ -145,16 +176,17 @@ export async function getSeoReport(projectId: string, filters: ReportFilters = {
       daysLive,
       assigneeName: assigneeName(t.assignee),
       aiVerificationStatus: t.ai_verification_status,
-      isExternal,
+      pageExists,
       inSitemap,
       metrics,
+      positionTrend,
       health,
       issues,
     });
   }
 
-  // ---- 5. Sort: problem -> watch -> winning -> external, then days live desc
-  const order: Record<ReportHealth, number> = { problem: 0, watch: 1, winning: 2, external: 3 };
+  // ---- 5. Sort: problem -> watch -> winning, then days live desc
+  const order: Record<ReportHealth, number> = { problem: 0, watch: 1, winning: 2 };
   rows.sort((a, b) => {
     const ho = order[a.health] - order[b.health];
     if (ho !== 0) return ho;
@@ -166,68 +198,60 @@ export async function getSeoReport(projectId: string, filters: ReportFilters = {
     shipped: rows.length,
     rankingTop10: rows.filter((r) => r.metrics && r.metrics.impressions > 0 && r.metrics.position > 0 && r.metrics.position <= 10).length,
     rankingTop3: rows.filter((r) => r.metrics && r.metrics.impressions > 0 && r.metrics.position > 0 && r.metrics.position <= 3).length,
-    zeroTraffic: rows.filter((r) => !r.isExternal && r.metrics && (r.daysLive ?? 0) >= 30 && r.metrics.clicks === 0 && r.metrics.sessions === 0).length,
+    zeroTraffic: rows.filter((r) => r.metrics && (r.daysLive ?? 0) >= 30 && r.metrics.clicks === 0 && r.metrics.sessions === 0).length,
     totalClicks: rows.reduce((s, r) => s + (r.metrics?.clicks ?? 0), 0),
     totalImpressions: rows.reduce((s, r) => s + (r.metrics?.impressions ?? 0), 0),
     problemCount: rows.filter((r) => r.health === "problem").length,
-    externalCount: rows.filter((r) => r.isExternal).length,
+    notLiveCount: rows.filter((r) => r.pageExists === false).length,
   };
 
   return { rows, rollup };
 }
 
-// ---- Health + issues computation ----
+// ---- Health + issues ----
 
 function computeHealth(args: {
-  isExternal: boolean;
+  pageExists: boolean | null;
   inSitemap: boolean | null;
   metrics: SeoReportRow["metrics"];
   daysLive: number | null;
 }): { health: ReportHealth; issues: string[] } {
-  const { isExternal, inSitemap, metrics, daysLive } = args;
+  const { pageExists, inSitemap, metrics, daysLive } = args;
   const issues: string[] = [];
-
-  // External pages (Medium etc.) — we can't track them. Single info issue.
-  if (isExternal) {
-    return {
-      health: "external",
-      issues: ["Published off-domain — GSC/GA4/sitemap tracking not available"],
-    };
-  }
-
   const tooNew = (daysLive ?? 0) < 30;
 
-  // Sitemap — always check; missing is a hard problem (Google can't find it).
-  if (inSitemap === false) issues.push("Not in sitemap");
+  // Existence + discoverability — the two checks the user explicitly asked
+  // for: is the page actually live, and is it in the sitemap.
+  if (pageExists === false) issues.push("Page not reachable — published URL returns an error or 404");
+  if (inSitemap === false) issues.push("Not in sitemap — Google may not discover it");
 
   if (!metrics) {
-    // No url_metrics row — page not yet picked up by the daily sync.
-    if (!tooNew) issues.push("No metrics yet — not in url_metrics");
-    return { health: inSitemap === false ? "problem" : "watch", issues };
+    if (!tooNew) issues.push("No metrics yet — page isn't in url_metrics (run the daily sync)");
+  } else {
+    if (!tooNew) {
+      if (metrics.clicks === 0 && metrics.sessions === 0) issues.push("No traffic — 0 clicks and 0 sessions");
+      if (metrics.impressions === 0) issues.push("No impressions — not indexed or off-target");
+    }
+    if (metrics.impressions > 0 && metrics.position > 20) issues.push(`Poor ranking — average position ${metrics.position.toFixed(0)}`);
+    if (metrics.position > 0 && metrics.position <= 10 && metrics.ctr < 0.01 && metrics.impressions > 0) {
+      issues.push("Low CTR — ranks top 10 but the title/meta isn't earning clicks");
+    }
+    if (metrics.engagementRate < 0.3 && metrics.sessions >= 50) issues.push("Low engagement — under 30% engaged sessions");
+    if (metrics.sessions >= 100 && metrics.conversions === 0) issues.push("Traffic but 0 conversions");
   }
 
-  // Traffic / indexing flags — exempt for pages < 30 days live.
-  if (!tooNew) {
-    if (metrics.clicks === 0 && metrics.sessions === 0) issues.push("No traffic (0 clicks, 0 sessions)");
-    if (metrics.impressions === 0) issues.push("No impressions — not indexed or off-target");
-  }
-  if (metrics.impressions > 0 && metrics.position > 20) issues.push(`Poor ranking (position ${metrics.position.toFixed(0)})`);
-  if (metrics.position > 0 && metrics.position <= 10 && metrics.ctr < 0.01 && metrics.impressions > 0) {
-    issues.push("Low CTR — ranks top 10 but weak title/meta");
-  }
-  if (metrics.engagementRate < 0.3 && metrics.sessions >= 50) issues.push("Low engagement (<30%)");
-  if (metrics.sessions >= 100 && metrics.conversions === 0) issues.push("Traffic but 0 conversions");
-
-  // Health verdict — worst-case wins.
-  let health: ReportHealth;
+  // Verdict — worst-case wins.
   const hardProblem =
+    pageExists === false ||
     inSitemap === false ||
-    (!tooNew && metrics.clicks === 0 && metrics.sessions === 0) ||
-    (metrics.impressions > 0 && metrics.position > 20);
+    (metrics != null && !tooNew && metrics.clicks === 0 && metrics.sessions === 0) ||
+    (metrics != null && metrics.impressions > 0 && metrics.position > 20);
+  let health: ReportHealth;
   if (hardProblem) {
     health = "problem";
   } else if (
     tooNew ||
+    !metrics ||
     (metrics.impressions > 0 && metrics.position > 10) ||
     (!tooNew && metrics.clicks < 10) ||
     (metrics.engagementRate < 0.3 && metrics.sessions >= 50)
@@ -237,6 +261,32 @@ function computeHealth(args: {
     health = "winning";
   }
   return { health, issues };
+}
+
+// ---- Live-URL HTTP checks ----
+//
+// Fetch each published URL to confirm the page actually exists. 200-399 =
+// live, 4xx/5xx or network error = not live. Cached for an hour so report
+// reloads don't re-hammer the site.
+async function checkUrlsLive(urls: string[]): Promise<Map<string, boolean>> {
+  const out = new Map<string, boolean>();
+  await Promise.all(
+    urls.map(async (url) => {
+      try {
+        const resp = await fetch(url, {
+          method: "GET",
+          redirect: "follow",
+          headers: { "User-Agent": "We360-SEO-Report/1.0" },
+          signal: AbortSignal.timeout(10_000),
+          next: { revalidate: 3600 },
+        });
+        out.set(url, resp.status >= 200 && resp.status < 400);
+      } catch {
+        out.set(url, false);
+      }
+    }),
+  );
+  return out;
 }
 
 // ---- URL helpers ----
@@ -261,17 +311,13 @@ function isOwnDomain(url: string): boolean {
   }
 }
 
-// Fetch sitemap.xml -> Set of normalized URLs. Handles sitemap-index
-// recursion one level deep. Cached for an hour via Next's fetch cache.
 async function fetchSitemapUrlSet(): Promise<Set<string>> {
   const set = new Set<string>();
   try {
     const locs = await fetchSitemapLocs(SITEMAP_URL, 0);
     for (const u of locs) set.add(normalizeUrl(u));
   } catch {
-    // On sitemap fetch failure, return empty — inSitemap becomes false for
-    // everything. The report still renders; the issue chip just over-fires
-    // until the next successful fetch.
+    /* empty set on failure — inSitemap over-fires until next good fetch */
   }
   return set;
 }
