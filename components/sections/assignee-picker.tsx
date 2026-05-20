@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { updateTask } from "@/lib/actions/tasks";
 import { initials } from "@/lib/ui-helpers";
+import { useGlobalLoading } from "@/components/dashboard/global-loading";
 import type { Profile } from "@/lib/types/database";
 
 export type Member = Pick<Profile, "id" | "name" | "avatar_url">;
@@ -24,13 +25,16 @@ interface Props {
 export function AssigneePicker({ taskId, currentAssignee, members, onChanged, size = "sm" }: Props) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const { run } = useGlobalLoading();
   const current = members.find((m) => m.id === currentAssignee) ?? null;
 
   const pick = async (id: string | null) => {
     if (pending) return;
     setPending(true);
     try {
-      await updateTask(taskId, { team_member_id: id });
+      // run() shows the global top progress bar for the whole server-action
+      // round-trip — the owner change has a visible delay otherwise.
+      await run(updateTask(taskId, { team_member_id: id }));
       const next = id ? members.find((m) => m.id === id) ?? null : null;
       onChanged?.(id, next);
       toast.success(id ? `Assigned to ${next?.name ?? "member"}` : "Unassigned");

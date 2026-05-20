@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials, competitionColor, priorityColor, formatNumber, stripTaskKey, taskKindLabel } from "@/lib/ui-helpers";
 import { updateTaskStatus } from "@/lib/actions/tasks";
+import { useGlobalLoading } from "@/components/dashboard/global-loading";
 import { BlogTaskDetailDialog } from "@/components/sections/blog-task-detail-dialog";
 import { AssigneePicker } from "@/components/sections/assignee-picker";
 import { PublishUrlDialog } from "@/components/sections/publish-url-dialog";
@@ -61,6 +62,7 @@ export function BlogKanban({
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTask, setDetailTask] = useState<TaskWithAssignee | null>(null);
   const [publishingTask, setPublishingTask] = useState<TaskWithAssignee | null>(null);
+  const { run } = useGlobalLoading();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   useEffect(() => { setLocalTasks(tasks); }, [tasks]);
@@ -112,9 +114,9 @@ export function BlogKanban({
       )
     );
     try {
-      await updateTaskStatus(taskId, toColumn);
-    } catch {
-      toast.error("Couldn't save");
+      await run(updateTaskStatus(taskId, toColumn));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't save");
       setLocalTasks(tasks);
     }
   };

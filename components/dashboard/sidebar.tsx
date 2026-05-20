@@ -25,7 +25,7 @@ import Image from "next/image";
 import {
   LayoutDashboard, ListChecks, Search, Swords,
   CalendarRange, Trophy, Users, FolderCog, GitBranch, FileSearch,
-  PanelLeftClose, PanelLeftOpen, GripVertical,
+  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/dashboard/user-menu";
@@ -59,6 +59,7 @@ const NAV_SECTION: Record<string, string | null> = {
   "/dashboard/competitors": "competitors",
   "/dashboard/sprint":      "sprint",
   "/dashboard/blog-audit":  "seo_gaps",
+  "/dashboard/reports":     null,        // always visible
 };
 
 // Monochromatic we360 nav palette — primary purple for everything except Wins
@@ -78,6 +79,7 @@ const DEFAULT_NAV: NavItem[] = [
   { href: "/dashboard/competitors", label: "Competitors", icon: Swords,        tone: "primary" },
   { href: "/dashboard/sprint",     label: "Blog Sprint", icon: CalendarRange,  tone: "primary" },
   { href: "/dashboard/blog-audit", label: "Blog audit",  icon: FileSearch,     tone: "primary" },
+  { href: "/dashboard/reports",    label: "Reports",     icon: BarChart3,      tone: "primary" },
 ];
 
 // Admin-only nav — Wins gets the yellow accent so it stands out as a

@@ -17,6 +17,7 @@ const NAV = [
   { href: "/dashboard/competitors", label: "Competitors" },
   { href: "/dashboard/sprint", label: "Blog Sprint" },
   { href: "/dashboard/blog-audit", label: "Blog audit" },
+  { href: "/dashboard/reports", label: "Reports" },
 ];
 
 // Admin-only routes — Wins moved here per access policy (no longer in

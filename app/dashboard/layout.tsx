@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { UserMenu } from "@/components/dashboard/user-menu";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
+import { GlobalLoadingProvider, GlobalLoadingBar } from "@/components/dashboard/global-loading";
 
 export default async function DashboardLayout({
   children,
@@ -14,6 +15,8 @@ export default async function DashboardLayout({
   const health = await getOverallHealth(ctx.activeProject?.id ?? null);
 
   return (
+    <GlobalLoadingProvider>
+    <GlobalLoadingBar />
     <div className="flex h-svh bg-background overflow-hidden">
       <Sidebar
         profile={ctx.profile}
@@ -38,5 +41,6 @@ export default async function DashboardLayout({
         <main className="flex-1 overflow-y-auto overflow-x-hidden">{children}</main>
       </div>
     </div>
+    </GlobalLoadingProvider>
   );
 }
