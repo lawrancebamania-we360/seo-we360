@@ -1,5 +1,5 @@
 import { getUserContext } from "@/lib/auth/get-user";
-import { getTasks, getTeamMembers, type TaskFilterParams } from "@/lib/data/tasks";
+import { getTasks, getTeamMembers, getReviewers, type TaskFilterParams } from "@/lib/data/tasks";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { BlogFiltersHeader, BlogFiltersSidebar } from "@/components/sections/blog-filters";
@@ -9,14 +9,11 @@ import { TopicClusterButton } from "@/components/sections/topic-cluster-button";
 import { BulkUploadTasksButton } from "@/components/sections/bulk-upload-tasks-button";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles } from "lucide-react";
-import type { Competition, Intent, Priority } from "@/lib/types/database";
 
 export const metadata = { title: "Blog Sprint" };
 
 interface SearchParams {
-  priority?: string;
-  competition?: string;
-  intent?: string;
+  reviewedBy?: string;
   assignee?: string;
   range?: string;
   start?: string;
@@ -35,19 +32,20 @@ export default async function BlogSprintPage({
   const params = await searchParams;
   const filters: TaskFilterParams = {
     kind: "blog_task",
-    priority: (params.priority as Priority | "all") ?? "all",
-    competition: (params.competition as Competition | "all") ?? "all",
-    intent: (params.intent as Intent | "all") ?? "all",
     assignee: params.assignee ?? "all",
     range: (params.range as TaskFilterParams["range"]) ?? "all",
     start: params.start,
     end: params.end,
+    reviewedBy: params.reviewedBy
+      ? params.reviewedBy.split(",").map((s) => s.trim()).filter(Boolean)
+      : undefined,
     q: params.q,
   };
 
-  const [blogTasks, members] = await Promise.all([
+  const [blogTasks, members, reviewers] = await Promise.all([
     getTasks(ctx.activeProject.id, filters),
     getTeamMembers(),
+    getReviewers(),
   ]);
 
   const canManage = ctx.canManageTeam;
@@ -86,6 +84,7 @@ export default async function BlogSprintPage({
           <TaskSearch placeholder="Search by keyword or topic..." />
           <BlogFiltersHeader
             members={members}
+            reviewers={reviewers}
             countsLabel={
               <>
                 Showing <span className="font-semibold text-foreground tabular-nums">{blogTasks.length}</span>{" "}
@@ -96,7 +95,7 @@ export default async function BlogSprintPage({
           />
           <BlogKanban tasks={blogTasks} members={members} canEdit={canManage} projectId={ctx.activeProject.id} />
         </div>
-        <BlogFiltersSidebar members={members} />
+        <BlogFiltersSidebar members={members} reviewers={reviewers} />
       </div>
     </div>
   );

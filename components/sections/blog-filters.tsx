@@ -1,35 +1,63 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
+import { useEffect, useRef, useTransition } from "react";
+import { ShieldCheck, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { FilterShell, FilterSidebar } from "@/components/sections/filter-shell";
+import { useGlobalLoading } from "@/components/dashboard/global-loading";
 import type { Profile } from "@/lib/types/database";
 import { initials } from "@/lib/ui-helpers";
 
+type Member = Pick<Profile, "id" | "name" | "avatar_url">;
+
 interface HeaderProps {
-  members: Pick<Profile, "id" | "name" | "avatar_url">[];
+  members: Member[];
+  reviewers: Member[];
   countsLabel: React.ReactNode;
 }
 
 interface SidebarProps {
-  members: Pick<Profile, "id" | "name" | "avatar_url">[];
+  members: Member[];
+  reviewers: Member[];
 }
+
+// Due-window value → human label. Base UI's <SelectValue> renders the raw
+// value otherwise (so picking "This week" showed "upcoming" on the trigger).
+const RANGE_LABELS: Record<string, string> = {
+  all: "All",
+  today: "Today",
+  upcoming: "This week",
+  "30d": "Next 30 days",
+  "60d": "Next 60 days",
+  "90d": "Next 90 days",
+  overdue: "Overdue",
+  custom: "Custom range",
+};
 
 function useFilterState() {
   const router = useRouter();
   const params = useSearchParams();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
-  const priority = params.get("priority") ?? "all";
-  const competition = params.get("competition") ?? "all";
-  const intent = params.get("intent") ?? "all";
+  // Tie filter navigation to the global loading bar — selecting a reviewer
+  // or due window triggers a server round-trip with a visible delay.
+  const { begin, end } = useGlobalLoading();
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (isPending && !wasPending.current) { wasPending.current = true; begin(); }
+    else if (!isPending && wasPending.current) { wasPending.current = false; end(); }
+  }, [isPending, begin, end]);
+
   const assignee = params.get("assignee") ?? "all";
   const range = params.get("range") ?? "all";
   const start = params.get("start") ?? "";
-  const end = params.get("end") ?? "";
+  const end_ = params.get("end") ?? "";
+  // Multi-select reviewedBy — comma-separated in the URL.
+  const reviewedBy = (params.get("reviewedBy") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
   const update = (key: string, value: string | null) => {
     const next = new URLSearchParams(params.toString());
@@ -37,66 +65,64 @@ function useFilterState() {
     else next.set(key, value);
     startTransition(() => router.replace(`?${next.toString()}`, { scroll: false }));
   };
+
+  // Toggle one reviewer id (or "ai") in/out of the reviewedBy list.
+  const toggleReviewer = (id: string) => {
+    const set = new Set(reviewedBy);
+    if (set.has(id)) set.delete(id);
+    else set.add(id);
+    const next = new URLSearchParams(params.toString());
+    if (set.size === 0) next.delete("reviewedBy");
+    else next.set("reviewedBy", [...set].join(","));
+    startTransition(() => router.replace(`?${next.toString()}`, { scroll: false }));
+  };
+
   const clearAll = () => startTransition(() => router.replace("?", { scroll: false }));
 
   const activeCount =
-    [priority, competition, intent, range, assignee].filter((v) => v && v !== "all").length +
-    (range === "custom" && (start || end) ? 1 : 0);
+    [range, assignee].filter((v) => v && v !== "all").length +
+    (reviewedBy.length > 0 ? 1 : 0) +
+    (range === "custom" && (start || end_) ? 1 : 0);
 
-  return { priority, competition, intent, assignee, range, start, end, update, clearAll, activeCount };
+  return { assignee, range, start, end: end_, reviewedBy, update, toggleReviewer, clearAll, activeCount };
 }
 
-function FilterFields({ members, state }: { members: HeaderProps["members"]; state: ReturnType<typeof useFilterState> }) {
+function FilterFields({
+  members, reviewers, state,
+}: {
+  members: Member[];
+  reviewers: Member[];
+  state: ReturnType<typeof useFilterState>;
+}) {
   return (
     <>
-      <Field label="Priority">
-        <Select value={state.priority} onValueChange={(v) => v && state.update("priority", v)}>
-          <SelectTrigger className="w-full h-8"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All priorities</SelectItem>
-            <SelectItem value="critical">Critical</SelectItem>
-            <SelectItem value="high">High</SelectItem>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="low">Low</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
-
-      <Field label="Competition">
-        <Select value={state.competition} onValueChange={(v) => v && state.update("competition", v)}>
-          <SelectTrigger className="w-full h-8"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Any competition</SelectItem>
-            <SelectItem value="Low Competition">Low — quick wins</SelectItem>
-            <SelectItem value="Medium Competition">Medium</SelectItem>
-            <SelectItem value="High Competition">High — longer content</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
-
-      <Field label="Intent">
-        <Select value={state.intent} onValueChange={(v) => v && state.update("intent", v)}>
-          <SelectTrigger className="w-full h-8"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Any intent</SelectItem>
-            <SelectItem value="informational">Informational</SelectItem>
-            <SelectItem value="commercial">Commercial</SelectItem>
-            <SelectItem value="transactional">Transactional</SelectItem>
-            <SelectItem value="navigational">Navigational</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Reviewed by — multi-select toggle chips (human reviewers + AI) */}
+      <Field label="Reviewed by">
+        <div className="flex flex-wrap gap-1.5">
+          {reviewers.map((r) => (
+            <ReviewerChip
+              key={r.id}
+              label={r.name}
+              icon={<ShieldCheck className="size-3" />}
+              active={state.reviewedBy.includes(r.id)}
+              onClick={() => state.toggleReviewer(r.id)}
+            />
+          ))}
+          <ReviewerChip
+            label="AI verified"
+            icon={<Sparkles className="size-3" />}
+            active={state.reviewedBy.includes("ai")}
+            onClick={() => state.toggleReviewer("ai")}
+          />
+          {reviewers.length === 0 && (
+            <span className="text-[11px] text-muted-foreground">No reviewers yet.</span>
+          )}
+        </div>
       </Field>
 
       <Field label="Assigned to">
         <Select value={state.assignee} onValueChange={(v) => v && state.update("assignee", v)}>
           <SelectTrigger className="w-full h-8">
-            {/*
-              Base UI's Select.Value renders the selected value verbatim by
-              default — so member assignees show as raw UUIDs. Passing a
-              render-function child resolves the value to a human label.
-              `label` on each SelectItem (below) is for keyboard typeahead,
-              not for trigger display — that's a separate concern.
-             */}
             <SelectValue>
               {(value: string | null) => {
                 if (!value || value === "all") return "Everyone";
@@ -124,7 +150,12 @@ function FilterFields({ members, state }: { members: HeaderProps["members"]; sta
 
       <Field label="Due window">
         <Select value={state.range} onValueChange={(v) => v && state.update("range", v)}>
-          <SelectTrigger className="w-full h-8"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full h-8">
+            {/* Render-function maps the raw value to its human label. */}
+            <SelectValue>
+              {(value: string | null) => RANGE_LABELS[value ?? "all"] ?? "All"}
+            </SelectValue>
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
             <SelectItem value="today">Today</SelectItem>
@@ -152,6 +183,31 @@ function FilterFields({ members, state }: { members: HeaderProps["members"]; sta
   );
 }
 
+function ReviewerChip({
+  label, icon, active, onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors",
+        active
+          ? "bg-[#5B45E0] text-white border-[#5B45E0]"
+          : "bg-muted/30 text-muted-foreground border-border hover:text-foreground",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
@@ -163,20 +219,20 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function BlogFiltersHeader({ members, countsLabel }: HeaderProps) {
+export function BlogFiltersHeader({ members, reviewers, countsLabel }: HeaderProps) {
   const state = useFilterState();
   return (
     <FilterShell activeCount={state.activeCount} onClear={state.clearAll} countsLabel={countsLabel}>
-      <FilterFields members={members} state={state} />
+      <FilterFields members={members} reviewers={reviewers} state={state} />
     </FilterShell>
   );
 }
 
-export function BlogFiltersSidebar({ members }: SidebarProps) {
+export function BlogFiltersSidebar({ members, reviewers }: SidebarProps) {
   const state = useFilterState();
   return (
     <FilterSidebar activeCount={state.activeCount} onClear={state.clearAll}>
-      <FilterFields members={members} state={state} />
+      <FilterFields members={members} reviewers={reviewers} state={state} />
     </FilterSidebar>
   );
 }

@@ -16,6 +16,10 @@ export interface TaskFilterParams {
   kind?: TaskKind;
   competition?: Competition | "all";
   intent?: Intent | "all";
+  // Multi-select "reviewed by" filter. Values are reviewer profile UUIDs,
+  // plus the literal "ai" to match AI-verified tasks. Empty/undefined = no
+  // filter. Matching is OR across all selected values.
+  reviewedBy?: string[];
   q?: string;
 }
 
@@ -34,6 +38,18 @@ export async function getTasks(projectId: string, filters: TaskFilterParams = {}
   if (filters.assignee && filters.assignee !== "all") {
     if (filters.assignee === "unassigned") q = q.is("team_member_id", null);
     else q = q.eq("team_member_id", filters.assignee);
+  }
+
+  // Reviewed-by — multi-select. Human reviewer UUIDs match reviewed_by_id;
+  // the literal "ai" matches AI-verified tasks. Combined with OR so picking
+  // "Lokesh" + "AI" shows tasks reviewed by Lokesh OR passed by AI.
+  if (filters.reviewedBy && filters.reviewedBy.length > 0) {
+    const humanIds = filters.reviewedBy.filter((v) => v !== "ai");
+    const wantsAi = filters.reviewedBy.includes("ai");
+    const conds: string[] = [];
+    if (humanIds.length > 0) conds.push(`reviewed_by_id.in.(${humanIds.join(",")})`);
+    if (wantsAi) conds.push("ai_verification_status.eq.verified");
+    if (conds.length > 0) q = q.or(conds.join(","));
   }
 
   if (filters.q && filters.q.trim().length > 0) {
@@ -95,4 +111,16 @@ export async function getTeamMembers(): Promise<Pick<Profile, "id" | "name" | "e
     .neq("role", "client")
     .order("name");
   return (data ?? []) as unknown as Pick<Profile, "id" | "name" | "email" | "avatar_url">[];
+}
+
+// Returns the people who can sign off as a reviewer — admins + super-admins.
+// Used to populate the "Reviewed by" filter on Blog Sprint.
+export async function getReviewers(): Promise<Pick<Profile, "id" | "name" | "avatar_url">[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, name, avatar_url")
+    .in("role", ["super_admin", "admin"])
+    .order("name");
+  return (data ?? []) as unknown as Pick<Profile, "id" | "name" | "avatar_url">[];
 }
