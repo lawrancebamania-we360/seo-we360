@@ -16,6 +16,21 @@ async function siteSessions(start: string, end: string): Promise<number> {
   return parseInt(result.data.rows?.[0]?.metricValues?.[0]?.value ?? "0", 10) || 0;
 }
 
+async function organicSessions(start: string, end: string): Promise<number> {
+  const result = await executeAction<GA4Metric>("GOOGLE_ANALYTICS_RUN_REPORT", {
+    property: `properties/${GA4_PROPERTY_ID}`,
+    dateRanges: [{ startDate: start, endDate: end }],
+    metrics: [{ name: "sessions" }],
+    dimensionFilter: {
+      filter: {
+        fieldName: "sessionDefaultChannelGroup",
+        stringFilter: { matchType: "EXACT", value: "Organic Search" },
+      },
+    },
+  });
+  return parseInt(result.data.rows?.[0]?.metricValues?.[0]?.value ?? "0", 10) || 0;
+}
+
 (async () => {
   const now = new Date();
   const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -28,8 +43,12 @@ async function siteSessions(start: string, end: string): Promise<number> {
 
   const last = await siteSessions(iso(lastStart), iso(lastEnd));
   const thisM = await siteSessions(iso(thisStart), iso(now));
-  console.log(`\nLast month site sessions:  ${last.toLocaleString()}`);
-  console.log(`This month site sessions:  ${thisM.toLocaleString()}`);
+  const lastOrg = await organicSessions(iso(lastStart), iso(lastEnd));
+  const thisOrg = await organicSessions(iso(thisStart), iso(now));
+  console.log(`\nLast month — all sessions:      ${last.toLocaleString()}`);
+  console.log(`Last month — organic sessions:  ${lastOrg.toLocaleString()}`);
+  console.log(`This month — all sessions:      ${thisM.toLocaleString()}`);
+  console.log(`This month — organic sessions:  ${thisOrg.toLocaleString()}`);
   console.log("GA4 monthly call: OK");
   process.exit(0);
 })().catch((e) => { console.error("FAILED:", e instanceof Error ? e.message : e); process.exit(1); });

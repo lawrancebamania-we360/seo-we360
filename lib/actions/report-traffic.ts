@@ -3,12 +3,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { executeAction, type GA4Metric } from "@/lib/integrations/composio";
 
-// Whole-site GA4 sessions, last calendar month vs current month-to-date.
-// Powers the two comparison boxes at the top of the Reports page.
+// Whole-site GA4 ORGANIC SEARCH traffic, last calendar month vs current
+// month-to-date. Powers the two comparison boxes at the top of the Reports
+// page.
 //
-// This is a live Composio GA4 call (two date ranges, no page filter, no
-// dimensions = site totals). It runs on demand from the client component so
-// a slow/failed GA4 call degrades only the boxes, not the whole report.
+// "Organic" = sessions whose default channel group is "Organic Search" —
+// i.e. visitors who arrived from a search engine, not direct / paid /
+// social / referral. This is the number that reflects SEO performance.
+//
+// Live Composio GA4 call, run on demand from the client component so a
+// slow/failed GA4 call degrades only the boxes, not the whole report.
 
 export interface MonthlyTrafficComparison {
   ok: boolean;
@@ -58,8 +62,8 @@ export async function getMonthlyTrafficComparison(): Promise<MonthlyTrafficCompa
 
   try {
     const [lastSessions, thisSessions] = await Promise.all([
-      siteSessions(propertyId, iso(lastStart), iso(lastEnd)),
-      siteSessions(propertyId, iso(thisStart), iso(now)),
+      organicSessions(propertyId, iso(lastStart), iso(lastEnd)),
+      organicSessions(propertyId, iso(thisStart), iso(now)),
     ]);
     const deltaPct = lastSessions > 0
       ? ((thisSessions - lastSessions) / lastSessions) * 100
@@ -75,13 +79,21 @@ export async function getMonthlyTrafficComparison(): Promise<MonthlyTrafficCompa
   }
 }
 
-// One whole-site sessions total for an explicit date range.
-async function siteSessions(propertyId: string, startDate: string, endDate: string): Promise<number> {
+// Whole-site ORGANIC SEARCH sessions for an explicit date range.
+// The dimensionFilter restricts the count to the "Organic Search" channel;
+// with no `dimensions` in the request, GA4 still returns a single totals
+// row — the aggregated organic-only session count.
+async function organicSessions(propertyId: string, startDate: string, endDate: string): Promise<number> {
   const input = {
     property: `properties/${propertyId}`,
     dateRanges: [{ startDate, endDate }],
     metrics: [{ name: "sessions" }],
-    // no dimensions -> a single totals row
+    dimensionFilter: {
+      filter: {
+        fieldName: "sessionDefaultChannelGroup",
+        stringFilter: { matchType: "EXACT", value: "Organic Search" },
+      },
+    },
   };
   const result = await executeAction<GA4Metric>("GOOGLE_ANALYTICS_RUN_REPORT", input);
   const row = result.data.rows?.[0];

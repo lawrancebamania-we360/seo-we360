@@ -37,7 +37,7 @@ export function SiteTrafficBoxes() {
       <Card className="p-4 flex items-center gap-2.5 border-dashed">
         <AlertCircle className="size-4 text-amber-500 shrink-0" />
         <div className="text-xs text-muted-foreground">
-          Couldn&apos;t load GA4 site traffic{data?.error ? ` — ${data.error}` : "."} The report table below is unaffected.
+          Couldn&apos;t load GA4 organic traffic{data?.error ? ` — ${data.error}` : "."} The report table below is unaffected.
         </div>
       </Card>
     );
@@ -52,12 +52,12 @@ export function SiteTrafficBoxes() {
       {/* Last month */}
       <Card className="p-4 space-y-1">
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-          {data.lastMonth.label} · site sessions
+          {data.lastMonth.label} · organic traffic
         </div>
         <div className="text-2xl font-semibold tabular-nums leading-tight">
           {data.lastMonth.sessions.toLocaleString()}
         </div>
-        <div className="text-[10px] text-muted-foreground">Whole-site GA4 sessions, full month</div>
+        <div className="text-[10px] text-muted-foreground">Organic-search sessions (GA4), full month</div>
       </Card>
 
       {/* This month + delta */}
@@ -68,7 +68,7 @@ export function SiteTrafficBoxes() {
       )}>
         <div className="flex items-center justify-between gap-2">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-            {data.thisMonth.label} · site sessions
+            {data.thisMonth.label} · organic traffic
           </div>
           {data.deltaPct !== null && (
             <span className={cn(
@@ -86,7 +86,7 @@ export function SiteTrafficBoxes() {
           {data.thisMonth.sessions.toLocaleString()}
         </div>
         <div className="text-[10px] text-muted-foreground">
-          Month-to-date — partial month, pace not yet comparable to a full month
+          Organic-search sessions, month-to-date — partial month, pace not yet comparable
         </div>
       </Card>
     </div>
