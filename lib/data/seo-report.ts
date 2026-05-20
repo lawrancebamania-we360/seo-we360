@@ -21,8 +21,9 @@ const SITEMAP_URL = "https://we360.ai/sitemap.xml";
 export type ReportHealth = "winning" | "watch" | "problem";
 
 export interface PositionTrend {
-  delta: number;                          // positions improved (+) or lost (-)
+  delta: number;                          // absolute positions moved vs baseline
   direction: "up" | "down" | "flat";      // up = ranking improved
+  baseline: number;                       // the 90-day average it's compared against
 }
 
 export interface SeoReportRow {
@@ -136,27 +137,41 @@ export async function getSeoReport(projectId: string, filters: ReportFilters = {
       : null;
 
     const metricRow = m90.get(key) ?? null;
+    const recent = m30.get(key) ?? null;
+
+    // Position shown = the CURRENT rank (last 30 days), not the 90-day
+    // average. This keeps the headline number consistent with the trend
+    // arrow below — number ± delta always equals the 90-day baseline.
+    // Fall back to the 90-day figure when there's no recent-window data.
+    const hasRecentPos = !!recent && recent.gsc_position > 0 && recent.gsc_impressions > 0;
+    const currentPosition = hasRecentPos
+      ? recent!.gsc_position
+      : (metricRow?.gsc_position ?? 0);
+
     const metrics = metricRow
       ? {
           clicks: metricRow.gsc_clicks,
           impressions: metricRow.gsc_impressions,
           ctr: metricRow.gsc_ctr,
-          position: metricRow.gsc_position,
+          position: currentPosition,          // current (30d) rank
           sessions: metricRow.ga_sessions,
           engagementRate: metricRow.ga_engagement_rate,
           conversions: metricRow.ga_conversions,
         }
       : null;
 
-    // Ranking trend — 30d (recent) vs 90d (broader). Lower position is
-    // better, so 30d < 90d means the page climbed since the work landed.
+    // Ranking trend — current (30d) vs the 90-day average baseline. Lower
+    // position is better; current < baseline means the page climbed since
+    // the work landed. delta + direction are derived from these two so the
+    // UI can render "#current ▲/▼ delta" with the math always checking out.
     let positionTrend: PositionTrend | null = null;
-    const recent = m30.get(key);
-    if (metricRow && recent && metricRow.gsc_position > 0 && recent.gsc_position > 0) {
-      const delta = metricRow.gsc_position - recent.gsc_position; // + = improved
+    if (metricRow && hasRecentPos && metricRow.gsc_position > 0) {
+      const baseline = metricRow.gsc_position;
+      const improvement = baseline - recent!.gsc_position; // + = climbed
       positionTrend = {
-        delta: Math.abs(delta),
-        direction: delta > 0.3 ? "up" : delta < -0.3 ? "down" : "flat",
+        delta: Math.abs(improvement),
+        direction: improvement > 0.3 ? "up" : improvement < -0.3 ? "down" : "flat",
+        baseline,
       };
     }
 

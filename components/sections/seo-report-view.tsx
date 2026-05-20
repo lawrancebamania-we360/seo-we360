@@ -282,9 +282,12 @@ function ReportRow({ row, onShowIssues }: { row: SeoReportRow; onShowIssues: () 
                     ? "text-emerald-600 dark:text-emerald-400"
                     : "text-rose-600 dark:text-rose-400",
                 )}
-                title={row.positionTrend.direction === "up"
-                  ? `Ranking improved ${row.positionTrend.delta.toFixed(1)} positions vs the prior window`
-                  : `Ranking dropped ${row.positionTrend.delta.toFixed(1)} positions vs the prior window`}
+                title={
+                  `Now #${m.position.toFixed(1)} (last 30 days) · 90-day average #${row.positionTrend.baseline.toFixed(1)} — ` +
+                  (row.positionTrend.direction === "up"
+                    ? `improved ${row.positionTrend.delta.toFixed(1)} positions`
+                    : `dropped ${row.positionTrend.delta.toFixed(1)} positions`)
+                }
               >
                 {row.positionTrend.direction === "up"
                   ? <ArrowUp className="size-3" />
