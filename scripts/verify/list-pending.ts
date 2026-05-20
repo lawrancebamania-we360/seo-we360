@@ -13,11 +13,15 @@ const admin = createClient(
 (async () => {
   // Pull queued + previously-failed-but-retryable rows so the next-window
   // retry policy works automatically. Cap retries at 3.
+  // Disambiguate the embed — there are two FKs between these tables:
+  //   1. task_verifications_task_id_fkey  (parent ref)
+  //   2. tasks_ai_verification_id_fkey    (reverse ref, the mirrored "latest" pointer)
+  // PostgREST refuses to guess; we name the parent FK explicitly.
   const { data, error } = await admin
     .from("task_verifications")
     .select(`
       id, task_id, status, retry_count, source_url, source_type,
-      tasks!inner (title, target_keyword)
+      tasks!task_verifications_task_id_fkey!inner (title, target_keyword)
     `)
     .or("status.eq.queued,and(status.eq.failed,retry_count.lt.3)")
     .order("queued_at", { ascending: true })

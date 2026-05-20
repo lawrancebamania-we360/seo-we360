@@ -101,6 +101,17 @@ export async function fetchGoogleDocText(url: string): Promise<DocFetchResult> {
 }
 
 // Convenience: fetch and return both metadata + the actual text body.
+//
+// Strategy:
+//   1) If GOOGLE_SERVICE_ACCOUNT_JSON is set, authenticate via the service
+//      account and call the Drive API export endpoint. This works for docs
+//      shared with the service account email (recommended path — admins
+//      can keep docs private).
+//   2) Fallback to the unauthenticated public export endpoint — works only
+//      for docs shared as "Anyone with the link can view".
+//
+// We attempt SA auth first; on missing creds or auth failure we fall back
+// to public export so existing setups don't break.
 export async function fetchGoogleDocFull(url: string): Promise<{
   meta: DocFetchResult;
   text: string;
@@ -112,6 +123,60 @@ export async function fetchGoogleDocFull(url: string): Promise<{
       text: "",
     };
   }
+
+  // --- Path 1: service account (recommended) ---
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    const result = await tryServiceAccountFetch(docId, url);
+    if (result) return result;
+    // null → SA creds missing/bad. Fall through to public-export path.
+  }
+
+  // --- Path 2: public export (fallback) ---
+  return tryPublicExportFetch(docId, url);
+}
+
+async function tryServiceAccountFetch(docId: string, url: string): Promise<{ meta: DocFetchResult; text: string } | null> {
+  try {
+    const { google } = await import("googleapis");
+    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: [
+        "https://www.googleapis.com/auth/drive.readonly",
+        "https://www.googleapis.com/auth/documents.readonly",
+      ],
+    });
+    const drive = google.drive({ version: "v3", auth });
+    // Drive export returns the file body as plain text when mimeType=text/plain.
+    const resp = await drive.files.export(
+      { fileId: docId, mimeType: "text/plain" },
+      { responseType: "text" },
+    );
+    const text = String(resp.data ?? "").replace(/^﻿/, "").replace(/\r\n/g, "\n");
+    if (!text) {
+      return { meta: { ok: false, url, textLength: 0, wordCount: 0, fetchedAt: new Date().toISOString(), error: "empty_doc" }, text: "" };
+    }
+    return {
+      meta: { ok: true, url, textLength: text.length, wordCount: countWords(text), fetchedAt: new Date().toISOString() },
+      text,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    // 403 / 404 from Drive = the SA doesn't have access. Surface a clear
+    // "share with the SA email" hint via the meta error.
+    if (/403|forbidden|404|notFound|file not found/i.test(msg)) {
+      return {
+        meta: { ok: false, url, textLength: 0, wordCount: 0, fetchedAt: new Date().toISOString(), error: "sa_not_shared" },
+        text: "",
+      };
+    }
+    // Other auth/network errors — fall back to public export so we don't
+    // silently fail when SA creds are malformed but the doc is public.
+    return null;
+  }
+}
+
+async function tryPublicExportFetch(docId: string, url: string): Promise<{ meta: DocFetchResult; text: string }> {
   const exportUrl = `https://docs.google.com/document/d/${docId}/export?format=txt`;
   try {
     const resp = await fetch(exportUrl, {
@@ -119,34 +184,18 @@ export async function fetchGoogleDocFull(url: string): Promise<{
       headers: { "User-Agent": "We360-SEO-Verifier/1.0" },
     });
     if (resp.status >= 300 && resp.status < 400) {
-      return {
-        meta: { ok: false, url, textLength: 0, wordCount: 0, fetchedAt: new Date().toISOString(), error: "private_doc" },
-        text: "",
-      };
+      return { meta: { ok: false, url, textLength: 0, wordCount: 0, fetchedAt: new Date().toISOString(), error: "private_doc" }, text: "" };
     }
     if (!resp.ok) {
-      return {
-        meta: { ok: false, url, textLength: 0, wordCount: 0, fetchedAt: new Date().toISOString(), error: `http_${resp.status}` },
-        text: "",
-      };
+      return { meta: { ok: false, url, textLength: 0, wordCount: 0, fetchedAt: new Date().toISOString(), error: `http_${resp.status}` }, text: "" };
     }
     const raw = await resp.text();
-    if (raw.trim().toLowerCase().startsWith("<!doctype html") ||
-        raw.trim().toLowerCase().startsWith("<html")) {
-      return {
-        meta: { ok: false, url, textLength: 0, wordCount: 0, fetchedAt: new Date().toISOString(), error: "private_doc" },
-        text: "",
-      };
+    if (raw.trim().toLowerCase().startsWith("<!doctype html") || raw.trim().toLowerCase().startsWith("<html")) {
+      return { meta: { ok: false, url, textLength: 0, wordCount: 0, fetchedAt: new Date().toISOString(), error: "private_doc" }, text: "" };
     }
     const text = raw.replace(/^﻿/, "").replace(/\r\n/g, "\n");
     return {
-      meta: {
-        ok: true,
-        url,
-        textLength: text.length,
-        wordCount: countWords(text),
-        fetchedAt: new Date().toISOString(),
-      },
+      meta: { ok: true, url, textLength: text.length, wordCount: countWords(text), fetchedAt: new Date().toISOString() },
       text,
     };
   } catch (e) {
