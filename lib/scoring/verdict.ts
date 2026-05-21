@@ -9,7 +9,6 @@ import type {
   DocFetchResult,
   HumanizationResult,
   LlmComplianceResult,
-  PlagiarismResult,
   QualityResult,
   VerificationIssue,
 } from "@/lib/types/verification";
@@ -20,7 +19,6 @@ interface VerdictInput {
   brief: BlogBrief;
   text: string;
   doc: DocFetchResult;
-  plagiarism: PlagiarismResult | null;
   humanization: HumanizationResult | null;
   quality: QualityResult | null;
   llm: LlmComplianceResult | null;
@@ -37,7 +35,7 @@ export interface Verdict {
 }
 
 export function combineVerdict(input: VerdictInput): Verdict {
-  const { brief, text, doc, plagiarism, humanization, quality, llm, isPage } = input;
+  const { brief, text, doc, humanization, quality, llm, isPage } = input;
   const issues: VerificationIssue[] = [];
   const hard: string[] = [];
   const soft: string[] = [];
@@ -272,31 +270,10 @@ export function combineVerdict(input: VerdictInput): Verdict {
   }
 
   // ============ Plagiarism ============
-  // Only enforce plagiarism when the check ran on Google Programmable
-  // Search (reliable). The DuckDuckGo fallback scraper returns garbage
-  // match data (every "matched URL" is duckduckgo.com itself) so a high
-  // match % there is meaningless — surface it as an info note instead of
-  // hard-failing a clean article.
-  if (plagiarism && plagiarism.matchPercent > 25 && plagiarism.searchEngine === "google_pse") {
-    hard.push("plagiarism_high");
-    const sample = plagiarism.matches.slice(0, 2).map((m) => `"${m.phrase.slice(0, 80)}…"`).join(", ");
-    issues.push({
-      severity: "hard",
-      category: "plagiarism",
-      code: "plagiarism_high",
-      message: `Plagiarism flagged ${plagiarism.matchesFound} of ${plagiarism.phrasesChecked} sample phrases (${plagiarism.matchPercent}%).`,
-      suggestion: "Rewrite flagged phrases in original wording.",
-      evidence: sample,
-    });
-  } else if (plagiarism && plagiarism.searchEngine !== "google_pse") {
-    issues.push({
-      severity: "info",
-      category: "plagiarism",
-      code: "plagiarism_not_verified",
-      message: "Plagiarism couldn't be reliably checked — Google Programmable Search isn't configured, so the fallback engine was used.",
-      suggestion: "Set GOOGLE_PSE_API_KEY + GOOGLE_PSE_CX to enable a real plagiarism gate.",
-    });
-  }
+  // Removed — there is no working plagiarism backend (Google Programmable
+  // Search needs a billing-enabled GCP project; the DuckDuckGo fallback
+  // returns garbage). The LLM reviewer flags obvious copied content while
+  // reading the doc. `plagiarism` is intentionally ignored here.
 
   // ============ Humanization ============
   if (humanization && humanization.score > 60) {

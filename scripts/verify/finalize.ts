@@ -20,7 +20,7 @@ import { config } from "dotenv";
 import { readFileSync } from "fs";
 import { combineVerdict } from "@/lib/scoring/verdict";
 import type {
-  HumanizationResult, LlmComplianceResult, PlagiarismResult, QualityResult,
+  HumanizationResult, LlmComplianceResult, QualityResult,
   VerificationIssue, DocFetchResult,
 } from "@/lib/types/verification";
 import type { BlogBrief } from "@/lib/seo-skills/blog-brief";
@@ -61,7 +61,6 @@ const admin = createClient(
   const v = ver as Record<string, unknown> & {
     task_id: string;
     doc_fetch_result: DocFetchResult | null;
-    plagiarism_result: PlagiarismResult | null;
     humanization_result: HumanizationResult | null;
     quality_result: QualityResult | null;
     prev_score: number | null;
@@ -96,7 +95,6 @@ const admin = createClient(
     brief: t.brief ?? ({} as BlogBrief),
     text: "",   // text isn't needed for verdict combination — already scored
     doc: v.doc_fetch_result as DocFetchResult,
-    plagiarism: v.plagiarism_result,
     humanization: v.humanization_result,
     quality: v.quality_result,
     llm: llmResult,

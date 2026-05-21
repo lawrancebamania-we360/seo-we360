@@ -13,7 +13,6 @@ import { config } from "dotenv";
 import { fetchGoogleDocFull, fetchLiveUrlText } from "@/lib/scoring/google-doc";
 import { scoreHumanization } from "@/lib/scoring/humanization";
 import { scoreQuality } from "@/lib/scoring/quality";
-import { checkPlagiarism } from "@/lib/scoring/plagiarism";
 import type { BlogBrief } from "@/lib/seo-skills/blog-brief";
 
 config({ path: ".env.local" });
@@ -133,21 +132,23 @@ const admin = createClient(
     return;
   }
 
-  // ---- 3. Run non-LLM scoring in parallel
+  // ---- 3. Run non-LLM scoring
+  //
+  // Plagiarism checking was removed: the only reliable backend is Google
+  // Programmable Search, which needs a billing-enabled GCP project we don't
+  // have. The DuckDuckGo fallback returns garbage (false 100% matches), so
+  // running it just produced noise. The LLM reviewer still flags obvious
+  // copied content while reading the doc.
   const brief = (t.brief ?? {}) as BlogBrief;
   const targetKw = (t.target_keyword ?? brief.target_keyword ?? "").toString();
 
-  const [plagiarism, humanization, quality] = await Promise.all([
-    checkPlagiarism({ text, ignoreDomains: ["we360"] }),
-    Promise.resolve(scoreHumanization(text)),
-    Promise.resolve(scoreQuality({ text, brief, targetKeyword: targetKw })),
-  ]);
+  const humanization = scoreHumanization(text);
+  const quality = scoreQuality({ text, brief, targetKeyword: targetKw });
 
   // Persist the partial scores so finalize.ts can read them again.
   await admin
     .from("task_verifications")
     .update({
-      plagiarism_result: plagiarism as unknown as object,
       humanization_result: humanization as unknown as object,
       quality_result: quality as unknown as object,
     })
@@ -178,7 +179,7 @@ const admin = createClient(
     trigger_status: v.trigger_status,
     target_keyword: targetKw,
     brief,
-    partial_scores: { plagiarism, humanization, quality },
+    partial_scores: { humanization, quality },
     doc_meta: meta,
     doc_text: text,
     // Live metrics — empty array for new-content tasks, populated for
