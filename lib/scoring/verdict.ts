@@ -175,7 +175,12 @@ export function combineVerdict(input: VerdictInput): Verdict {
     }
 
     // ============ Soft fails ============
-    if (quality.h2Coverage < 0.7) {
+    // H2 coverage is matched by text against the brief headings — unreliable
+    // on Google Docs (the export drops heading markup, and numbered /
+    // suffixed headings like "1. Introduction — ..." don't exact-match the
+    // brief's "Introduction"). Skip for Google Docs; the LLM reviewer reads
+    // the real headings.
+    if (!isGoogleDoc && quality.h2Coverage < 0.7) {
       soft.push("h2_coverage_low");
       issues.push({
         severity: "soft",
