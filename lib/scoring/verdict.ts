@@ -137,10 +137,18 @@ export function combineVerdict(input: VerdictInput): Verdict {
     }
 
     // ============ Schema blocks ============
-    const required = isPage
-      ? ["SoftwareApplication", "FAQPage", "BreadcrumbList"]
-      : ["Article", "FAQPage", "BreadcrumbList"];
-    const missing = required.filter((t) => !quality.jsonLdBlocks.includes(t) && (t !== "Article" || !quality.jsonLdBlocks.some((b) => b === "BlogPosting")));
+    // Require FAQPage + BreadcrumbList always, plus ONE primary content
+    // schema. The primary schema can be Article, BlogPosting, OR
+    // SoftwareApplication — a commercial landing page legitimately uses
+    // SoftwareApplication even when the task is typed as a "post", so we
+    // don't key the requirement off the (sometimes mis-set) is_page flag.
+    const hasPrimarySchema = quality.jsonLdBlocks.some(
+      (b) => b === "Article" || b === "BlogPosting" || b === "SoftwareApplication",
+    );
+    const missing: string[] = [];
+    if (!hasPrimarySchema) missing.push(isPage ? "SoftwareApplication" : "Article");
+    if (!quality.jsonLdBlocks.includes("FAQPage")) missing.push("FAQPage");
+    if (!quality.jsonLdBlocks.includes("BreadcrumbList")) missing.push("BreadcrumbList");
     if (missing.length > 0) {
       hard.push("schema_missing");
       issues.push({
