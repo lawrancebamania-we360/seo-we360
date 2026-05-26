@@ -237,6 +237,9 @@ function writerNotesFor(keyword: string, competition: string | null): string[] {
     "Image prompts: 2-3 embedded, each with descriptive alt text",
     "Author byline with credentials + published date",
     "Cite 2-3 authoritative external sources (Wikipedia, govt, industry body)",
+    // AEO additions — direct snippet capture from AI Overviews / Perplexity:
+    "Reframe at least 2 body H2s as direct questions ('How does X work?' not 'How X works'). Lead each question H2 with a 1-2 sentence direct answer before expanding — AI Overviews pull these as snippets.",
+    "Define any specialist term inline on first use (e.g. DPDPA, GDPR Art. 88, AHT, ISO 27001) in 1-2 sentences. AI engines extract these as definition snippets without needing a separate glossary page.",
     `Target word count: ${wordCountFor(competition)} words`,
     "End with clear CTA paragraph",
   ];
@@ -574,6 +577,7 @@ The page must satisfy all five.
 • The hero subhead and Problem section bullets answer the query in the first viewport.
 • FAQ uses answer first paragraphs (30–60 words).
 • FAQPage JSON-LD wraps the FAQ section.
+• Specialist terms (DPDPA, GDPR, AHT, ISO 27001, etc.) defined inline on first use in one short sentence each — AI engines pull these as definition snippets.
 
 ### GEO and E-E-A-T
 • Trust line plus customer logos or badges visible above the fold.
@@ -668,6 +672,8 @@ Follow the H2 and H3 lists above.
 
 • **Weave 3–5 inline internal links** into the body at natural mention points. Example: when you mention "attendance tracking", link to [/solutions/attendance-tracking-software](). Don't dump links at the end. Integrate them inline.
 • Drop 2–3 \`> [Image: description, placement: inline · alt='alt text']\` placeholders mid body where a visual would help.
+• **Reframe at least 2 H2s as direct questions** when natural ("How does X work?" not "How X works"; "Why does X fail?" not "Common reasons X fails"). For each question H2, lead the section with a 1–2 sentence direct answer before expanding — this is the block AI Overviews and Perplexity pull as snippets.
+• **Define specialist terms inline on first use** (e.g. DPDPA, RBI ITF, GDPR Art. 88, ISO 27001, AHT, AEO, AIO). One short sentence per term, immediately after the term appears — AI engines extract these as definition snippets without needing a separate glossary page.
 
 ### 7. Inline mid post CTA
 
@@ -739,6 +745,8 @@ The article must satisfy all five.
 • TL;DR and Key takeaways near the top.
 • Answer first paragraphs (topic sentence in sentence 1).
 • FAQPage JSON-LD wraps the FAQ section.
+• At least 2 body H2s in question form, each followed by a 1–2 sentence direct answer before expanding.
+• Specialist terms (DPDPA, GDPR, AHT, ISO 27001, etc.) defined inline on first use in one short sentence each.
 
 ### GEO and E-E-A-T
 • Author byline at top with credential and date.
