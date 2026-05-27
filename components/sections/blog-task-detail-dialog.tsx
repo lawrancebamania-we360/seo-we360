@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { competitionColor, priorityColor, initials, formatNumber, stripTaskKey, stripTaskPrefix, formatVolume, taskTypeBadgeClass, taskKindLabel } from "@/lib/ui-helpers";
+import { competitionColor, priorityColor, initials, formatNumber, stripTaskKey, stripTaskPrefix, formatVolume, taskTypeBadgeClass, taskKindLabel, isCommunityPostBrief } from "@/lib/ui-helpers";
 import { updateTask, deleteTask } from "@/lib/actions/tasks";
 import { ByokDialog } from "@/components/sections/byok-dialog";
 import { AssigneePicker } from "@/components/sections/assignee-picker";
@@ -610,7 +610,10 @@ function BlogTaskContent({
           or Published (and a verification row exists). Sits right under
           Supporting links because that's where writers paste the Google
           Doc URL the AI will check. */}
-      {task.ai_verification_status && (
+      {/* Hide AI verification entirely for community-post formats (Reddit,
+          Quora, LinkedIn). They don't follow the blog-brief structure so the
+          verification checks (H1, schema, FAQ, word count) don't apply. */}
+      {task.ai_verification_status && !isCommunityPostBrief(task.brief as { writer_notes?: string[] } | null) && (
         <AiVerificationPanel
           taskId={task.id}
           taskStatus={task.status}

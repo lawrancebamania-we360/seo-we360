@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { initials, competitionColor, priorityColor, formatNumber, stripTaskKey, taskKindLabel } from "@/lib/ui-helpers";
+import { initials, competitionColor, priorityColor, formatNumber, stripTaskKey, taskKindLabel, isCommunityPostBrief } from "@/lib/ui-helpers";
 import { updateTaskStatus } from "@/lib/actions/tasks";
 import { useGlobalLoading } from "@/components/dashboard/global-loading";
 import { BlogTaskDetailDialog } from "@/components/sections/blog-task-detail-dialog";
@@ -338,13 +338,18 @@ function BlogCard({
                 })
               }
             />
-            <AiVerificationBadge
-              status={task.ai_verification_status}
-              score={task.ai_score}
-              delta={task.ai_score_delta}
-              summary={task.ai_verification_summary}
-              verifiedAt={task.ai_verified_at}
-            />
+            {/* Skip the AI verification badge for community-post tasks
+                (Reddit, Quora, LinkedIn) — those don't go through the
+                blog-brief verification pipeline. */}
+            {!isCommunityPostBrief(task.brief as { writer_notes?: string[] } | null) && (
+              <AiVerificationBadge
+                status={task.ai_verification_status}
+                score={task.ai_score}
+                delta={task.ai_score_delta}
+                summary={task.ai_verification_summary}
+                verifiedAt={task.ai_verified_at}
+              />
+            )}
           </div>
         </div>
 

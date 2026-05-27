@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { isCommunityPostBrief } from "@/lib/ui-helpers";
 import type { TaskStatus } from "@/lib/types/database";
 
 const TaskSchema = z.object({
@@ -106,15 +107,29 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus) {
   // "Published" (done). The DB function handles all the work — finding the
   // Google Doc URL in supporting_links, looking up prev score, mirroring
   // status onto the task row, etc.
+  //
+  // Skip the enqueue entirely for community-post formats (Reddit, Quora,
+  // LinkedIn) — those don't follow the blog brief so verification would
+  // always fail on irrelevant checks (no H1, no schema, no FAQ, etc.).
   if (status === "review" || status === "done") {
-    const { error: queueErr } = await supabase.rpc("enqueue_task_verification", {
-      p_task_id: taskId,
-      p_trigger_status: status,
-    });
-    if (queueErr) {
-      // Don't block the status change on queue failure — log and continue.
-      // eslint-disable-next-line no-console
-      console.error("[updateTaskStatus] enqueue_task_verification failed", { taskId, queueErr });
+    const { data: t } = await supabase
+      .from("tasks")
+      .select("brief")
+      .eq("id", taskId)
+      .single();
+    const brief = (t as { brief?: { writer_notes?: string[] } } | null)?.brief ?? null;
+    const isCommunity = isCommunityPostBrief(brief);
+
+    if (!isCommunity) {
+      const { error: queueErr } = await supabase.rpc("enqueue_task_verification", {
+        p_task_id: taskId,
+        p_trigger_status: status,
+      });
+      if (queueErr) {
+        // Don't block the status change on queue failure — log and continue.
+        // eslint-disable-next-line no-console
+        console.error("[updateTaskStatus] enqueue_task_verification failed", { taskId, queueErr });
+      }
     }
   }
 

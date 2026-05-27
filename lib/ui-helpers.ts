@@ -116,6 +116,21 @@ export function taskTypeBadgeClass(taskType: string | null | undefined): string 
   }
 }
 
+// "Community post" formats — Reddit threads, Quora answers, and similar
+// off-domain conversational content. These don't follow the blog brief
+// (no H1, schema, FAQ, word-count target), so AI verification is skipped
+// entirely. The format tag lives in brief.writer_notes as "Format: <slug>".
+//
+// Add new community formats here when introduced (e.g. "linkedin-post").
+const COMMUNITY_FORMAT_RE = /^Format:\s*(reddit-|quora-|linkedin-post)/i;
+
+export function isCommunityPostBrief(
+  brief: { writer_notes?: string[] | null } | null | undefined,
+): boolean {
+  const notes = brief?.writer_notes ?? [];
+  return notes.some((n) => typeof n === "string" && COMMUNITY_FORMAT_RE.test(n));
+}
+
 export function initials(name: string) {
   return name
     .split(" ")

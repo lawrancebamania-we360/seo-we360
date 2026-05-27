@@ -56,6 +56,11 @@ const FORMAT_OPTIONS = [
   { value: "cluster-blog",     label: "Cluster Blog" },
   { value: "listicle",         label: "Listicle" },
   { value: "how-to-blog",      label: "How-to Blog" },
+  // Community posts — short, off-platform content (Reddit / Quora).
+  // AI verification (blog-brief checks) is skipped for these formats —
+  // see isCommunityPostBrief() in lib/ui-helpers.ts.
+  { value: "reddit-post",      label: "Reddit Post" },
+  { value: "quora-answer",     label: "Quora Answer" },
 ];
 
 const NONE = "__none";   // sentinel for unselected — Base UI Select rejects empty strings
