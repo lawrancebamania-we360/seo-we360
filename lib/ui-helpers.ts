@@ -60,12 +60,12 @@ export function taskKindLabel(task: {
   let surface: "Blog" | "Page" | "Ops" = "Blog";
   if (action === "Ops") {
     surface = "Ops";
-  } else if (/^\/(?:vs|alternative|integrations|solutions|in|industries)\//.test(url)) {
+  } else if (/^\/(?:vs|alternative|integrations|solutions|in|industries|features)\//.test(url)) {
     surface = "Page";
   } else if (url.startsWith("/blog/")) {
     surface = "Blog";
   } else if (
-    /\b(comparison page|alternative page|alternative-to page|integration page|industry page|india page|landing page|vs-competitor page)\b/.test(title) ||
+    /\b(comparison page|alternative page|alternative-to page|integration page|industry page|india page|landing page|vs-competitor page|feature page|solution page)\b/.test(title) ||
     /\[b-vs\.|\[b-alt\.|\[b-int\.|\[b3\.2[a-z]?\]|\[b3\.1i\d\]|\[b4\.2\.\d\]|\[b2\.2[a-z]?\]/.test(title) ||
     /^we360 vs /.test(title) ||
     /\balternative\s*\[mcb-/.test(title) ||
