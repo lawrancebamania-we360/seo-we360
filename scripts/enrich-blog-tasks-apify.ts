@@ -88,6 +88,12 @@ interface BlogBriefSeed {
   writer_notes: string[];
   generated_by: string;
   secondary_keywords: string[];
+  // ISO timestamp set when the content-gap actor ran for this task. The
+  // weekly cron in scripts/composio/weekly-content-gap.ts skips tasks whose
+  // brief already has BOTH recommended_h2s.length >= 3 AND content_gap_at
+  // populated — so by stamping this here, the cron won't re-enrich tasks
+  // this script already touched (avoids redundant ~$0.40/task Apify spend).
+  content_gap_at?: string;
 }
 
 interface TaskRow {
@@ -385,6 +391,10 @@ async function enrichOne(task: TaskRow): Promise<{
     sections_breakdown: existing.sections_breakdown ?? [],
     internal_links: existing.internal_links ?? [],
     generated_by: "apify-enrich",
+    // Stamp so the weekly cron's "skip if already enriched" filter sees this
+    // task as done. Without this, the cron re-runs the actor on tasks we
+    // just manually enriched (~$0.40/task wasted).
+    content_gap_at: new Date().toISOString(),
     recommended_h2s: dedupe([...(existing.recommended_h2s ?? []), ...suggestedH2s]),
     recommended_h3s: dedupe([...(existing.recommended_h3s ?? []), ...suggestedH3s]),
     paa_questions: dedupe([...(existing.paa_questions ?? []), ...allPaa]).slice(0, 8),
