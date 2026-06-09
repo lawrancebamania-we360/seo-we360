@@ -85,8 +85,32 @@ export async function getTasks(projectId: string, filters: TaskFilterParams = {}
   } else if (filters.range === "overdue") {
     q = q.lt("scheduled_date", iso(today)).eq("done", false);
   } else if (filters.range === "custom" && (filters.start || filters.end)) {
-    if (filters.start) q = q.gte("scheduled_date", filters.start);
-    if (filters.end) q = q.lte("scheduled_date", filters.end);
+    // Custom range matches tasks where ANY lifecycle event happened in the
+    // window: scheduled in range OR reviewed (moved to Done) in range OR
+    // completed (moved to Published) in range. Without this, the filter
+    // showed only "scheduled in May" — missing tasks scheduled in April but
+    // published in May, AND including May-scheduled tasks still in Idea.
+    //
+    // scheduled_date is a `date` (no time), review_at + completed_at are
+    // `timestamptz`. We extend the end-of-day for timestamptz comparisons
+    // so a May-31 end matches anything stamped on May 31 up to 23:59:59 UTC.
+    const s = filters.start;
+    const e = filters.end;
+    const sEnd = e ? `${e}T23:59:59` : undefined;
+    const conds: string[] = [];
+    // scheduled_date branch
+    if (s && e) conds.push(`and(scheduled_date.gte.${s},scheduled_date.lte.${e})`);
+    else if (s) conds.push(`scheduled_date.gte.${s}`);
+    else if (e) conds.push(`scheduled_date.lte.${e}`);
+    // review_at branch (timestamptz)
+    if (s && e) conds.push(`and(review_at.gte.${s},review_at.lte.${sEnd})`);
+    else if (s) conds.push(`review_at.gte.${s}`);
+    else if (e) conds.push(`review_at.lte.${sEnd}`);
+    // completed_at branch (timestamptz)
+    if (s && e) conds.push(`and(completed_at.gte.${s},completed_at.lte.${sEnd})`);
+    else if (s) conds.push(`completed_at.gte.${s}`);
+    else if (e) conds.push(`completed_at.lte.${sEnd}`);
+    if (conds.length > 0) q = q.or(conds.join(","));
   }
 
   const { data, error } = await q

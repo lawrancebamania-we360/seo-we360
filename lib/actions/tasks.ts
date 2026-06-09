@@ -79,13 +79,40 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus) {
   }
 
   const patch: Record<string, unknown> = { status };
+  const nowIso = new Date().toISOString();
   if (status === "done") {
     patch.done = true;
-    patch.completed_at = new Date().toISOString();
+    // Stamp completed_at ONLY if not already set — preserve original publish
+    // time across edits / status churn. We need the historical timestamp for
+    // the Blog Sprint custom-range filter ("show me work published in May").
+    const { data: existingStamps } = await supabase
+      .from("tasks")
+      .select("completed_at, review_at")
+      .eq("id", taskId)
+      .single();
+    const stamps = (existingStamps as { completed_at: string | null; review_at: string | null } | null) ?? { completed_at: null, review_at: null };
+    if (!stamps.completed_at) patch.completed_at = nowIso;
+    // A task moving directly to done passed through review on the way —
+    // backstop the review_at stamp if it's null.
+    if (!stamps.review_at) patch.review_at = nowIso;
     patch.verified_by_ai = false;
+  } else if (status === "review") {
+    patch.done = false;
+    // Stamp review_at only if null — preserve first-review timestamp.
+    const { data: existingReview } = await supabase
+      .from("tasks")
+      .select("review_at")
+      .eq("id", taskId)
+      .single();
+    const r = (existingReview as { review_at: string | null } | null)?.review_at ?? null;
+    if (!r) patch.review_at = nowIso;
   } else {
     patch.done = false;
-    patch.completed_at = null;
+    // NOTE: we intentionally do NOT null completed_at or review_at here.
+    // Those columns are historical lifecycle records — once a task has been
+    // reviewed or published, the timestamp persists across later edits,
+    // status reverts, or churn. The `done` boolean tracks current state;
+    // the timestamps track "did this ever happen."
   }
 
   // AI verification — moving the task BACK from Done/Published clears the
@@ -187,10 +214,28 @@ export async function updateTask(
       }
     }
     updates.done = true;
-    updates.completed_at = new Date().toISOString();
+    // Preserve historical timestamps — only stamp completed_at if null.
+    const { data: existing } = await supabase
+      .from("tasks")
+      .select("completed_at, review_at")
+      .eq("id", taskId)
+      .single();
+    const stamps = (existing as { completed_at: string | null; review_at: string | null } | null) ?? { completed_at: null, review_at: null };
+    const nowIso = new Date().toISOString();
+    if (!stamps.completed_at) updates.completed_at = nowIso;
+    if (!stamps.review_at) updates.review_at = nowIso;
+  } else if (patch.status === "review") {
+    updates.done = false;
+    const { data: existing } = await supabase
+      .from("tasks")
+      .select("review_at")
+      .eq("id", taskId)
+      .single();
+    const r = (existing as { review_at: string | null } | null)?.review_at ?? null;
+    if (!r) updates.review_at = new Date().toISOString();
   } else if (patch.status) {
     updates.done = false;
-    updates.completed_at = null;
+    // Don't null completed_at / review_at — historical lifecycle records persist.
   }
   const { error } = await supabase.from("tasks").update(updates).eq("id", taskId);
   if (error) throw error;
