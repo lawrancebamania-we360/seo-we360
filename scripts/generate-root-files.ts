@@ -99,10 +99,19 @@ async function topUrls(): Promise<UrlRow[]> {
     .eq("project_id", PID)
     .eq("period", "90d");
   if (error) throw error;
-  return ((data ?? []) as UrlRow[])
-    .map((r) => ({ ...r, url: r.url.replace(/^https?:\/\/(www\.)?we360\.ai/, "") }))
+  const rows = ((data ?? []) as UrlRow[])
+    .map((r) => ({ ...r, url: r.url.replace(/^https?:\/\/(www\.)?we360\.ai/, "").replace(/\/$/, "") || "/" }))
     .filter((r) => r.url && !r.url.startsWith("/blog-old") && !r.url.includes("?"))
     .sort((a, b) => (b.gsc_clicks - a.gsc_clicks) || (b.gsc_impressions - a.gsc_impressions));
+  // Dedupe: url_metrics tracks www + non-www + trailing-slash variants of the
+  // same page as separate rows. After normalization they collapse — keep the
+  // best-performing row per path (list is already sorted desc).
+  const seen = new Set<string>();
+  return rows.filter((r) => {
+    if (seen.has(r.url)) return false;
+    seen.add(r.url);
+    return true;
+  });
 }
 
 // llms.txt = homepage + BoFu pages ONLY (per marketing decision 2026-06-02).
@@ -162,6 +171,72 @@ function slugToTitle(url: string): string {
   return last.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// ---- Blog meta-description scraper (cached) -----------------------------
+// Fetches each live blog page once and extracts <meta name="description">
+// (og:description fallback). Results cached in scripts/.cache-blog-meta.json
+// so re-runs are instant; delete the cache to force a re-scrape (e.g. after
+// the Astro relaunch rewrites descriptions).
+
+import { existsSync, readFileSync as readFs } from "node:fs";
+const CACHE_PATH = "scripts/.cache-blog-meta.json";
+
+function extractDescription(html: string): string | null {
+  const patterns = [
+    /<meta\s+name=["']description["']\s+content=["']([^"']{20,})["']/i,
+    /<meta\s+content=["']([^"']{20,})["']\s+name=["']description["']/i,
+    /<meta\s+property=["']og:description["']\s+content=["']([^"']{20,})["']/i,
+    /<meta\s+content=["']([^"']{20,})["']\s+property=["']og:description["']/i,
+  ];
+  for (const p of patterns) {
+    const m = html.match(p);
+    if (m?.[1]) {
+      return m[1]
+        .replace(/&amp;/g, "&").replace(/&#0?39;|&#x27;|&apos;/gi, "'").replace(/&quot;|&#x22;/gi, '"')
+        .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#x[0-9a-f]+;|&#\d+;/gi, "")
+        .replace(/\s+/g, " ").trim().slice(0, 200);
+    }
+  }
+  return null;
+}
+
+async function blogDescriptions(paths: string[]): Promise<Map<string, string>> {
+  const cache: Record<string, string | null> = existsSync(CACHE_PATH)
+    ? JSON.parse(readFs(CACHE_PATH, "utf8"))
+    : {};
+
+  const todo = paths.filter((p) => !(p in cache));
+  if (todo.length > 0) {
+    console.log(`  scraping meta descriptions for ${todo.length} blog pages (cached: ${paths.length - todo.length})...`);
+    const CONCURRENCY = 8;
+    let done = 0;
+    for (let i = 0; i < todo.length; i += CONCURRENCY) {
+      const batch = todo.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map(async (p) => {
+        try {
+          const res = await fetch(`https://we360.ai${p}`, {
+            redirect: "follow",
+            signal: AbortSignal.timeout(15_000),
+            headers: { "user-agent": "Mozilla/5.0 (llms-txt-generator; we360 internal)" },
+          });
+          cache[p] = res.ok ? extractDescription(await res.text()) : null;
+        } catch {
+          cache[p] = null;
+        }
+      }));
+      done += batch.length;
+      if (done % 80 < CONCURRENCY) console.log(`    ${done}/${todo.length}`);
+    }
+    writeFileSync(CACHE_PATH, JSON.stringify(cache, null, 1));
+  }
+
+  const out = new Map<string, string>();
+  for (const p of paths) {
+    const d = cache[p];
+    if (d) out.set(p, d);
+  }
+  return out;
+}
+
 async function llmsTxt(): Promise<string> {
   // Verify every listed URL is actually GSC-tracked (= exists). Warn on misses
   // so we never ship a dead link to AI engines.
@@ -185,13 +260,17 @@ async function llmsTxt(): Promise<string> {
   }
 
   // Full blog catalog — every GSC-tracked /blog/ URL, ranked by clicks then
-  // impressions so AI crawlers hit the strongest content first. The llms.txt
-  // spec allows long lists; this doubles as a crawl frontier for engines
-  // that prefer llms.txt over sitemap.xml.
+  // impressions so AI crawlers hit the strongest content first. Each article
+  // carries its live meta description (scraped once, cached in
+  // scripts/.cache-blog-meta.json) so AI engines can judge relevance without
+  // crawling every page. The llms.txt spec allows long lists; this doubles
+  // as a crawl frontier for engines that prefer llms.txt over sitemap.xml.
   const blogs = all.filter((r) => r.url.startsWith("/blog/"));
+  const meta = await blogDescriptions(blogs.map((b) => b.url));
   lines.push("## Articles", "");
   for (const b of blogs) {
-    lines.push(`- [${slugToTitle(b.url)}](${HOST}${b.url})`);
+    const d = meta.get(b.url);
+    lines.push(d ? `- [${slugToTitle(b.url)}](${HOST}${b.url}): ${d}` : `- [${slugToTitle(b.url)}](${HOST}${b.url})`);
   }
   lines.push(
     "",
