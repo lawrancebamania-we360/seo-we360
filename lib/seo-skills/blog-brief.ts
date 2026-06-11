@@ -285,7 +285,7 @@ export interface BriefKind {
 const WE360_BRAND = {
   primaryCta:     "Start Free Trial – No Credit Card",
   secondaryCta:   "Book a Demo",
-  pricingLine:    "Starts at ₹299 per user/month",
+  pricingLine:    "Starts at ₹399 per user/month",
   trustLine:      "120K+ users · 10K+ companies · 21+ countries trust We360.ai",
   authorTitle:    "SEO Expert at We360.ai",  // override per-author if you have actual titles
   competitorRef:  "https://www.timechamp.io/solutions/workforce-management",
@@ -537,7 +537,7 @@ All three JSON-LD blocks are required. Skipping any one is a fail. Output each a
   "name": "We360.ai",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web, Windows, macOS",
-  "offers": { "@type": "Offer", "price": "299", "priceCurrency": "INR", "priceSpecification": { "@type": "UnitPriceSpecification", "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitText": "user/month" }}},
+  "offers": { "@type": "Offer", "price": "399", "priceCurrency": "INR", "priceSpecification": { "@type": "UnitPriceSpecification", "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitText": "user/month" }}},
   "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.6", "ratingCount": "1200" }
 }
 \`\`\`

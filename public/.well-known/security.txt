@@ -1,0 +1,5 @@
+# security.txt — we360.ai (RFC 9116)
+Contact: mailto:product@we360.ai
+Expires: 2027-06-11T08:21:28.000Z
+Preferred-Languages: en
+Canonical: https://www.we360.ai/.well-known/security.txt

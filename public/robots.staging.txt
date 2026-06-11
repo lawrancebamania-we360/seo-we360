@@ -1,0 +1,11 @@
+# robots.txt — we360ai.org (STAGING — full lockdown)
+# This file is ONE of FOUR layers keeping staging out of Google:
+#   1. HTTP basic-auth (the real wall)
+#   2. X-Robots-Tag: noindex, nofollow header on every response
+#   3. <meta name="robots" content="noindex,nofollow"> on every page
+#   4. This file
+# If this file ever ships to we360.ai production, organic traffic dies.
+# CI guard must block "Disallow: /" on the production branch.
+
+User-agent: *
+Disallow: /

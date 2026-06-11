@@ -1,0 +1,37 @@
+# robots.txt — we360.ai (production)
+# Search engines + AI crawlers welcome. Junk paths blocked.
+
+User-agent: *
+Allow: /
+
+# --- AI crawlers (explicit allow so silence is never read as restriction) ---
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+# --- Junk paths: never index these ---
+User-agent: *
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /*?page=
+Disallow: /*?ref=
+Disallow: /*?utm_
+
+Sitemap: https://www.we360.ai/sitemap.xml
