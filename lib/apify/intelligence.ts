@@ -385,3 +385,33 @@ export async function runContentGap(args: {
   const cost = queries.length * 0.0162;
   return { results: collected, cost_estimate_usd: Number(cost.toFixed(4)) };
 }
+
+// ==========================================================================
+// AI Overview tracker (single keyword) — thin wrapper over runSerpRankTracker,
+// which already extracts AI Overview data from the google-search-scraper actor.
+// Shaped for the AI Visibility google_aio engine (lib/ai-citation/engines).
+// ==========================================================================
+export async function runAiOverviewTracker(args: {
+  token: string;
+  keyword: string;
+  projectDomain: string;
+  country?: string;
+  /** Accepted for API-compat with the citation engine; runSerpRankTracker sizes
+   *  its own timeout, so these are advisory only. */
+  timeoutMs?: number;
+  retries?: number;
+}): Promise<{ results: AiOverviewResult[]; cost_estimate_usd: number; error: string | null }> {
+  const keyword = args.keyword.trim();
+  if (!keyword) return { results: [], cost_estimate_usd: 0, error: null };
+  try {
+    const r = await runSerpRankTracker({
+      token: args.token,
+      keywords: [keyword],
+      projectDomain: args.projectDomain,
+      country: args.country,
+    });
+    return { results: r.ai_overview_results, cost_estimate_usd: r.cost_estimate_usd, error: null };
+  } catch (e) {
+    return { results: [], cost_estimate_usd: 0, error: e instanceof Error ? e.message : String(e) };
+  }
+}

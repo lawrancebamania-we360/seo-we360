@@ -33,6 +33,11 @@ const schema = z.object({
   GOOGLE_SERVICE_ACCOUNT_JSON: z.string().optional(),
   PAGESPEED_API_KEY: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
+
+  // --- AI Visibility engines (each engine self-skips until its key exists) ---
+  OPENAI_API_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  PERPLEXITY_API_KEY: z.string().optional(),
 });
 
 type Env = z.infer<typeof schema>;

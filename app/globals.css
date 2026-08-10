@@ -142,6 +142,132 @@
   --sidebar-ring: #7B62FF;
 }
 
+/* ================================================================
+ * Imported design tokens (from Klimb) — ADDITIVE, do not remove.
+ * Powers the imported Analytics + AI Visibility features. These are
+ * NEW token names We360 didn't use (semantic state scales, two extra
+ * slate steps, the ember AI-accent ramp, elevation shadows, named
+ * gradients), so they DON'T change the existing brand look. The neutral
+ * chrome (bg-card/muted/border, text-foreground) still resolves to
+ * We360's own :root/.dark values above. `gradient-brand` is mapped to
+ * the We360 purple (not Klimb's ember) so ported CTAs stay on-brand.
+ * NOTE: `ember-*` is imported as-is (orange AI accent); rebrand to
+ * purple later if desired — used sparingly per Klimb's <10% rule.
+ * ================================================================ */
+@theme {
+  /* Ember — AI / highlight accent ramp */
+  --color-ember-50: #fdf2ee;
+  --color-ember-100: #fbe0d6;
+  --color-ember-200: #f6bfad;
+  --color-ember-300: #f09a7f;
+  --color-ember-400: #e96e4c;
+  --color-ember-500: #dd4424;
+  --color-ember-600: #c4361a;
+  --color-ember-700: #a02a15;
+  --color-ember-800: #7a2311;
+  --color-ember-900: #551a0e;
+  --color-ember-950: #3a1207;
+
+  /* Extra slate steps not in Tailwind's default ramp (100..900 stay default) */
+  --color-slate-0: #ffffff;
+  --color-slate-150: #f1f3f6;
+  --color-slate-350: #b3b4ba;
+
+  /* Semantic states (base = step 500) + contrast-safe text shades */
+  --color-success: #1fa971;
+  --color-warning: #e8a317;
+  --color-error: #d92d20;
+  --color-info: #2e6be6;
+  --color-success-strong: #137a52;
+  --color-warning-strong: #8a6d0e;
+  --color-error-strong: #b42318;
+  --color-info-strong: #1d4ed8;
+
+  /* Semantic ramps */
+  --color-success-50: #ecfdf5;
+  --color-success-100: #d1fae5;
+  --color-success-200: #a7f3d0;
+  --color-success-300: #6ee7b7;
+  --color-success-400: #34d399;
+  --color-success-500: #1fa971;
+  --color-success-600: #17875c;
+  --color-success-700: #137a52;
+  --color-success-800: #115e43;
+  --color-success-900: #0f4c37;
+  --color-success-950: #052e20;
+
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-300: #fcd34d;
+  --color-warning-400: #f5be2a;
+  --color-warning-500: #e8a317;
+  --color-warning-600: #b8790f;
+  --color-warning-700: #8a6d0e;
+  --color-warning-800: #713f12;
+  --color-warning-900: #5c340d;
+  --color-warning-950: #422006;
+
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-200: #fecaca;
+  --color-error-300: #fca5a5;
+  --color-error-400: #f4645a;
+  --color-error-500: #d92d20;
+  --color-error-600: #bf2618;
+  --color-error-700: #b42318;
+  --color-error-800: #911c14;
+  --color-error-900: #771a15;
+  --color-error-950: #450a0a;
+
+  --color-info-50: #eff5ff;
+  --color-info-100: #dbe7fb;
+  --color-info-200: #c3d6f9;
+  --color-info-300: #93b4f3;
+  --color-info-400: #5a8cec;
+  --color-info-500: #2e6be6;
+  --color-info-600: #1f54c4;
+  --color-info-700: #1d4ed8;
+  --color-info-800: #1e40af;
+  --color-info-900: #1e3a8a;
+  --color-info-950: #172554;
+
+  /* Brand alias + chart-only violet (mapped to We360 hues) */
+  --color-brand: #5B45E0;
+  --color-violet-chart: #7a5af0;
+
+  /* Elevation */
+  --shadow-raised: 0 1px 3px rgba(35, 29, 79, 0.08);
+  --shadow-lift: 0 8px 20px -10px rgba(35, 29, 79, 0.18);
+  --shadow-overlay: 0 20px 40px -16px rgba(35, 29, 79, 0.24);
+}
+
+/* Named gradients — brand mapped to We360 purple (not Klimb ember). */
+:root {
+  --gradient-brand: linear-gradient(135deg, #7B62FF 0%, #5B45E0 100%);
+  --gradient-vivid: linear-gradient(135deg, #7B62FF, #FEB800);
+  --gradient-tint: linear-gradient(135deg, #F0ECFF, #EEF2FE);
+}
+
+/* Semantic colors lighten one notch on dark for contrast. */
+.dark {
+  --color-success: #2dd08a;
+  --color-warning: #f0b429;
+  --color-error: #f87164;
+  --color-info: #5b8def;
+  --color-success-strong: #2dd08a;
+  --color-warning-strong: #f0b429;
+  --color-error-strong: #f87164;
+  --color-info-strong: #5b8def;
+}
+
+/* The only sanctioned gradient utilities (imported components use these). */
+@layer utilities {
+  .bg-gradient-brand { background-image: var(--gradient-brand); }
+  .bg-gradient-vivid { background-image: var(--gradient-vivid); }
+  .bg-gradient-tint { background-image: var(--gradient-tint); }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
