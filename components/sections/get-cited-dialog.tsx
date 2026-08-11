@@ -16,6 +16,17 @@ import { Badge } from "@/components/ui/badge";
 import { recommendGetCited, type GetCitedMove } from "@/lib/actions/ai-visibility";
 import { createArticle } from "@/lib/actions/articles";
 
+// Turn a raw provider error (e.g. `Claude API: 400 {"...credit balance too low..."}`)
+// into something a marketer can act on, instead of dumping JSON in a toast.
+function friendlyAiError(msg: string | undefined | null): string {
+  const m = (msg ?? "").toLowerCase();
+  if (/credit|billing|quota|insufficient|balance|out of/.test(m))
+    return "Out of AI credits — top up the OpenAI or Anthropic account whose key is set in Vercel, then try again.";
+  if (/no .*key configured|api[_\s-]?key|not set|unauthor|invalid.*key|401|403/.test(m))
+    return "No working AI key — check the OpenAI / Anthropic keys in Vercel.";
+  return msg || "Something went wrong.";
+}
+
 export function GetCitedDialog({ open, onOpenChange, projectId, question, persona }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -39,7 +50,7 @@ export function GetCitedDialog({ open, onOpenChange, projectId, question, person
       setMove(r.move);
       setAvoid((a) => [...a, r.move!.title].slice(-8));
     } else {
-      toast.error(r.error ?? "Could not work out a move.");
+      toast.error(friendlyAiError(r.error) ?? "Could not work out a move.");
     }
   };
 
@@ -64,7 +75,7 @@ export function GetCitedDialog({ open, onOpenChange, projectId, question, person
       const data = await res.json();
       if (!mountedRef.current) return;
       if (!res.ok) {
-        toast.error(data.out_of_credits ? "You're out of AI credits for this month. Upgrade to keep generating." : (data.error ?? "Generation failed."));
+        toast.error(data.out_of_credits ? "You're out of AI credits for this month. Upgrade to keep generating." : friendlyAiError(data.error));
         setGenerating(false);
         return;
       }
@@ -85,7 +96,7 @@ export function GetCitedDialog({ open, onOpenChange, projectId, question, person
     } catch (e) {
       if (!mountedRef.current) return;
       setGenerating(false);
-      toast.error(e instanceof Error ? e.message : "Generation failed.");
+      toast.error(friendlyAiError(e instanceof Error ? e.message : "Generation failed."));
     }
   };
 

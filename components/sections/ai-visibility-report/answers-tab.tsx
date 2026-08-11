@@ -265,7 +265,9 @@ function AnswerCards({ answers, totalForScope, onBrowseAll, canManage, setGetCit
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            {!a.cited && canManage && (
+            {/* Only offer "Get cited" when we're ABSENT from the answer. If AI
+                already named us (mentioned or cited), there's nothing to fix here. */}
+            {!a.mentioned && !a.cited && canManage && (
               <button type="button"
                 onClick={(e) => { e.stopPropagation(); setGetCited({ question: a.promptText, persona: a.persona }); }}
                 className="inline-flex items-center gap-1 rounded-md bg-success-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-success-700 cursor-pointer">
