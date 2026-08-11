@@ -21,7 +21,11 @@ const FAILOVER_MODEL: Record<AiModel, AiModel> = {
 };
 
 function serverKey(provider: "claude" | "openai"): string | undefined {
-  return provider === "claude" ? env().ANTHROPIC_API_KEY : env().OPENAI_API_KEY;
+  if (provider === "openai") return env().OPENAI_API_KEY;
+  // Prefer the platform Claude key; fall back to the AI-Citation Claude key the
+  // user may have set for the Claude engine, so the failover isn't dead weight
+  // when only AI_CITATION_ANTHROPIC_API_KEY is configured.
+  return env().ANTHROPIC_API_KEY || process.env.AI_CITATION_ANTHROPIC_API_KEY || undefined;
 }
 
 // True when the error means "this provider can't serve right now" (so failing
@@ -55,7 +59,10 @@ export async function callPlatformLLM(input: {
     const model = candidates[i];
     const provider = providerForModel(model);
     const key = serverKey(provider);
-    if (!key) { lastErr = new Error(`No ${provider} key configured`); continue; }
+    // A missing key on the FAILOVER provider must not overwrite a real error
+    // from the primary provider — otherwise a genuine OpenAI failure gets masked
+    // behind a misleading "No claude key configured". Keep the first real error.
+    if (!key) { lastErr = lastErr ?? new Error(`No ${provider} key configured`); continue; }
     try {
       const text = await callByokLLM({
         provider,
