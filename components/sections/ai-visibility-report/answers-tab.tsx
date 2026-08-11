@@ -23,9 +23,6 @@ import { GetCitedDialog } from "@/components/sections/get-cited-dialog";
 import { useEvidence } from "./evidence-context";
 import { SentimentChip } from "./sentiment-chip";
 import { QuestionTrackerView } from "./question-tracker-view";
-import { VisibilityHeatmaps } from "./visibility-heatmaps";
-
-const pct = (x: number) => (x > 0 && x < 0.005 ? "<1%" : `${Math.round(x * 100)}%`);
 
 const engineLabel = (e: string) => ENGINE_LABEL[e as AiEngine] ?? e;
 
@@ -46,15 +43,9 @@ export function AnswersTab({ report, projectId, canManage, competitors }: {
         <GetCitedDialog open onOpenChange={(v) => { if (!v) setGetCited(null); }} projectId={projectId} question={getCited.question} persona={getCited.persona} />
       )}
 
-      {/* Comp graph UI (lines 1408-1420) over the REAL persona/topic/heatmap data. */}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <PersonaBreakdown report={report} openList={openList} />
-        <TopicBreakdown report={report} openList={openList} />
-      </div>
-      <VisibilityHeatmaps report={report} />
-
-      {/* The real Answers feature: per-answer transcripts + the per-question source tracker. */}
-      <div className="space-y-3 border-t border-border pt-5">
+      {/* Per-answer transcripts + the per-question source tracker. (The persona /
+          topic breakdowns + visibility heatmaps now live on the Breakdowns tab.) */}
+      <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-heading text-lg font-semibold tracking-tight text-foreground">Sample AI answers</h2>
           <div className="inline-flex rounded-md border p-0.5 text-xs">
@@ -83,93 +74,6 @@ export function AnswersTab({ report, projectId, canManage, competitors }: {
         )}
       </div>
     </div>
-  );
-}
-
-// "By persona" (comp 1409) — how often each buyer persona hears your name, over
-// REAL report.personas rates. Status is a UI label over the measured rate.
-function personaStatus(rate: number): { label: string; className: string } {
-  if (rate >= 0.8) return { label: "Strong", className: "bg-success/10 text-success-strong" };
-  if (rate >= 0.5) return { label: "Good", className: "bg-warning/10 text-warning-strong" };
-  return { label: "Needs work", className: "bg-error/10 text-error-strong" };
-}
-
-function PersonaBreakdown({ report, openList }: { report: AiVisibilityReport; openList: ReturnType<typeof useEvidence>["openList"] }) {
-  return (
-    <Card className="p-5 lg:p-6">
-      <h2 className="font-heading text-lg font-semibold tracking-tight text-foreground">By persona</h2>
-      <p className="mt-0.5 mb-3 text-[12.5px] text-muted-foreground">How often each buyer persona hears your name.</p>
-      {!report.personas.length && <p className="text-xs text-muted-foreground">No persona data yet.</p>}
-      <div className="-mx-2">
-        {report.personas.map((p) => {
-          const st = personaStatus(p.mentionRate);
-          return (
-            <button key={p.persona} type="button" onClick={() => openList({ persona: p.persona }, `Answers for "${p.persona}"`)}
-              className="group flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left cursor-pointer transition-colors hover:bg-muted/40"
-              title="See the actual AI answers behind this bar.">
-              <span className="flex size-9 flex-none items-center justify-center rounded-lg bg-muted text-[13px] font-bold text-muted-foreground">
-                {p.persona.trim().charAt(0).toUpperCase() || "?"}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <span className="truncate text-[13.5px] font-bold text-foreground group-hover:underline underline-offset-2">{p.persona}</span>
-                  <span className={cn("flex-none rounded-full px-2 py-0.5 text-[11px] font-bold", st.className)}>{st.label}</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-success-500 transition-all" style={{ width: `${Math.max(2, Math.round(p.mentionRate * 100))}%` }} />
-                  </div>
-                  <span className="w-10 shrink-0 text-right font-mono text-[13px] font-medium tabular-nums text-foreground">{pct(p.mentionRate)}</span>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </Card>
-  );
-}
-
-// "By topic" (comp 1410) — a 6-dot rating scaled from the REAL topic mention
-// rate, with the measured count behind it.
-function topicStatus(rate: number): { label: string; className: string } {
-  if (rate >= 0.8) return { label: "Always", className: "bg-success/10 text-success-strong" };
-  if (rate >= 0.5) return { label: "Usually", className: "bg-warning/10 text-warning-strong" };
-  return { label: "Often missed", className: "bg-error/10 text-error-strong" };
-}
-
-function TopicBreakdown({ report, openList }: { report: AiVisibilityReport; openList: ReturnType<typeof useEvidence>["openList"] }) {
-  return (
-    <Card className="p-5 lg:p-6">
-      <h2 className="font-heading text-lg font-semibold tracking-tight text-foreground">By topic</h2>
-      <p className="mt-0.5 mb-3 text-[12.5px] text-muted-foreground">How often you&apos;re named, topic by topic.</p>
-      {!report.topics.length && <p className="text-xs text-muted-foreground">No topic data yet.</p>}
-      <div className="-mx-2">
-        {report.topics.map((t) => {
-          const st = topicStatus(t.mentionRate);
-          const filled = Math.round(t.mentionRate * 6);
-          const named = Math.round(t.mentionRate * t.n);
-          return (
-            <button key={t.topic} type="button" onClick={() => openList({ topic: t.topic }, `Answers about "${t.topic}"`)}
-              className="group block w-full rounded-xl px-2 py-2.5 text-left cursor-pointer transition-colors hover:bg-muted/40"
-              title="See the actual AI answers behind this rating.">
-              <div className="mb-2 flex items-center justify-between gap-2.5">
-                <span className="truncate text-sm font-bold text-foreground group-hover:underline underline-offset-2">{t.topic}</span>
-                <span className={cn("flex-none rounded-full px-2 py-0.5 text-[11px] font-bold", st.className)}>{st.label}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex gap-1.5">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <span key={i} className={cn("size-2.5 rounded-full", i < filled ? "bg-success-500" : "bg-muted")} />
-                  ))}
-                </div>
-                <span className="whitespace-nowrap text-[12.5px] font-semibold text-muted-foreground">{named} of {t.n} answer{t.n === 1 ? "" : "s"}</span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </Card>
   );
 }
 
