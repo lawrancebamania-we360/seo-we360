@@ -32,29 +32,28 @@ export async function callByokLLM(opts: {
   const signal = opts.timeoutMs ? AbortSignal.timeout(opts.timeoutMs) : undefined;
 
   if (opts.provider === "claude") {
-    // jsonMode for Claude: Anthropic's Messages API has no response_format, so
-    // enforce JSON two ways - a system instruction AND an assistant-turn prefill
-    // of "{". The prefill is NOT echoed back, so we re-prepend "{" to reconstruct
-    // the full object for the caller's parser.
-    const messages: Array<{ role: "user" | "assistant"; content: string }> = [
-      { role: "user", content: opts.prompt },
-    ];
-    if (opts.jsonMode) messages.push({ role: "assistant", content: "{" });
+    // jsonMode for Claude: Anthropic's Messages API has no response_format, so we
+    // enforce JSON with a system instruction and let the model emit the WHOLE
+    // object. We deliberately do NOT use the old assistant-"{"-prefill trick:
+    // newer Claude models reject a conversation that ends on an assistant turn
+    // ("does not support assistant message prefill / must end with a user
+    // message"). Callers parse the result with extractFirstJson, which tolerates
+    // any stray prose/fences.
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": opts.apiKey, "anthropic-version": ANTHROPIC_VERSION, "content-type": "application/json" },
       body: JSON.stringify({
         model: opts.model ?? BYOK_MODELS.claude,
         max_tokens: maxTokens,
-        messages,
+        messages: [{ role: "user", content: opts.prompt }],
         ...(opts.jsonMode ? { system: "Respond with a single valid JSON object only. No prose, no markdown, no code fences." } : {}),
       }),
       signal,
     });
     if (!res.ok) throw new Error(`Claude API: ${res.status} ${(await res.text()).slice(0, 300)}`);
     const data = await res.json();
-    const text = data.content?.[0]?.text ?? "";
-    return opts.jsonMode ? "{" + text : text;
+    const blocks: Array<{ type?: string; text?: string }> = Array.isArray(data.content) ? data.content : [];
+    return blocks.find((b) => b.type === "text")?.text ?? blocks[0]?.text ?? "";
   }
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
