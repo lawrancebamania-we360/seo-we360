@@ -1,17 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
+import { callPlatformLLM } from "@/lib/ai/platform-llm";
 
-// Bring-your-own-key article generation.
-// API key received in request body and used for ONE request only.
-// Never logged, never stored server-side.
+// Article generation. Two modes:
+//   • BYOK — caller pastes their own key (byok-dialog); used for ONE request only,
+//     never logged or stored.
+//   • Server-side — no key in the body (e.g. the "Get cited → Generate draft"
+//     flow); runs on the platform's own OpenAI/Anthropic keys, admin-only.
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const Body = z.object({
-  provider: z.enum(["claude", "openai"]),
-  apiKey: z.string().min(10),
+  provider: z.enum(["claude", "openai"]).default("openai"),
+  apiKey: z.string().min(10).optional(), // absent → server-side generation on platform keys
   targetKeyword: z.string().min(1),
   secondaryKeywords: z.array(z.string()).default([]),
   competition: z.string().nullable().optional(),
@@ -29,12 +32,12 @@ function wordTarget(competition: string | null | undefined): string {
 // The 5-pillar article template.
 // Every article must structurally satisfy SEO + AEO + GEO + SXO + AIO.
 // --------------------------------------------------------------
-function buildPrompt(b: z.infer<typeof Body>) {
+function buildPrompt(b: z.infer<typeof Body>, brand: string) {
   const target = wordTarget(b.competition);
   const secondary = b.secondaryKeywords.length > 0 ? `Secondary keywords to weave in naturally: ${b.secondaryKeywords.join(", ")}.` : "";
 
   if (b.mode === "outline") {
-    return `You are a senior SEO + GEO strategist for a skydiving company in India.
+    return `You are a senior SEO + GEO strategist for ${brand}.
 Generate a JSON outline for an article targeting the primary keyword "${b.targetKeyword}". ${secondary}
 
 The outline must satisfy all 5 pillars (SEO, AEO, GEO, SXO, AIO). Return ONLY this JSON shape — no commentary:
@@ -65,7 +68,7 @@ The outline must satisfy all 5 pillars (SEO, AEO, GEO, SXO, AIO). Return ONLY th
 }`;
   }
 
-  return `You are a senior SEO + GEO content writer for a skydiving company in India.
+  return `You are a senior SEO + GEO content writer for ${brand}.
 Write a COMPLETE, publish-ready article targeting "${b.targetKeyword}". ${secondary}
 
 Target length: ${target}. Use proper Markdown.
@@ -90,14 +93,14 @@ This article must structurally satisfy all 5 pillars:
 ## GEO requirements (Generative Engines — E-E-A-T + citability)
 - Author byline at top: "*By [Name], [credential]. Updated [date].*"
 - Cite 2–3 authoritative external sources inline (Wikipedia, government sites, research papers)
-- Include named entities: specific places, brands, certifications, equipment, weather conditions
+- Include named entities: specific tools, integrations, certifications, metrics, named competitors/customers where relevant
 - End with a 2-line author bio block
 
 ## SXO requirements (Search eXperience — UX + engagement)
 - Short paragraphs (max 4 sentences each)
 - Use bullet lists and numbered steps where possible
 - 2–3 image suggestions formatted as: "> [Image: description — alt='alt text']"
-- One clear CTA paragraph near the end (book a jump, contact us, etc.)
+- One clear CTA paragraph near the end (start a free trial, book a demo, contact sales, etc.)
 
 ## AIO requirements (AI/LLM Optimization — citable, fact-first)
 - Each claim should be standalone (not rely on earlier context to make sense)
@@ -188,13 +191,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
   }
 
-  const prompt = buildPrompt(body);
+  // Brand context so drafts are about THIS project, not a hardcoded demo.
+  const { data: proj } = await supabase
+    .from("projects").select("name, domain, industry").eq("is_active", true).limit(1).maybeSingle();
+  const p = (proj ?? null) as { name?: string | null; domain?: string | null; industry?: string | null } | null;
+  const brand = `${p?.name || "the brand"}, a ${p?.industry || "B2B SaaS"} company${p?.domain ? ` (${p.domain})` : ""}`;
+
+  const prompt = buildPrompt(body, brand);
 
   try {
-    const text =
-      body.provider === "claude"
-        ? await callClaude(body.apiKey, prompt)
-        : await callOpenAI(body.apiKey, prompt);
+    let text: string;
+    if (body.apiKey) {
+      // BYOK — caller pasted their own key.
+      text = body.provider === "claude" ? await callClaude(body.apiKey, prompt) : await callOpenAI(body.apiKey, prompt);
+    } else {
+      // Server-side generation on the platform's own keys (OpenAI-first, Claude
+      // failover). Admin-only so members can't spend the shared AI budget.
+      const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      const role = (me as { role?: string } | null)?.role;
+      if (role !== "super_admin" && role !== "admin") {
+        return NextResponse.json({ error: "Server-side generation is admin-only" }, { status: 403 });
+      }
+      const r = await callPlatformLLM({ model: "gpt-4o", prompt, maxTokens: 8000, timeoutMs: 55_000 });
+      text = r.text;
+    }
 
     if (body.mode === "outline") {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
