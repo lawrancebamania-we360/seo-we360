@@ -38,6 +38,12 @@ const schema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   PERPLEXITY_API_KEY: z.string().optional(),
+
+  // --- Google OAuth (user-delegated GA4 / GSC "Connect with Google") ---
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
+  OAUTH_TOKEN_ENCRYPTION_KEY: z.string().optional(), // 32-byte base64, encrypts refresh tokens at rest
+  NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED: z.string().optional(), // "true" shows the Connect card
 });
 
 type Env = z.infer<typeof schema>;
@@ -70,4 +76,9 @@ export function hasResend(): boolean {
 }
 export function hasGoogleServiceAccount(): boolean {
   return !!env().GOOGLE_SERVICE_ACCOUNT_JSON;
+}
+/** True when the Google OAuth client + encryption key are all configured. */
+export function hasGoogleOAuthClient(): boolean {
+  const e = env();
+  return !!e.GOOGLE_OAUTH_CLIENT_ID && !!e.GOOGLE_OAUTH_CLIENT_SECRET && !!e.OAUTH_TOKEN_ENCRYPTION_KEY;
 }
