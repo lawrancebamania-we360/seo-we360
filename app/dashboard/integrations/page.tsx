@@ -29,7 +29,11 @@ export default async function IntegrationsPage() {
           activeProjectName={ctx.activeProject?.name ?? null}
         />
       )}
-      <IntegrationsGrid integrations={integrations} />
+      {/* When the Connect-with-Google card is on top, the separate GA4 + GSC
+          service-account cards below are redundant — hide them. */}
+      <IntegrationsGrid
+        integrations={oauthEnabled ? integrations.filter((i) => i.provider !== "ga4" && i.provider !== "gsc") : integrations}
+      />
     </div>
   );
 }

@@ -136,9 +136,19 @@ function PersonaGrid({ report, onSelect }: { report: AiVisibilityReport; onSelec
                   <span className="flex size-9 flex-none items-center justify-center rounded-lg bg-muted text-[13px] font-bold text-muted-foreground">
                     {p.persona.trim().charAt(0).toUpperCase() || "?"}
                   </span>
-                  <p className="line-clamp-2 min-w-0 flex-1 text-[13.5px] font-semibold leading-snug text-foreground group-hover:text-primary">
-                    {p.persona}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-2 text-[13.5px] font-semibold leading-snug text-foreground group-hover:text-primary">
+                      {p.persona}
+                    </p>
+                    {p.brandedCount > 0 && (
+                      <span
+                        title="These questions name we360 directly, so a mention is expected — not an unprompted recommendation. The real signal is the other personas, where AI names you without being told."
+                        className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10.5px] font-semibold text-warning-strong"
+                      >
+                        Names we360 · discount
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-3 gap-2">

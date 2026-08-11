@@ -33,7 +33,7 @@ export interface AiVisibilityReport {
   promptCount: number;
   projectLabel: string;
   engines: Array<{ engine: AiEngine } & BrandRate>;
-  personas: Array<{ persona: string; questionCount: number; questionsMentioned: number; questionsCited: number } & BrandRate>;
+  personas: Array<{ persona: string; questionCount: number; questionsMentioned: number; questionsCited: number; brandedCount: number } & BrandRate>;
   topics: Array<{ topic: string } & BrandRate>;
   competitors: Array<{ id: string | null; name: string } & BrandRate>;
   heatmaps: {
@@ -179,17 +179,31 @@ export async function getAiVisibilityReport(
   const personaN = new Map<string, number>(); const topicN = new Map<string, number>(); const engineN = new Map<string, number>();
   for (const r of ok) { const m = runMeta.get(r.id)!; personaN.set(m.persona, (personaN.get(m.persona) ?? 0) + 1); topicN.set(m.topic, (topicN.get(m.topic) ?? 0) + 1); engineN.set(m.engine, (engineN.get(m.engine) ?? 0) + 1); }
 
-  // Per-QUESTION rollup by persona (for the persona cards): how many DISTINCT
-  // questions each persona asked, and in how many a question was answered with a
-  // mention / citation by ANY engine (a question counts once, not once per engine).
-  const qByPersona = new Map<string, { asked: Set<string>; mentioned: Set<string>; cited: Set<string> }>();
+  // Per-QUESTION rollup by persona (for the persona cards): in how many DISTINCT
+  // questions a question was answered with a mention / citation by ANY engine (a
+  // question counts once, not once per engine).
+  const qByPersona = new Map<string, { mentioned: Set<string>; cited: Set<string> }>();
   for (const r of ok) {
     const m = runMeta.get(r.id); if (!m) continue;
-    const b = qByPersona.get(m.persona) ?? { asked: new Set<string>(), mentioned: new Set<string>(), cited: new Set<string>() };
-    b.asked.add(r.prompt_id);
+    const b = qByPersona.get(m.persona) ?? { mentioned: new Set<string>(), cited: new Set<string>() };
     if (r.project_mentioned) b.mentioned.add(r.prompt_id);
     if (r.project_cited) b.cited.add(r.prompt_id);
     qByPersona.set(m.persona, b);
+  }
+
+  // "Asked" = how many questions were GENERATED for each persona (active prompts),
+  // independent of how many an engine actually answered — so a persona still shows
+  // its true question count even when a run partly failed. Also count how many of
+  // its questions are BRANDED (name the brand): those trivially mention us, so a
+  // persona with branded questions is one to discount, not celebrate.
+  const promptsByPersona = new Map<string, { total: number; branded: number }>();
+  for (const p of prompts) {
+    if (p.active === false) continue;
+    const k = p.persona || UNLABELLED;
+    const e = promptsByPersona.get(k) ?? { total: 0, branded: 0 };
+    e.total++;
+    if ((p.tags ?? []).includes("branded")) e.branded++;
+    promptsByPersona.set(k, e);
   }
 
   // Competitor columns: the tracked competitors that actually appeared, by reach.
@@ -311,14 +325,18 @@ export async function getAiVisibilityReport(
     promptCount: new Set(ok.map((r) => r.prompt_id)).size,
     projectLabel,
     engines: [...byEngine.entries()].map(([engine, a]) => ({ engine, ...rate(a) })),
-    personas: [...byPersona.entries()].map(([persona, a]) => {
+    personas: [...new Set<string>([...promptsByPersona.keys(), ...byPersona.keys()])].map((persona) => {
+      const a = byPersona.get(persona);
+      const r = a ? rate(a) : { mentionRate: 0, citationRate: 0, n: 0 };
       const q = qByPersona.get(persona);
+      const gen = promptsByPersona.get(persona);
       return {
         persona,
-        ...rate(a),
-        questionCount: q?.asked.size ?? 0,
+        ...r,
+        questionCount: gen?.total ?? 0,
         questionsMentioned: q?.mentioned.size ?? 0,
         questionsCited: q?.cited.size ?? 0,
+        brandedCount: gen?.branded ?? 0,
       };
     }).sort((a, b) => b.mentionRate - a.mentionRate),
     topics: [...byTopic.entries()].map(([topic, a]) => ({ topic, ...rate(a) })).sort((a, b) => b.mentionRate - a.mentionRate),
