@@ -2,13 +2,13 @@
 
 // Overview tab of the AI-Visibility report — rebuilt to the SEO Blog Board v2
 // comp (lines 1311-1381):
-//   1. Ember brand-visibility hero (score ring + 2×2 stat cluster) — REAL data,
-//      every stat clicks through to the answers behind it (evidence drawer).
+//   1. We360 purple brand-visibility hero (score ring + 2×2 stat cluster) — REAL
+//      data, every stat clicks through to the answers behind it (evidence drawer).
 //   2. Recommended next steps — ranked actions; real signals where available
 //      (uncited mentions, top outreach gap domain, unconnected engines), DEMO
 //      copy where the app can't yet derive the exact move.
-//   3. Visibility & position over time — DEMO area+line chart (the app doesn't
-//      compute a per-check visibility/position timeseries yet).
+//   3. AI Visibility score over time — REAL per-check composite trend (report.trend);
+//      empty state until there are 2+ checks.
 //   4. Competitive standing — real visibility, DEMO SOV/sentiment/avg-pos.
 //
 // The evidence-drawer wiring and all REAL rates are preserved; DEMO spots are
@@ -46,7 +46,7 @@ export function OverviewTab({ report, aiReferral, configuredEngines, sourceGap, 
       <VisibilityHero report={report} />
       <RecommendedNextSteps report={report} configuredEngines={configuredEngines} sourceGap={sourceGap} projectId={projectId} canManage={canManage} onGoSources={onGoSources} onOpenSetup={onOpenSetup} />
       <div className="grid items-start gap-4 xl:grid-cols-2">
-        <VisibilityPositionCard />
+        <VisibilityPositionCard trend={report.trend} composite={report.composite} compositePrev={report.compositePrev} />
         <CompetitiveStanding report={report} projectId={projectId} canManage={canManage} />
       </div>
       <AiReferralStrip data={aiReferral} />
@@ -224,18 +224,9 @@ function PriorityPill({ priority }: { priority: Priority }) {
   );
 }
 
-// ── Visibility & position over time (comp 1346-1368) — DEMO ────────────────
-// The app doesn't compute a per-check visibility/position timeseries yet, so the
-// series, the two headline stats and their deltas are representative (owner-
-// approved). Raw hex is used only inside the inline SVG stroke/fill (allowed).
-const VIS_SERIES = [0.30, 0.42, 0.36, 0.55, 0.68, 0.80]; // normalized visibility, rising
-const POS_SERIES = [0.28, 0.34, 0.30, 0.44, 0.52, 0.58]; // normalized "position score" (higher = better)
-// Per-point DISPLAY values for the hover tooltip — representative, coherent with
-// the two headline stats (ends at Visibility 35.1% and Avg position #4.6) and with
-// the plotted line shapes (the idx-2 dip mirrors the series dip).
-const VIS_PCT = [13.2, 18.5, 15.8, 24.2, 29.9, 35.1]; // visibility %, rising
-const POS_NUM = [7.4, 6.6, 7.0, 5.6, 5.0, 4.6];        // avg answer position (lower = better)
-const VIS_MONTHS = ["Feb", "Mar", "Apr", "May", "Jun", "Jul"];
+// ── AI Visibility score over time — REAL data (report.trend: the stored per-check
+// composite scores). Shows an empty state until there are 2+ checks so we never
+// draw a fabricated trend. Raw hex is used only inside the inline SVG (allowed).
 const CHART_W = 560, CHART_TOP = 10, CHART_BOT = 140, CHART_VH = 150;
 
 function seriesPath(vals: number[]): string {
@@ -246,16 +237,56 @@ function seriesPath(vals: number[]): string {
   }).join(" ");
 }
 
-const visX = (i: number) => (i / (VIS_SERIES.length - 1)) * CHART_W;
-const visY = (v: number) => CHART_BOT - v * (CHART_BOT - CHART_TOP);
+function fmtPeriod(p: string): string {
+  try { return new Date(p).toLocaleDateString(undefined, { month: "short", day: "numeric" }); }
+  catch { return p; }
+}
 
-function VisibilityPositionCard() {
-  const line = seriesPath(VIS_SERIES);
-  const area = `${line} L${CHART_W} ${CHART_BOT} L0 ${CHART_BOT} Z`;
-  const posLine = seriesPath(POS_SERIES);
-  // Hover crosshair + floating tooltip (matches the Wins/Competitors chart style).
-  const n = VIS_SERIES.length;
+function VisibilityPositionCard({ trend, composite, compositePrev }: {
+  trend: Array<{ period: string; composite: number }>;
+  composite: number;
+  compositePrev: number | null;
+}) {
   const [hover, setHover] = useState<number | null>(null);
+
+  const header = (
+    <div className="mb-3.5 flex items-center gap-2">
+      <span className="flex size-[26px] shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <TrendingUp className="size-3.5" />
+      </span>
+      <div>
+        <span className="font-heading text-[15px] font-bold text-foreground">AI Visibility score</span>{" "}
+        <span className="text-[12.5px] text-muted-foreground">· are you rising in AI answers?</span>
+      </div>
+    </div>
+  );
+
+  // Need at least two checks to draw a line — otherwise an empty state.
+  if (trend.length < 2) {
+    return (
+      <Card className="p-5 lg:p-6">
+        {header}
+        <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border py-12 text-center">
+          <TrendingUp className="size-6 text-muted-foreground" />
+          <p className="text-sm font-medium text-foreground">Not enough history yet</p>
+          <p className="max-w-xs text-[13px] text-muted-foreground">
+            Your score trend appears once you&apos;ve run at least two AI-visibility checks.
+            {trend.length === 1 ? " One check recorded so far." : ""}
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  const vals = trend.map((t) => Math.max(0, Math.min(100, t.composite)) / 100);
+  const labels = trend.map((t) => fmtPeriod(t.period));
+  const n = vals.length;
+  const xAt = (i: number) => (i / (n - 1)) * CHART_W;
+  const yAt = (v: number) => CHART_BOT - v * (CHART_BOT - CHART_TOP);
+  const line = seriesPath(vals);
+  const area = `${line} L${CHART_W} ${CHART_BOT} L0 ${CHART_BOT} Z`;
+  const delta = compositePrev != null ? composite - compositePrev : null;
+
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     const frac = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
@@ -263,34 +294,24 @@ function VisibilityPositionCard() {
   };
   const leftPct = hover != null ? (hover / (n - 1)) * 100 : 0;
   const flip = leftPct > 56;
+
   return (
     <Card className="p-5 lg:p-6">
-      <div className="mb-3.5 flex items-center gap-2">
-        <span className="flex size-[26px] shrink-0 items-center justify-center rounded-lg bg-success-50 text-success-strong dark:bg-success-950/40">
-          <TrendingUp className="size-3.5" />
+      {header}
+
+      <div className="mb-3.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="font-mono text-[32px] font-medium leading-none tabular-nums text-foreground">
+          {composite}<span className="text-lg text-muted-foreground">/100</span>
         </span>
-        <div>
-          <span className="font-heading text-[15px] font-bold text-foreground">Visibility &amp; position</span>{" "}
-          <span className="text-[12.5px] text-muted-foreground">· are you rising in AI answers?</span>
-        </div>
+        {delta != null && delta !== 0 && (
+          <span className={cn("inline-flex items-center gap-0.5 text-[13px] font-bold tabular-nums", delta > 0 ? "text-success-strong" : "text-error")}>
+            {delta > 0 ? "▲" : "▼"} {Math.abs(delta)} vs last check
+          </span>
+        )}
       </div>
 
-      <div className="mb-3.5 flex flex-wrap gap-x-6 gap-y-3">
-        <TimeStat label="Visibility" value="35.1%" delta="11.9%" />
-        <div className="border-l border-slate-150 pl-6 dark:border-border">
-          <TimeStat label="Avg position" value="#4.6" delta="0.4" />
-        </div>
-      </div>
-
-      <div className="mb-1.5 flex flex-wrap gap-4 text-[11.5px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5"><span className="h-[3px] w-3 rounded-sm" style={{ background: "#7B62FF" }} />Visibility %</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-[3px] w-3 rounded-sm" style={{ background: "#FEB800" }} />Avg position (higher = better)</span>
-      </div>
-
-      {/* Relative wrapper captures hover; the crosshair + dots live in the SVG, the
-          floating tooltip is an HTML overlay positioned by percentage. */}
       <div className="relative" onPointerMove={onMove} onPointerLeave={() => setHover(null)}>
-        <svg viewBox={`0 0 ${CHART_W} ${CHART_VH}`} preserveAspectRatio="none" className="block h-[180px] w-full" role="img" aria-label="Directional visibility and position trend (representative)">
+        <svg viewBox={`0 0 ${CHART_W} ${CHART_VH}`} preserveAspectRatio="none" className="block h-[180px] w-full" role="img" aria-label="AI Visibility composite score over time">
           <defs>
             <linearGradient id="aivVisFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#7B62FF" stopOpacity="0.20" />
@@ -302,56 +323,34 @@ function VisibilityPositionCard() {
           ))}
           <path d={area} fill="url(#aivVisFill)" />
           <path d={line} fill="none" stroke="#7B62FF" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-          <path d={posLine} fill="none" stroke="#FEB800" strokeWidth="2.5" strokeDasharray="5 4" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
           {hover != null && (
             <>
-              <line x1={visX(hover)} x2={visX(hover)} y1={CHART_TOP} y2={CHART_BOT} stroke="var(--color-slate-300)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-              <circle cx={visX(hover)} cy={visY(VIS_SERIES[hover])} r="4.5" fill="#7B62FF" stroke="var(--color-slate-0)" strokeWidth="2" />
-              <circle cx={visX(hover)} cy={visY(POS_SERIES[hover])} r="4.5" fill="#FEB800" stroke="var(--color-slate-0)" strokeWidth="2" />
+              <line x1={xAt(hover)} x2={xAt(hover)} y1={CHART_TOP} y2={CHART_BOT} stroke="var(--color-slate-300)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+              <circle cx={xAt(hover)} cy={yAt(vals[hover])} r="4.5" fill="#7B62FF" stroke="var(--color-slate-0)" strokeWidth="2" />
             </>
           )}
         </svg>
         {hover != null && (
           <div
-            className="pointer-events-none absolute top-1.5 z-10 w-[10.5rem] rounded-xl border border-border bg-popover px-3 py-2.5 shadow-overlay"
+            className="pointer-events-none absolute top-1.5 z-10 w-[9rem] rounded-xl border border-border bg-popover px-3 py-2.5 shadow-overlay"
             style={{ left: `${leftPct}%`, transform: flip ? "translateX(calc(-100% - 12px))" : "translateX(12px)" }}
           >
-            <div className="mb-2 flex items-center gap-1.5 text-xs font-bold text-foreground">
-              <Calendar className="size-3 text-muted-foreground" />{VIS_MONTHS[hover]}
-            </div>
-            <div className="mb-1.5 flex items-center justify-between gap-2.5">
-              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="size-2 rounded-full" style={{ backgroundColor: "#7B62FF" }} />Visibility
-              </span>
-              <span className="text-[12.5px] font-bold tabular-nums text-foreground">{VIS_PCT[hover].toFixed(1)}%</span>
+            <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-foreground">
+              <Calendar className="size-3 text-muted-foreground" />{labels[hover]}
             </div>
             <div className="flex items-center justify-between gap-2.5">
               <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="size-2 rounded-full" style={{ backgroundColor: "#FEB800" }} />Avg position
+                <span className="size-2 rounded-full" style={{ backgroundColor: "#7B62FF" }} />Score
               </span>
-              <span className="text-[12.5px] font-bold tabular-nums text-foreground">#{POS_NUM[hover].toFixed(1)}</span>
+              <span className="text-[12.5px] font-bold tabular-nums text-foreground">{trend[hover].composite}/100</span>
             </div>
           </div>
         )}
       </div>
       <div className="mt-2 flex justify-between">
-        {VIS_MONTHS.map((m) => <span key={m} className="font-mono text-[10.5px] text-slate-300">{m}</span>)}
+        {labels.map((m, i) => <span key={i} className="font-mono text-[10.5px] text-slate-300">{m}</span>)}
       </div>
     </Card>
-  );
-}
-
-function TimeStat({ label, value, delta }: { label: string; value: string; delta: string }) {
-  return (
-    <div>
-      <div className="font-mono text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{label}</div>
-      <div className="mt-1 flex items-baseline gap-1.5">
-        <span className="font-mono text-[28px] font-medium leading-none tracking-tight tabular-nums text-foreground">{value}</span>
-        <span className="inline-flex items-center gap-0.5 text-[13px] font-bold text-success-strong">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" aria-hidden><path d="M6 15l6-6 6 6" /></svg>{delta}
-        </span>
-      </div>
-    </div>
   );
 }
 

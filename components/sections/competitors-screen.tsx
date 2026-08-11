@@ -39,13 +39,16 @@ import type { CompetitorSiteHealthRow } from "@/lib/data/competitor-site-health"
 // Categorical series palette — all brand tokens (usable directly as an SVG
 // stroke / conic segment; no raw hex / banned palette classes). Maps 1:1 to the
 // comp's line colours: ember, blue, violet, green, amber.
+// We360 brand-cohesive categorical palette (no semantic green): you = brand
+// purple, then gold / violet / blue / navy / slate. Uses the app's brand-aware
+// chart tokens so competitor series match the rest of the AI surfaces.
 const SERIES = [
-  "var(--color-ember-500)", // #dd4424 — you
+  "var(--color-ember-500)", // you — We360 purple (#7B62FF)
+  "var(--color-chart-3)", // gold (#FEB800)
+  "var(--color-violet-chart)", // violet (#7a5af0)
   "var(--color-info)", // blue
-  "var(--color-violet-chart)", // #7a5af0 — violet
-  "var(--color-success)", // #1fa971 — green
-  "var(--color-warning)", // #e8a317 — amber
-  "var(--color-slate-400)",
+  "var(--color-chart-5)", // deep navy
+  "var(--color-slate-400)", // slate
 ];
 
 type BenchKey = "visibility" | "sov" | "avgPos" | "keywords" | "aiCitations" | "dr" | "content" | "siteHealth";
