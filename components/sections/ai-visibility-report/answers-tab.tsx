@@ -159,7 +159,7 @@ function PersonaGrid({ report, onSelect }: { report: AiVisibilityReport; onSelec
 
                 <div className="mt-3 flex items-center gap-2">
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-success-500" style={{ width: `${Math.round(coverage * 100)}%` }} />
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${Math.round(coverage * 100)}%` }} />
                   </div>
                   <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
                     {Math.round(coverage * 100)}% named

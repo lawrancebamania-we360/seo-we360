@@ -283,8 +283,8 @@ function VisibilityPositionCard() {
       </div>
 
       <div className="mb-1.5 flex flex-wrap gap-4 text-[11.5px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5"><span className="h-[3px] w-3 rounded-sm" style={{ background: "#1fa971" }} />Visibility %</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-[3px] w-3 rounded-sm" style={{ background: "#dd4424" }} />Avg position (higher = better)</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-[3px] w-3 rounded-sm" style={{ background: "#7B62FF" }} />Visibility %</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-[3px] w-3 rounded-sm" style={{ background: "#FEB800" }} />Avg position (higher = better)</span>
       </div>
 
       {/* Relative wrapper captures hover; the crosshair + dots live in the SVG, the
@@ -293,21 +293,21 @@ function VisibilityPositionCard() {
         <svg viewBox={`0 0 ${CHART_W} ${CHART_VH}`} preserveAspectRatio="none" className="block h-[180px] w-full" role="img" aria-label="Directional visibility and position trend (representative)">
           <defs>
             <linearGradient id="aivVisFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#1fa971" stopOpacity="0.20" />
-              <stop offset="100%" stopColor="#1fa971" stopOpacity="0.02" />
+              <stop offset="0%" stopColor="#7B62FF" stopOpacity="0.20" />
+              <stop offset="100%" stopColor="#7B62FF" stopOpacity="0.02" />
             </linearGradient>
           </defs>
           {[10, 42, 75, 108, 140].map((y) => (
             <line key={y} x1="0" x2={CHART_W} y1={y} y2={y} stroke="var(--color-slate-100)" strokeWidth="1" />
           ))}
           <path d={area} fill="url(#aivVisFill)" />
-          <path d={line} fill="none" stroke="#1fa971" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-          <path d={posLine} fill="none" stroke="#dd4424" strokeWidth="2.5" strokeDasharray="5 4" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          <path d={line} fill="none" stroke="#7B62FF" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          <path d={posLine} fill="none" stroke="#FEB800" strokeWidth="2.5" strokeDasharray="5 4" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
           {hover != null && (
             <>
               <line x1={visX(hover)} x2={visX(hover)} y1={CHART_TOP} y2={CHART_BOT} stroke="var(--color-slate-300)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-              <circle cx={visX(hover)} cy={visY(VIS_SERIES[hover])} r="4.5" fill="#1fa971" stroke="var(--color-slate-0)" strokeWidth="2" />
-              <circle cx={visX(hover)} cy={visY(POS_SERIES[hover])} r="4.5" fill="#dd4424" stroke="var(--color-slate-0)" strokeWidth="2" />
+              <circle cx={visX(hover)} cy={visY(VIS_SERIES[hover])} r="4.5" fill="#7B62FF" stroke="var(--color-slate-0)" strokeWidth="2" />
+              <circle cx={visX(hover)} cy={visY(POS_SERIES[hover])} r="4.5" fill="#FEB800" stroke="var(--color-slate-0)" strokeWidth="2" />
             </>
           )}
         </svg>
@@ -321,13 +321,13 @@ function VisibilityPositionCard() {
             </div>
             <div className="mb-1.5 flex items-center justify-between gap-2.5">
               <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="size-2 rounded-full" style={{ backgroundColor: "#1fa971" }} />Visibility
+                <span className="size-2 rounded-full" style={{ backgroundColor: "#7B62FF" }} />Visibility
               </span>
               <span className="text-[12.5px] font-bold tabular-nums text-foreground">{VIS_PCT[hover].toFixed(1)}%</span>
             </div>
             <div className="flex items-center justify-between gap-2.5">
               <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="size-2 rounded-full" style={{ backgroundColor: "#dd4424" }} />Avg position
+                <span className="size-2 rounded-full" style={{ backgroundColor: "#FEB800" }} />Avg position
               </span>
               <span className="text-[12.5px] font-bold tabular-nums text-foreground">#{POS_NUM[hover].toFixed(1)}</span>
             </div>

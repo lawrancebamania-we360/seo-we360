@@ -2,17 +2,15 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-// AI Visibility "brand-visibility hero" band — the ember gradient panel from the
-// SEO Blog Board v2 comp (lines 1314–1326): a score ring on the left, a headline
-// + descriptive line, and a 2×2 stat cluster on the right split by hairline
-// dividers. Pixel-matched to the design; lives in components/ui because the exact
-// ember hexes (gradient + inner ring disc) are allowed here and banned in
-// sections. Purely presentational — the parent owns all data and the
-// click-through wiring (each stat takes an optional onClick).
+// AI Visibility "brand-visibility hero" band: a score ring on the left, a
+// headline + descriptive line, and a 2×2 stat cluster on the right split by
+// hairline dividers. Purely presentational — the parent owns all data and the
+// click-through wiring (each stat takes an optional onClick). Uses the We360
+// purple gradient (--primary #7B62FF → --brand #5B45E0), not Klimb's ember.
 
-const EMBER = "linear-gradient(150deg,#f0774f 0%,#dd4424 55%,#b8300f 100%)";
-const EMBER_SHADOW = "0 14px 34px -16px rgba(221,68,36,.5)";
-const RING_DISC = "linear-gradient(150deg,#e8623c,#c4361a)";
+const BRAND_GRADIENT = "linear-gradient(150deg,#8f78ff 0%,#7B62FF 55%,#5B45E0 100%)";
+const BRAND_SHADOW = "0 14px 34px -16px rgba(123,98,255,.5)";
+const RING_DISC = "linear-gradient(150deg,#7B62FF,#5B45E0)";
 
 export type AiVisibilityHeroStat = {
   label: string;
@@ -46,7 +44,7 @@ export function AiVisibilityHeroBand({
   return (
     <div
       className="flex flex-wrap overflow-hidden rounded-2xl text-white"
-      style={{ background: EMBER, boxShadow: EMBER_SHADOW }}
+      style={{ background: BRAND_GRADIENT, boxShadow: BRAND_SHADOW }}
     >
       {/* Left: score ring + copy */}
       <div className="flex min-w-0 flex-[1_1_320px] items-center gap-6 p-7">
