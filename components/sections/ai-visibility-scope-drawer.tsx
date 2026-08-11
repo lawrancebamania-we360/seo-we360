@@ -38,6 +38,7 @@ export function AiVisibilityScopeDrawer({ open, onOpenChange, projectId, competi
   const [keyword, setKeyword] = useState("");
   const [est, setEst] = useState<{ checks: number; credits: number; creditsLeft: number | null } | null>(null);
   const [busy, setBusy] = useState<null | "gen" | "run">(null);
+  const [error, setError] = useState<string | null>(null);
   const [extra, setExtra] = useState<{ id: string; name: string }[]>([]); // competitors added inline this session
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [newUrl, setNewUrl] = useState("");
@@ -100,15 +101,16 @@ export function AiVisibilityScopeDrawer({ open, onOpenChange, projectId, competi
   };
 
   const run = async () => {
+    setError(null);
     setBusy("gen");
     const saved = await saveAiVisibilityScope({ project_id: projectId, competitor_ids: comps, topics: suggestedTopics, depth_n: 3, target_keyword: keyword.trim() || null });
-    if (!saved.ok) { setBusy(null); toast.error(saved.error ?? "Could not save scope."); return; }
+    if (!saved.ok) { setBusy(null); const m = saved.error ?? "Could not save your scope."; setError(m); toast.error(m); return; }
     const gen = await generateAiVisibilityPrompts({ project_id: projectId });
-    if (!gen.ok) { setBusy(null); toast.error(gen.error ?? "Could not generate prompts."); return; }
+    if (!gen.ok) { setBusy(null); const m = gen.error ?? "Could not write the buyer questions. Check the OpenAI key in Settings."; setError(m); toast.error(m); return; }
     setBusy("run");
     const res = await runAiVisibilityNow({ project_id: projectId });
     setBusy(null);
-    if (!res.ok) { toast.error(res.error ?? "Run failed."); return; }
+    if (!res.ok) { const m = res.error ?? "The run could not start."; setError(m); toast.error(m); return; }
     const angles = suggestedTopics.map((t) => ANGLE_LABEL[t] ?? t).join(", ");
     // "vs 0 competitors" reads as a broken comparison. With none explicitly
     // tracked the run still infers the category leaders (see the drawer note
@@ -214,6 +216,11 @@ export function AiVisibilityScopeDrawer({ open, onOpenChange, projectId, competi
               <p className="mt-1.5 text-xs text-muted-foreground">The weekly pass finishes anything that does not fit.</p>
             </div>
           ) : <p className="mb-3 text-xs text-muted-foreground">Estimating...</p>}
+          {error && (
+            <div className="mb-3 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-[12.5px] leading-relaxed text-error-700 dark:border-error-900 dark:bg-error-950/40 dark:text-error-300">
+              <span className="font-semibold">Couldn’t start the test.</span> {error}
+            </div>
+          )}
           <Button className="w-full gap-1.5" disabled={!!busy} onClick={run}>
             {busy === "gen" ? <><Loader2 className="size-4 animate-spin" /> Writing your questions...</> : busy === "run" ? <><Loader2 className="size-4 animate-spin" /> Running the test...</> : <><Play className="size-4" /> Run AI-citation test</>}
           </Button>

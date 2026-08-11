@@ -95,7 +95,12 @@ export async function generateAiVisibilityPrompts(input: { project_id: string; c
   // competitors + tracked keywords only.
   let gscQueries: string[] = [];
   try {
-    const { pools } = await getOpportunityPools(project.gsc_property_url ?? null);
+    // TIME-BOXED: GSC pagination can be slow, and this runs inside the SAME 60s
+    // function as the LLM generation below — never let it delay or time out the
+    // whole action. Cap at 8s, then fall back to keywords + competitors only.
+    const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T> =>
+      Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("gsc-seed timeout")), ms))]);
+    const { pools } = await withTimeout(getOpportunityPools(project.gsc_property_url ?? null), 8000);
     if (pools) {
       gscQueries = [...new Set(
         [...pools.strikingDistance, ...pools.zeroClick, ...pools.alternativeVs]
@@ -103,7 +108,7 @@ export async function generateAiVisibilityPrompts(input: { project_id: string; c
           .filter(Boolean),
       )].slice(0, 25);
     }
-  } catch { /* GSC optional */ }
+  } catch { /* GSC optional / timed out — proceed without it */ }
 
   const gate = await gateOrgForProject(admin, project_id);
   const estCents = estimateAiCostCents("gpt-4o", 1200, 2500);
