@@ -81,7 +81,7 @@ const INTENTS: PromptIntent[] = ["informational", "commercial", "comparison", "t
 const INTENT_BUCKETS: { label: string; quota: number; rule: string }[] = [
   { label: "best-of", quota: 6, rule: 'UNBRANDED "best [category] ..." shopping queries. Add the market/year if the data implies one, plus ONE distinct real constraint each (team size, a capability, a budget). All distinct, never paraphrases.' },
   { label: "integration", quota: 5, rule: "UNBRANDED. Name a specific integration buyers in THIS category care about (the PM tool, chat tool, payroll/HRMS, BI tool) OR a named capability, ALWAYS paired with the category word. Do NOT name the brand." },
-  { label: "comparison", quota: 4, rule: 'UNBRANDED competitor-vs-competitor only ("[competitor A] vs [competitor B] for ..."). NEVER "[brand] vs ...". The point is to see whether AI names the brand UNPROMPTED in a rival comparison.' },
+  { label: "comparison", quota: 4, rule: 'UNBRANDED. Frame as a NAMED competitor vs its wider field / best alternatives for a specific use case - a shape where an AI naturally lists SEVERAL products, so the brand can surface UNPROMPTED. e.g. "is [competitor] still the best [category] for a 200-person BPO, or are there better-value alternatives?", "[competitor] vs the best alternatives for a hybrid IT team - which actually fits?". NEVER "[brand] vs ...", and AVOID a bare "[competitor A] vs [competitor B]" two-horse head-to-head (it rarely surfaces a third brand and yields no signal for a lesser-known brand).' },
   { label: "alternatives", quota: 4, rule: 'UNBRANDED "alternatives to [a competitor]" / "something better than [a competitor] for ...". NEVER "[brand] alternatives" here. We want AI to surface the brand AS the alternative.' },
   { label: "use-case", quota: 4, rule: 'UNBRANDED first-person scenario ("i need to...") asking WHICH TOOLS do a specific NAMED capability, paired with the category word. A natural question, never listy, never the brand name.' },
   { label: "vertical", quota: 2, rule: "UNBRANDED. A NAMED segment/vertical relevant to this category (a specific industry, team type, or size band), never a vague 'mid-sized'." },
@@ -205,7 +205,7 @@ PER-LINE SELF-CHECK (run silently on every line; discard + regenerate if any ans
 GOOD shape (human voice AND forces named products - substitute the real category/competitor/integration):
 UNBRANDED (most personas - NEVER name the brand):
 - "what's the best [category] in [market] right now for a 60-person team, ideally something not too invasive?"
-- "[competitor A] vs [competitor B] for a remote team - which is better value and easier to roll out?"
+- "is [competitor] still the best [category] for a remote team, or are there better-value alternatives worth a look?"
 - "which [category] tools actually integrate with [the PM tool] and [the chat tool]? we live in those and don't want a separate silo."
 - "any solid alternatives to [competitor] that handle [a specific capability] as well or better?"
 - "i need to [do a specific job with a named capability] for a 30-person team - which [category] tools actually do that well?"
