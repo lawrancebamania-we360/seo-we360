@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
 import type { AiVisibilityReport } from "@/lib/ai-citation/report";
 import type { Ga4AiReferral } from "@/lib/google/ga4";
-import { generateAiVisibilityPrompts, runAiVisibilityNow, upsertOutreach, scoreOutreachDomains, draftOutreach } from "@/lib/actions/ai-visibility";
+import { generateAiVisibilityPrompts, runAiVisibilityNow, resumeAiVisibilityRun, upsertOutreach, scoreOutreachDomains, draftOutreach } from "@/lib/actions/ai-visibility";
 import type { SourceGapReport, SourceGapRow } from "@/lib/ai-citation/source-gap";
 
 type OutreachAction = "pitch" | "guest_post" | "get_listed" | "comment" | "other";
@@ -104,6 +104,9 @@ export function AiVisibilityClient({
   // Remember which terminal run we've already toasted so the poll loop toasts a
   // completion exactly once (not on every subsequent poll/render).
   const notifiedRunId = useRef<string | null>(null);
+  // Guards the browser-driven continuation so only one resume slice is in flight
+  // at a time (a slice runs up to ~38s; the 3s poll must not stack resumes).
+  const resumingRef = useRef(false);
 
   // Fetch the latest durable run state. Returns the batch (or null).
   const fetchRunStatus = useCallback(async (): Promise<RunBatchState> => {
@@ -128,6 +131,17 @@ export function AiVisibilityClient({
       const latest = await fetchRunStatus();
       if (cancelled || !latest) return;
       setRun(latest);
+      // Browser-driven continuation (replaces Klimb's drain cron): a run that
+      // overflowed its ~38s slice PARKS as 'queued'. Run the next slice here; the
+      // following poll reflects the new progress. Deduped server-side on
+      // prompt×engine×run_index, so a resume can never double-run or double-bill.
+      if (latest.status === "queued" && !resumingRef.current) {
+        resumingRef.current = true;
+        try { await resumeAiVisibilityRun({ project_id: projectId, batch_id: latest.id }); }
+        catch { /* transient — the next tick retries */ }
+        finally { resumingRef.current = false; }
+        return; // let the next poll pick up the resumed slice's progress
+      }
       const done = latest.status === "succeeded" || latest.status === "failed" || latest.status === "timed_out";
       if (done && notifiedRunId.current !== latest.id) {
         notifiedRunId.current = latest.id;
@@ -144,7 +158,7 @@ export function AiVisibilityClient({
     const interval = setInterval(tick, 3000);
     void tick(); // fire immediately, don't wait 3s for the first poll
     return () => { cancelled = true; clearInterval(interval); };
-  }, [runActive, fetchRunStatus, router]);
+  }, [runActive, fetchRunStatus, router, projectId]);
 
   const runNow = () => {
     setBusy("run");

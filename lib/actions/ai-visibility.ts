@@ -22,6 +22,7 @@ import { sanitizeIndustry } from "@/lib/industries";
 import { estimateAiCostCents } from "@/lib/billing/ai-pricing";
 import { generatePromptSet, saveGeneratedPrompts, savePersonas, resolveBuckets } from "@/lib/ai-citation/prompts";
 import { runProjectCitations, estimateRunCostCents, resumeRunBatch } from "@/lib/ai-citation/run";
+import { getOpportunityPools } from "@/lib/google/gsc-opportunities";
 import { profileForIndustry } from "@/lib/ai-citation/industry-profiles";
 import { configuredEngines } from "@/lib/ai-citation/engines";
 import type { AiEngine } from "@/lib/ai-citation/types";
@@ -88,11 +89,21 @@ export async function generateAiVisibilityPrompts(input: { project_id: string; c
   // Seed from the project's REAL GSC queries (the credibility differentiator vs
   // guessed prompts). Best-effort: if GSC is not connected we fall back to the
   // industry + competitors context only.
-  // GSC prompt-seeding is disabled in this port (Klimb's getGscOpportunities is
-  // not in We360). Prompts still ground on tracked keywords + competitors.
-  // TODO: wire getOpportunityPools(project.gsc_property_url) from
-  // lib/google/gsc-opportunities to feed real striking-distance queries here.
-  const gscQueries: string[] = [];
+  // Seed from the project's REAL GSC opportunity queries (striking-distance +
+  // zero-click + alternative/vs) — the credibility differentiator vs guessed
+  // prompts. Best-effort: if GSC isn't connected we fall back to industry +
+  // competitors + tracked keywords only.
+  let gscQueries: string[] = [];
+  try {
+    const { pools } = await getOpportunityPools(project.gsc_property_url ?? null);
+    if (pools) {
+      gscQueries = [...new Set(
+        [...pools.strikingDistance, ...pools.zeroClick, ...pools.alternativeVs]
+          .map((o) => o.query)
+          .filter(Boolean),
+      )].slice(0, 25);
+    }
+  } catch { /* GSC optional */ }
 
   const gate = await gateOrgForProject(admin, project_id);
   const estCents = estimateAiCostCents("gpt-4o", 1200, 2500);
