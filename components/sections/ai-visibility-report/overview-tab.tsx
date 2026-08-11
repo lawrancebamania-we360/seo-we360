@@ -137,25 +137,32 @@ function RecommendedNextSteps({ report, configuredEngines, sourceGap, projectId,
   }
 
   // 2. Top outreach-gap domain → earn a mention. Off-site (Sources tab), NOT a
-  //    task board — kept as a direct action. Real when a gap exists, else DEMO.
-  const gapDomain = sourceGap.targets[0]?.domain ?? "skydiveguides.com"; // DEMO fallback domain
-  steps.push({
-    title: `Earn a mention on ${gapDomain}`,
-    why: "This third-party page already feeds AI answers and cites a competitor, but never cites you — land a mention and you land in the answer too.",
-    priority: "Medium", cta: "Draft outreach", onClick: onGoSources,
-    demo: sourceGap.targets.length === 0,
-  });
+  //    task board — kept as a direct action. REAL, from the saved citation sources;
+  //    shown only when the last check actually surfaced a gap domain.
+  const gapTarget = sourceGap.targets[0];
+  if (gapTarget) {
+    steps.push({
+      title: `Earn a mention on ${gapTarget.domain}`,
+      why: `AI cited ${gapTarget.domain} ${gapTarget.citations}× in your last check${gapTarget.citesCompetitor ? " and it names a competitor" : ""}, but never sources you — land a mention there and you land in the answer too.`,
+      priority: "Medium", cta: "Draft outreach", onClick: onGoSources,
+    });
+  }
 
-  // 3. Content refresh — DEMO topic (the app doesn't infer the exact page yet).
-  //    Content work → Blog Sprint via the modal.
-  {
+  // 3. Content refresh — REAL. The worst-covered topic (most answers × lowest
+//     mention rate, excluding well-covered/branded ones) is where deeper, citable
+//     content earns the most new mentions. Content work → Blog Sprint via the modal.
+  const topicGap = report.topics
+    .filter((t) => t.n >= 2 && t.mentionRate < 0.6)
+    .sort((a, b) => (b.n * (1 - b.mentionRate)) - (a.n * (1 - a.mentionRate)))[0];
+  if (topicGap) {
+    const named = Math.round(topicGap.mentionRate * topicGap.n);
     const gap: GapAction = {
-      key: "refresh-content", label: "Refresh your safety & first-jump content",
-      fix: "Deepen the pages buyers ask AI about (safety, what to expect) with direct answers and structure so they earn mentions on high-intent questions.",
-      route: "blog", real: false,
-      why: "Buyers ask AI about safety and what to expect first — depth here earns mentions on high-intent questions.",
+      key: "refresh-content", label: `Strengthen content for "${topicGap.topic}" questions`,
+      fix: `Buyers ask AI "${topicGap.topic}" questions and it names you in only ${pct(topicGap.mentionRate)} of them (${named} of ${topicGap.n}). Publish a direct, citable answer for this topic so AI names you more often.`,
+      route: "blog", real: true,
+      why: `AI names you in just ${named} of ${topicGap.n} "${topicGap.topic}" answers — deeper, citable content here earns mentions on high-intent questions.`,
     };
-    steps.push({ title: gap.label, why: gap.why, priority: "Medium", cta: "Create content", gap, onClick: openGap(gap), demo: true });
+    steps.push({ title: gap.label, why: gap.why, priority: "Medium", cta: "Create content", gap, onClick: openGap(gap) });
   }
 
   // 4. Unconnected engines → add keys. Engine setup, NOT a task board — direct action.
