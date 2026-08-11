@@ -26,7 +26,7 @@
 // to brand tokens, keeping this file style-drift clean.
 
 import * as React from "react";
-import { Megaphone, Target, Search, Sparkles } from "lucide-react";
+import { Megaphone, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { TimeRangeFilter, rangeDayLabel, type RangePreset } from "@/components/ui/time-range-filter";
@@ -52,11 +52,8 @@ type BenchKey = "visibility" | "sov" | "avgPos" | "keywords" | "aiCitations" | "
 const BENCH_COLS: { key: BenchKey; label: string; asc?: boolean; fmt: (v: number) => string }[] = [
   { key: "visibility", label: "Visibility", fmt: (v) => `${v}%` },
   { key: "sov", label: "Share of voice", fmt: (v) => `${v.toFixed(1)}%` },
-  { key: "avgPos", label: "Avg pos", asc: true, fmt: (v) => `#${v.toFixed(1)}` },
-  { key: "keywords", label: "Keywords", fmt: (v) => v.toLocaleString() },
   { key: "aiCitations", label: "AI citations", fmt: (v) => String(v) },
   { key: "dr", label: "Domain rating", fmt: (v) => String(v) },
-  { key: "content", label: "Content", fmt: (v) => `${v}/mo` },
   { key: "siteHealth", label: "Site health", fmt: (v) => String(v) },
 ];
 
@@ -183,9 +180,6 @@ const DEMO_BRANDS: DemoBrand[] = [
 ];
 
 // 8-week x-axis (Feb 14 → May 15), doubling as the hover-tooltip date per point.
-const TREND_DATES = ["Feb 14", "Feb 28", "Mar 13", "Mar 27", "Apr 10", "Apr 24", "May 8", "May 15"];
-const TREND_Y_LABELS = [60, 45, 30, 15, 0];
-const TREND_TOP = 60;
 
 // KPI strip — the comp's four cards (all trending up / green).
 const DEMO_KPIS: { label: string; value: string; rank: string; delta: string; icon: React.ReactNode; tint: string }[] = [
@@ -196,22 +190,6 @@ const DEMO_KPIS: { label: string; value: string; rank: string; delta: string; ic
     delta: "+3.2 pts",
     icon: <Megaphone className="text-primary" />,
     tint: "var(--color-ember-50)",
-  },
-  {
-    label: "Avg position",
-    value: "#2.1",
-    rank: "2nd of 5",
-    delta: "+0.3",
-    icon: <Target className="text-info" />,
-    tint: "var(--color-info-50)",
-  },
-  {
-    label: "Keywords ranked",
-    value: "1,240",
-    rank: "2nd of 5",
-    delta: "+86",
-    icon: <Search className="text-success" />,
-    tint: "var(--color-success-50)",
   },
   {
     label: "AI citations",
@@ -309,7 +287,6 @@ export function CompetitorsScreen({
   });
 
   // Trend + donut mirror the comp's 5-brand layout; scorecard + boards show all.
-  const trendBrands = brands.slice(0, 5);
   const donutBrands = brands.slice(0, 5);
 
   const bestOf = (key: BenchKey, asc = false) => {
@@ -381,30 +358,6 @@ export function CompetitorsScreen({
         ))}
       </div>
 
-      {/* 4 · VISIBILITY TREND */}
-      <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="font-heading text-lg font-semibold tracking-tight text-foreground">Visibility trend</h2>
-            <p className="mt-1 text-[13px] text-slate-400">Share of AI answers won over the last 8 weeks.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3.5">
-            {trendBrands.map((b) => (
-              <span key={b.name} className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-slate-600">
-                <span className="h-[3px] w-3 rounded-sm" style={{ backgroundColor: b.color }} />
-                {b.name}
-              </span>
-            ))}
-          </div>
-        </div>
-        <VisibilityTrend
-          lines={trendBrands.map((b) => ({ name: b.name, color: b.color, values: b.trend }))}
-          top={TREND_TOP}
-          yLabels={TREND_Y_LABELS}
-          xLabels={TREND_DATES}
-        />
-      </section>
-
       {/* 5 · HEAD-TO-HEAD SCORECARD */}
       <section>
         <div className="mb-3">
@@ -415,7 +368,7 @@ export function CompetitorsScreen({
         </div>
         <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(20,20,40,.04),0_14px_34px_-16px_rgba(20,20,40,.12)] klimb-scroll">
           <div className="min-w-[1000px]">
-            <div className="grid grid-cols-[220px_repeat(8,minmax(94px,1fr))] gap-3 border-b border-border bg-muted/40 px-5 py-3.5">
+            <div className="grid grid-cols-[220px_repeat(5,minmax(94px,1fr))] gap-3 border-b border-border bg-muted/40 px-5 py-3.5">
               <span className="font-mono text-xs font-medium uppercase tracking-[0.1em] text-slate-400">Competitor</span>
               {BENCH_COLS.map((c) => (
                 <span key={c.key} className="text-center font-mono text-xs font-medium uppercase tracking-[0.1em] text-slate-400">
@@ -424,23 +377,15 @@ export function CompetitorsScreen({
               ))}
             </div>
             {brands.map((r) => {
-              const up = r.delta >= 0;
               return (
                 <div
                   key={`${r.name}-${r.competitorId ?? "demo"}`}
-                  className="grid grid-cols-[220px_repeat(8,minmax(94px,1fr))] items-center gap-3 border-b border-border/60 px-5 py-3.5 last:border-b-0"
+                  className="grid grid-cols-[220px_repeat(5,minmax(94px,1fr))] items-center gap-3 border-b border-border/60 px-5 py-3.5 last:border-b-0"
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <CompanyLogo name={r.name} domain={r.domain} size={30} rounded="rounded-full" className="shrink-0 ring-1 ring-border" />
                     <div className="min-w-0">
                       <div className="truncate text-sm font-bold text-foreground">{r.name}</div>
-                      <div className="mt-0.5 flex items-center gap-1.5">
-                        <MiniSpark data={r.trend} color={r.color} />
-                        <span className={cn("text-[11px] font-bold tabular-nums", up ? "text-success-strong" : "text-error")}>
-                          {up ? "+" : ""}
-                          {r.delta.toFixed(1)}
-                        </span>
-                      </div>
                     </div>
                     {r.you && (
                       <span className="shrink-0 rounded-full bg-ember-100 px-1.5 py-0.5 text-[9.5px] font-extrabold tracking-[0.04em] text-ember-600">
@@ -650,123 +595,6 @@ function BrandChip({ name, domain, you }: { name: string; domain?: string | null
 // ---- Visibility trend — inline multi-line SVG per the comp markup: y-labels,
 // quarter grid lines, one 2.5px polyline per competitor, x-labels, and a hover
 // crosshair + floating tooltip listing every competitor's value. ---------------
-const TREND_W = 560;
-const TREND_H = 176;
-
-function VisibilityTrend({
-  lines,
-  top,
-  yLabels,
-  xLabels,
-}: {
-  lines: { name: string; color: string; values: number[] }[];
-  top: number;
-  yLabels: number[];
-  xLabels: string[];
-}) {
-  const [hover, setHover] = React.useState<number | null>(null);
-  const wrapRef = React.useRef<HTMLDivElement>(null);
-  const n = Math.max(...lines.map((l) => l.values.length), 1);
-
-  const xAt = (i: number) => (n <= 1 ? 0 : (i / (n - 1)) * TREND_W);
-  const yAt = (v: number) => TREND_H - (Math.max(0, Math.min(top, v)) / top) * TREND_H;
-
-  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const frac = (e.clientX - rect.left) / rect.width;
-    setHover(Math.max(0, Math.min(n - 1, Math.round(frac * (n - 1)))));
-  };
-
-  const hoverPct = hover != null && n > 1 ? (hover / (n - 1)) * 100 : 0;
-
-  return (
-    <div className="flex gap-2.5">
-      <div className="flex h-[200px] shrink-0 flex-col justify-between pb-4 pt-0.5 text-right font-mono text-[10.5px] font-semibold tabular-nums text-slate-350">
-        {yLabels.map((y, i) => (
-          <span key={i}>{y}</span>
-        ))}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div ref={wrapRef} className="relative" onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
-          <svg viewBox={`0 0 ${TREND_W} ${TREND_H}`} preserveAspectRatio="none" className="block h-[200px] w-full">
-            {[0, 1, 2, 3, 4].map((k) => (
-              <line key={k} x1="0" x2={TREND_W} y1={(TREND_H / 4) * k} y2={(TREND_H / 4) * k} stroke="var(--color-slate-150)" strokeWidth="1" />
-            ))}
-            {lines.map((l) => (
-              <polyline
-                key={l.name}
-                points={l.values.map((v, i) => `${xAt(i)},${yAt(v)}`).join(" ")}
-                fill="none"
-                stroke={l.color}
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-            {hover != null && (
-              <>
-                <line x1={xAt(hover)} x2={xAt(hover)} y1="0" y2={TREND_H} stroke="var(--color-slate-300)" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
-                {lines.map((l) => (
-                  <circle key={l.name} cx={xAt(hover)} cy={yAt(l.values[hover] ?? 0)} r="3.5" fill={l.color} vectorEffect="non-scaling-stroke" />
-                ))}
-              </>
-            )}
-          </svg>
-          {hover != null && (
-            <div
-              className="pointer-events-none absolute top-2 z-10 rounded-xl border border-border bg-popover px-3 py-2 shadow-overlay"
-              style={{ left: `${hoverPct}%`, transform: hoverPct > 55 ? "translateX(calc(-100% - 12px))" : "translateX(12px)" }}
-            >
-              <div className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                {xLabels[hover] ?? `Week ${hover + 1}`}
-              </div>
-              {lines.map((l) => (
-                <div key={l.name} className="mb-1 flex items-center justify-between gap-3.5 last:mb-0">
-                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-                    <span className="size-2 rounded-full" style={{ backgroundColor: l.color }} />
-                    {l.name}
-                  </span>
-                  <span className="text-xs font-bold tabular-nums text-foreground">{l.values[hover]}%</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="mt-1.5 flex justify-between font-mono text-[10.5px] font-semibold tabular-nums text-slate-350">
-          {xLabels.map((x, i) => (
-            <span key={i}>{x}</span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// 60×22 inline sparkline for the scorecard rows (matches the comp exactly).
-function MiniSpark({ data, color }: { data: number[]; color: string }) {
-  const w = 60;
-  const h = 22;
-  if (data.length < 2) return <svg width={w} height={h} className="block shrink-0" />;
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const span = max - min || 1;
-  const pts = data
-    .map((v, i) => {
-      const x = 1 + (i / (data.length - 1)) * (w - 2);
-      const y = h - 2 - ((v - min) / span) * (h - 4);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  return (
-    <svg width={w} height={h} className="block shrink-0">
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 // Position pill tint for the "what they rank for" keyword rows.
 function posPillClass(pos: number): string {
   if (pos <= 1) return "bg-success-50 text-success-700";
