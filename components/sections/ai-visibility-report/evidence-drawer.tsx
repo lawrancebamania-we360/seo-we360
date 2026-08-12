@@ -8,7 +8,7 @@
 //                plus the prompt asked, engine, timestamp and cited sources.
 // Read-only by design; data loads lazily via the evidence server actions.
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition, type ReactNode } from "react";
 import { ArrowLeft, ExternalLink, Loader2, Quote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -96,7 +96,7 @@ export function EvidenceDrawer({ projectId, request, onClose }: {
 
   return (
     <Sheet open={!!request} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-3xl lg:max-w-5xl xl:max-w-[1400px]">
         <SheetHeader>
           <SheetTitle>{showList ? listMeta.title : "AI answer transcript"}</SheetTitle>
           <SheetDescription>
@@ -248,20 +248,81 @@ function TranscriptView({ transcript, loading, fromList, onBack }: {
   );
 }
 
-function HighlightedAnswer({ text, brandNames, competitorNames }: { text: string; brandNames: string[]; competitorNames: string[] }) {
-  const segments = segmentMentions(text, brandNames, competitorNames);
-  return (
-    <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-      {segments.map((s, i) =>
-        s.kind === "plain" ? (
-          <span key={i}>{s.text}</span>
-        ) : (
-          <mark key={i} className={cn("rounded px-0.5 font-semibold text-foreground",
-            s.kind === "brand" ? "bg-warning-300/50 dark:bg-warning-500/30" : "bg-info-300/40 dark:bg-info-500/25")}>
-            {s.text}
-          </mark>
-        ),
-      )}
-    </div>
+// Highlight brand/competitor names inside a plain string (no markdown here).
+function highlightRuns(text: string, brand: string[], comp: string[], kp: string): ReactNode[] {
+  return segmentMentions(text, brand, comp).map((s, i) =>
+    s.kind === "plain" ? (
+      <span key={`${kp}-${i}`}>{s.text}</span>
+    ) : (
+      <mark key={`${kp}-${i}`} className={cn("rounded px-0.5 font-semibold text-foreground",
+        s.kind === "brand" ? "bg-warning-300/50 dark:bg-warning-500/30" : "bg-info-300/40 dark:bg-info-500/25")}>
+        {s.text}
+      </mark>
+    ),
   );
+}
+
+// Inline markdown (**bold**, *italic*, `code`, [text](url)) → React, with brand
+// highlighting applied to the plain text inside.
+function renderInline(text: string, brand: string[], comp: string[], kp: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const re = /(\*\*([^*]+)\*\*)|(\*([^*]+)\*)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)]+)\))/g;
+  let last = 0, k = 0, m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(...highlightRuns(text.slice(last, m.index), brand, comp, `${kp}t${k++}`));
+    if (m[1]) nodes.push(<strong key={`${kp}b${k++}`} className="font-semibold text-foreground">{highlightRuns(m[2], brand, comp, `${kp}bi${k}`)}</strong>);
+    else if (m[3]) nodes.push(<em key={`${kp}i${k++}`}>{highlightRuns(m[4], brand, comp, `${kp}ii${k}`)}</em>);
+    else if (m[5]) nodes.push(<code key={`${kp}c${k++}`} className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]">{m[6]}</code>);
+    else if (m[7]) nodes.push(<a key={`${kp}l${k++}`} href={m[9]} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">{m[8]}</a>);
+    last = re.lastIndex;
+  }
+  if (last < text.length) nodes.push(...highlightRuns(text.slice(last), brand, comp, `${kp}t${k++}`));
+  return nodes;
+}
+
+// Lightweight markdown renderer for a stored AI answer: headings, bullet/numbered
+// lists, blockquotes and paragraphs, with brand/competitor names highlighted. No
+// external dependency — AI answers only use a small subset of markdown.
+function HighlightedAnswer({ text, brandNames, competitorNames }: { text: string; brandNames: string[]; competitorNames: string[] }) {
+  const b = brandNames, c = competitorNames;
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const blocks: ReactNode[] = [];
+  let i = 0, key = 0;
+  const isBlockStart = (l: string) => /^(#{1,6}\s|>\s?|\s*[-*•]\s|\s*\d+\.\s)/.test(l);
+
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) { i++; continue; }
+
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) {
+      const lvl = h[1].length;
+      const cls = lvl <= 1 ? "text-lg font-bold" : lvl === 2 ? "text-base font-bold" : "text-sm font-semibold";
+      blocks.push(<p key={key} className={cn("mt-4 first:mt-0 text-foreground", cls)}>{renderInline(h[2], b, c, `h${key++}`)}</p>);
+      i++; continue;
+    }
+    if (/^>\s?/.test(line)) {
+      const q: string[] = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) { q.push(lines[i].replace(/^>\s?/, "")); i++; }
+      blocks.push(<blockquote key={key} className="mt-3 border-l-2 border-primary/40 pl-3 italic text-foreground/80">{renderInline(q.join(" "), b, c, `q${key++}`)}</blockquote>);
+      continue;
+    }
+    if (/^\s*[-*•]\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\s*[-*•]\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*[-*•]\s+/, "")); i++; }
+      blocks.push(<ul key={key} className="mt-2 list-disc space-y-1 pl-5">{items.map((it, j) => <li key={j}>{renderInline(it, b, c, `ul${key}-${j}`)}</li>)}</ul>);
+      key++; continue;
+    }
+    if (/^\s*\d+\.\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*\d+\.\s+/, "")); i++; }
+      blocks.push(<ol key={key} className="mt-2 list-decimal space-y-1 pl-5">{items.map((it, j) => <li key={j}>{renderInline(it, b, c, `ol${key}-${j}`)}</li>)}</ol>);
+      key++; continue;
+    }
+    const para: string[] = [];
+    while (i < lines.length && lines[i].trim() && !isBlockStart(lines[i])) { para.push(lines[i]); i++; }
+    blocks.push(<p key={key} className="mt-3 first:mt-0 leading-relaxed text-foreground/90">{renderInline(para.join(" "), b, c, `p${key++}`)}</p>);
+  }
+
+  return <div className="text-[13.5px] leading-relaxed">{blocks}</div>;
 }
