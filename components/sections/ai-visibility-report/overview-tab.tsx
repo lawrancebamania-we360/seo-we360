@@ -14,8 +14,9 @@
 // The evidence-drawer wiring and all REAL rates are preserved; DEMO spots are
 // flagged inline and owner-approved.
 
-import { useState, type PointerEvent } from "react";
+import { useState, useEffect, useRef, type PointerEvent } from "react";
 import Link from "next/link";
+import { analyzeAiVisibilityScore } from "@/lib/actions/ai-visibility";
 import { ArrowRight, Calendar, Sparkles, TrendingUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { AiVisibilityHeroBand, type AiVisibilityHeroStat, type AiVisibilityHeroDelta } from "@/components/ui/ai-visibility-hero-band";
@@ -44,12 +45,43 @@ export function OverviewTab({ report, aiReferral, configuredEngines, sourceGap, 
   return (
     <div className="space-y-5">
       <VisibilityHero report={report} />
+      <ScoreSummaryLine report={report} />
       <RecommendedNextSteps report={report} configuredEngines={configuredEngines} sourceGap={sourceGap} projectId={projectId} canManage={canManage} onGoSources={onGoSources} onOpenSetup={onOpenSetup} />
-      <div className="grid items-start gap-4 xl:grid-cols-2">
-        <VisibilityPositionCard trend={report.trend} composite={report.composite} compositePrev={report.compositePrev} />
-        <CompetitiveStanding report={report} projectId={projectId} canManage={canManage} />
-      </div>
+      <VisibilityPositionCard trend={report.trend} composite={report.composite} compositePrev={report.compositePrev} />
+      <CompetitiveStanding report={report} projectId={projectId} canManage={canManage} />
       <AiReferralStrip data={aiReferral} />
+    </div>
+  );
+}
+
+// An LLM-analyzed read of the score, shown right under the hero. Fires once on
+// mount (like the sentiment classifier), shows a deterministic line immediately
+// from the action's fallback if the LLM can't run. Honest context, e.g. "your
+// mention rate is inflated by branded questions; 0% citation drags the score."
+function ScoreSummaryLine({ report }: { report: AiVisibilityReport }) {
+  const [text, setText] = useState<string | null>(null);
+  const fired = useRef(false);
+  useEffect(() => {
+    if (fired.current || report.totalRuns === 0) return;
+    fired.current = true;
+    analyzeAiVisibilityScore({
+      brand: report.projectLabel,
+      composite: report.composite,
+      mentionRate: report.mentionRate,
+      citationRate: report.citationRate,
+      topics: report.topics.map((t) => ({ topic: t.topic, mentionRate: t.mentionRate, n: t.n })),
+    }).then((r) => setText(r.text)).catch(() => { /* leave the placeholder */ });
+  }, [report]);
+
+  if (report.totalRuns === 0) return null;
+  return (
+    <div className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/[0.04] px-3.5 py-2.5">
+      <Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" />
+      {text ? (
+        <p className="text-[13px] leading-relaxed text-foreground">{text}</p>
+      ) : (
+        <p className="text-[13px] text-muted-foreground animate-pulse">Analyzing what this score really means…</p>
+      )}
     </div>
   );
 }
@@ -76,9 +108,8 @@ function VisibilityHero({ report }: { report: AiVisibilityReport }) {
     { label: "Answers checked", value: String(report.totalRuns), sub: "across engines, sampled", title: "See every AI answer in this run.", onClick: () => openList({}, "All answers in this run") },
     { label: "Prompts", value: String(report.promptCount), sub: "buyer questions tested", title: "See every AI answer in this run.", onClick: () => openList({}, "All answers in this run") },
   ];
-  // Score delta: REAL when a previous batch score exists; else a DEMO -12 so the
-  // comp's directional "▾12" reads (owner-approved).
-  const rawDelta = report.compositePrev != null ? report.composite - report.compositePrev : -12; // DEMO fallback
+  // Score delta: REAL only. No previous batch → no delta chip (no fabricated -12).
+  const rawDelta = report.compositePrev != null ? report.composite - report.compositePrev : 0;
   const delta: AiVisibilityHeroDelta | undefined = rawDelta === 0 ? undefined : { value: String(Math.abs(rawDelta)), direction: rawDelta < 0 ? "down" : "up" };
   return (
     <div className="space-y-2">
@@ -317,45 +348,54 @@ function VisibilityPositionCard({ trend, composite, compositePrev }: {
         )}
       </div>
 
-      <div className="relative" onPointerMove={onMove} onPointerLeave={() => setHover(null)}>
-        <svg viewBox={`0 0 ${CHART_W} ${CHART_VH}`} preserveAspectRatio="none" className="block h-[180px] w-full" role="img" aria-label="AI Visibility composite score over time">
-          <defs>
-            <linearGradient id="aivVisFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#7B62FF" stopOpacity="0.20" />
-              <stop offset="100%" stopColor="#7B62FF" stopOpacity="0.02" />
-            </linearGradient>
-          </defs>
-          {[10, 42, 75, 108, 140].map((y) => (
-            <line key={y} x1="0" x2={CHART_W} y1={y} y2={y} stroke="var(--color-slate-100)" strokeWidth="1" />
-          ))}
-          <path d={area} fill="url(#aivVisFill)" />
-          <path d={line} fill="none" stroke="#7B62FF" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-          {hover != null && (
-            <>
-              <line x1={xAt(hover)} x2={xAt(hover)} y1={CHART_TOP} y2={CHART_BOT} stroke="var(--color-slate-300)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-              <circle cx={xAt(hover)} cy={yAt(vals[hover])} r="4.5" fill="#7B62FF" stroke="var(--color-slate-0)" strokeWidth="2" />
-            </>
-          )}
-        </svg>
-        {hover != null && (
-          <div
-            className="pointer-events-none absolute top-1.5 z-10 w-[9rem] rounded-xl border border-border bg-popover px-3 py-2.5 shadow-overlay"
-            style={{ left: `${leftPct}%`, transform: flip ? "translateX(calc(-100% - 12px))" : "translateX(12px)" }}
-          >
-            <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-foreground">
-              <Calendar className="size-3 text-muted-foreground" />{labels[hover]}
-            </div>
-            <div className="flex items-center justify-between gap-2.5">
-              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="size-2 rounded-full" style={{ backgroundColor: "#7B62FF" }} />Score
-              </span>
-              <span className="text-[12.5px] font-bold tabular-nums text-foreground">{trend[hover].composite}/100</span>
-            </div>
+      <div className="flex gap-2.5">
+        {/* Y axis — composite score 0–100 */}
+        <div className="flex flex-col justify-between py-[7px] text-right font-mono text-[9.5px] tabular-nums text-slate-400" style={{ height: 180 }}>
+          {[100, 75, 50, 25, 0].map((v) => <span key={v}>{v}</span>)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="relative" onPointerMove={onMove} onPointerLeave={() => setHover(null)}>
+            <svg viewBox={`0 0 ${CHART_W} ${CHART_VH}`} preserveAspectRatio="none" className="block h-[180px] w-full" role="img" aria-label="AI Visibility composite score over time">
+              <defs>
+                <linearGradient id="aivVisFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#7B62FF" stopOpacity="0.20" />
+                  <stop offset="100%" stopColor="#7B62FF" stopOpacity="0.02" />
+                </linearGradient>
+              </defs>
+              {[10, 42, 75, 108, 140].map((y) => (
+                <line key={y} x1="0" x2={CHART_W} y1={y} y2={y} stroke="var(--color-slate-100)" strokeWidth="1" />
+              ))}
+              <path d={area} fill="url(#aivVisFill)" />
+              <path d={line} fill="none" stroke="#7B62FF" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+              {hover != null && (
+                <>
+                  <line x1={xAt(hover)} x2={xAt(hover)} y1={CHART_TOP} y2={CHART_BOT} stroke="var(--color-slate-300)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                  <circle cx={xAt(hover)} cy={yAt(vals[hover])} r="4.5" fill="#7B62FF" stroke="var(--color-slate-0)" strokeWidth="2" />
+                </>
+              )}
+            </svg>
+            {hover != null && (
+              <div
+                className="pointer-events-none absolute top-1.5 z-10 w-[9rem] rounded-xl border border-border bg-popover px-3 py-2.5 shadow-overlay"
+                style={{ left: `${leftPct}%`, transform: flip ? "translateX(calc(-100% - 12px))" : "translateX(12px)" }}
+              >
+                <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <Calendar className="size-3 text-muted-foreground" />{labels[hover]}
+                </div>
+                <div className="flex items-center justify-between gap-2.5">
+                  <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className="size-2 rounded-full" style={{ backgroundColor: "#7B62FF" }} />Score
+                  </span>
+                  <span className="text-[12.5px] font-bold tabular-nums text-foreground">{trend[hover].composite}/100</span>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      <div className="mt-2 flex justify-between">
-        {labels.map((m, i) => <span key={i} className="font-mono text-[10.5px] text-slate-300">{m}</span>)}
+          <div className="mt-2 flex justify-between">
+            {labels.map((m, i) => <span key={i} className="font-mono text-[10.5px] text-slate-400">{m}</span>)}
+          </div>
+          <div className="mt-1.5 text-center font-mono text-[9.5px] uppercase tracking-[0.08em] text-slate-400">Check date · Y = score /100</div>
+        </div>
       </div>
     </Card>
   );

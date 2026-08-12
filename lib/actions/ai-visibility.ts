@@ -223,6 +223,49 @@ export async function regeneratePersonas(input: { project_id: string }): Promise
   return generateAiVisibilityPrompts(input);
 }
 
+// A short, honest, LLM-written read of what the AI-visibility score actually
+// means — e.g. that the mention rate is inflated by branded/reputation questions,
+// or that the low citation rate is dragging the composite down. gpt-4o-mini via
+// the platform caller (OpenAI-first, Claude failover); deterministic fallback if
+// no LLM can run. Fed the already-computed report numbers, so it costs one small
+// call and never re-queries.
+export async function analyzeAiVisibilityScore(input: {
+  brand: string;
+  composite: number;
+  mentionRate: number;
+  citationRate: number;
+  topics: Array<{ topic: string; mentionRate: number; n: number }>;
+}): Promise<{ text: string }> {
+  const p = (x: number) => `${Math.round(x * 100)}%`;
+  const branded = input.topics.find((t) => /reputation|brand/i.test(t.topic));
+  const deterministic = (): string => {
+    const bits: string[] = [];
+    if (branded && branded.mentionRate >= 0.8) {
+      bits.push(`Much of your ${p(input.mentionRate)} mention rate is branded "${branded.topic}" questions that name ${input.brand} directly — expected, not earned.`);
+    }
+    if (input.citationRate < 0.05) {
+      bits.push(`The ${p(input.citationRate)} citation rate is what holds the ${input.composite}/100 score down — AI names you but rarely links your site.`);
+    }
+    if (!bits.length) bits.push(`AI names ${input.brand} in ${p(input.mentionRate)} of answers and cites your site ${p(input.citationRate)} of the time.`);
+    return bits.join(" ");
+  };
+  try {
+    const topicLines = input.topics.slice(0, 8).map((t) => `${t.topic}: ${p(t.mentionRate)} (${t.n} answers)`).join("; ");
+    const prompt = `You are a blunt SEO analyst. In ONE or TWO plain-English sentences (max 45 words, no preamble, no markdown), explain what this AI-visibility result really means for "${input.brand}".
+Data:
+- Composite AI Visibility score: ${input.composite}/100
+- AI names the brand in ${p(input.mentionRate)} of answers; cites the brand's own site in ${p(input.citationRate)}
+- Mention rate by topic: ${topicLines}
+- NOTE: "reputation"/branded questions name the brand directly, so a high mention rate there is expected, NOT earned visibility.
+Call out (a) whether the mention rate is inflated by branded questions, and (b) whether the low citation rate is the main reason the score is low. Output ONLY the sentence(s).`;
+    const res = await callPlatformLLM({ model: "gpt-4o-mini", prompt, maxTokens: 120, timeoutMs: 15000 });
+    const text = res.text.trim().replace(/^["']+|["']+$/g, "").trim();
+    return { text: text.length > 20 ? text : deterministic() };
+  } catch {
+    return { text: deterministic() };
+  }
+}
+
 // ONE recommended on-site move to get cited for a question that AI does not
 // surface us for. Klimb decides the format + title (the user does not pick) -
 // the AI doing the thinking. "Generate draft" then reuses /api/articles/generate
