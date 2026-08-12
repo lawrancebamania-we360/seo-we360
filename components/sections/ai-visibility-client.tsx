@@ -547,6 +547,10 @@ function FirstRunHero({ hasPrompts, canManage, onGoSetup }: { hasPrompts: boolea
 function SourcesTab({ report, projectId, canManage, sourceGap, outreach }: {
   report: AiVisibilityReport; projectId: string; canManage: boolean; sourceGap: SourceGapReport; outreach: OutreachRow[];
 }) {
+  // Nothing was cited in the latest run → an informative empty state (which
+  // engines return source links + what to do) instead of bare "no sources" lines.
+  if (report.sources.length === 0) return <CitationSourcesEmpty />;
+
   return (
     <div className="space-y-6">
       {/* Section A: where AI pulls answers from today (existing). */}
@@ -594,6 +598,50 @@ function SourcesTab({ report, projectId, canManage, sourceGap, outreach }: {
         </div>
       </Card>
     </div>
+  );
+}
+
+// Shown when the latest run captured ZERO cited sources. Explains that only some
+// engines return source links (so the user knows this isn't a bug) and what to do.
+function CitationSourcesEmpty() {
+  const rows: { engine: string; returns: boolean; note: string }[] = [
+    { engine: "ChatGPT", returns: true, note: "web-search — returns the pages it cites" },
+    { engine: "Perplexity", returns: true, note: "returns citations for every answer" },
+    { engine: "Google AI Overviews", returns: true, note: "returns citations when an overview shows" },
+    { engine: "Claude", returns: false, note: "answers without browsing — no source links" },
+  ];
+  return (
+    <Card className="p-6 sm:p-8">
+      <div className="mx-auto max-w-xl text-center">
+        <span className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-info/10 text-info">
+          <Quote className="size-5" />
+        </span>
+        <h3 className="font-heading text-lg font-bold text-foreground">No citation sources captured yet</h3>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          This tab lists the websites AI pulls its answers from — but it only fills in once an engine
+          actually returns the links it cited. Your last check captured none.
+        </p>
+      </div>
+
+      <div className="mx-auto mt-6 max-w-lg overflow-hidden rounded-xl border border-border">
+        {rows.map((r, i) => (
+          <div key={r.engine} className={cn("flex items-center gap-3 px-4 py-2.5", i < rows.length - 1 && "border-b border-border")}>
+            <span className={cn(
+              "flex size-5 flex-none items-center justify-center rounded-full text-[11px] font-bold",
+              r.returns ? "bg-success-500/15 text-success-strong" : "bg-muted text-muted-foreground",
+            )}>{r.returns ? "✓" : "—"}</span>
+            <span className="w-40 flex-none text-sm font-semibold text-foreground">{r.engine}</span>
+            <span className="text-[13px] text-muted-foreground">{r.note}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="mx-auto mt-6 max-w-lg text-center text-[13px] text-muted-foreground">
+        Add a valid <span className="font-medium text-foreground">OpenAI key</span> (ChatGPT) — and optionally a{" "}
+        <span className="font-medium text-foreground">Perplexity key</span> — then run a new AI-visibility check, and the
+        domains AI cites will appear here.
+      </p>
+    </Card>
   );
 }
 
