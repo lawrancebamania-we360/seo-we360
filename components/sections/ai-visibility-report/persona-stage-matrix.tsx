@@ -35,8 +35,8 @@ export function PersonaStageMatrix({ funnel }: { funnel: AiVisibilityReport["fun
   // column per funnel stage. min-width keeps the columns readable on a phone,
   // the Card scrolls horizontally past it.
   const grid: React.CSSProperties = {
-    gridTemplateColumns: `minmax(150px,1.4fr) repeat(${funnel.stages.length},minmax(96px,1fr))`,
-    minWidth: funnel.stages.length * 104 + 160,
+    gridTemplateColumns: `minmax(200px,1.8fr) repeat(${funnel.stages.length},minmax(96px,1fr))`,
+    minWidth: funnel.stages.length * 104 + 220,
   };
 
   return (
@@ -57,7 +57,7 @@ export function PersonaStageMatrix({ funnel }: { funnel: AiVisibilityReport["fun
 
         {funnel.rows.map((row) => (
           <Fragment key={row.persona}>
-            <span className="flex items-center truncate text-sm font-medium text-foreground" title={row.persona}>
+            <span className="self-center line-clamp-2 text-[12px] font-medium leading-tight text-foreground" title={row.persona}>
               {row.persona}
             </span>
             {funnel.stages.map((s: FunnelStage) => {

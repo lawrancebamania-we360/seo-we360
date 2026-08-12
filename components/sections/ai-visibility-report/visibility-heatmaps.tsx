@@ -81,7 +81,7 @@ function HeatGrid({ cols, rows, projectLabel, rowKind, colKind }: {
   return (
     <div
       className="grid gap-2"
-      style={{ minWidth: n * 88 + 160, gridTemplateColumns: `minmax(150px,1.4fr) repeat(${n},minmax(72px,1fr))` }}
+      style={{ minWidth: n * 88 + 220, gridTemplateColumns: `minmax(200px,1.8fr) repeat(${n},minmax(72px,1fr))` }}
     >
       <div />
       {cols.map((c) => (
@@ -92,7 +92,7 @@ function HeatGrid({ cols, rows, projectLabel, rowKind, colKind }: {
       {rows.map((r, i) => (
         <Fragment key={`${r.row}-${i}`}>
           <div className="flex items-center pr-2">
-            <span className="max-w-[22ch] truncate text-sm font-medium text-foreground" title={r.row}>{r.row}</span>
+            <span className="line-clamp-2 text-[12px] font-medium leading-tight text-foreground" title={r.row}>{r.row}</span>
           </div>
           {cols.map((c) => {
             const cell = r.cells[c] ?? { rate: 0, num: 0, den: 0 };
