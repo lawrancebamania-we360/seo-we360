@@ -39,7 +39,7 @@ const demoAt = <T,>(arr: T[], rank: number): T => arr[Math.min(rank - 1, arr.len
 type Brand = { id: string | null; name: string; mention: number; citation: number; you: boolean; canExplain: boolean };
 
 // Comp grid (line 1376): # · BRAND · VISIBILITY · SOV · SENTIMENT · AVG POS.
-const COLS = "44px minmax(130px,1.5fr) 92px 74px 96px 74px";
+const COLS = "40px minmax(120px,1.3fr) 92px 104px 108px 104px";
 
 export function CompetitiveStanding({ report, projectId, canManage }: {
   report: AiVisibilityReport; projectId: string; canManage: boolean;
@@ -79,21 +79,26 @@ export function CompetitiveStanding({ report, projectId, canManage }: {
         </div>
       </div>
 
-      {/* Header row */}
-      <div className="grid items-center border-y border-border bg-slate-50 text-[10px] font-bold uppercase tracking-[0.04em] text-muted-foreground dark:bg-muted/40"
-        style={{ gridTemplateColumns: COLS }}>
-        <span className="border-r border-border px-1 py-2.5 text-center">#</span>
-        <span className="border-r border-border px-3.5 py-2.5">Brand</span>
-        <span className="border-r border-border px-1 py-2.5 text-center">Visibility</span>
-        <span className="border-r border-border px-1 py-2.5 text-center">SOV</span>
-        <span className="border-r border-border px-1 py-2.5 text-center">Sentiment</span>
-        <span className="px-1 py-2.5 text-center">Avg pos</span>
-      </div>
+      {/* Header + rows scroll together on narrow screens so columns never clip. */}
+      <div className="overflow-x-auto">
+        <div style={{ minWidth: 640 }}>
+          {/* Header row — full words + a subtle subheading explaining each metric. */}
+          <div className="grid items-stretch border-y border-border bg-slate-50 text-muted-foreground dark:bg-muted/40"
+            style={{ gridTemplateColumns: COLS }}>
+            <span className="flex items-center justify-center border-r border-border px-1 py-2 text-[10px] font-bold uppercase tracking-[0.04em]">#</span>
+            <span className="flex items-center border-r border-border px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.04em]">Brand</span>
+            <HeaderCell title="Visibility" sub="% of answers naming them" border />
+            <HeaderCell title="Share of Voice" sub="share of all brand mentions" border />
+            <HeaderCell title="Sentiment" sub="how AI speaks · 0–100" border />
+            <HeaderCell title="Average Position" sub="typical rank when named" />
+          </div>
 
-      <div>
-        {ranked.map((b, i) => (
-          <StandingRow key={b.name + i} rank={i + 1} brand={b} projectId={projectId} canManage={canManage} />
-        ))}
+          <div>
+            {ranked.map((b, i) => (
+              <StandingRow key={b.name + i} rank={i + 1} brand={b} projectId={projectId} canManage={canManage} />
+            ))}
+          </div>
+        </div>
       </div>
 
       {!report.competitors.length ? (
@@ -107,6 +112,16 @@ export function CompetitiveStanding({ report, projectId, canManage }: {
         </p>
       )}
     </Card>
+  );
+}
+
+// A column header: full-word title + a small subheading explaining the metric.
+function HeaderCell({ title, sub, border }: { title: string; sub: string; border?: boolean }) {
+  return (
+    <span className={cn("flex flex-col justify-center gap-0.5 px-1.5 py-2 text-center", border && "border-r border-border")}>
+      <span className="text-[10px] font-bold uppercase leading-tight tracking-[0.03em] text-muted-foreground">{title}</span>
+      <span className="text-[9px] font-medium leading-tight text-slate-400">{sub}</span>
+    </span>
   );
 }
 

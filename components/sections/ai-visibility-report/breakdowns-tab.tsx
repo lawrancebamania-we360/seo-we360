@@ -28,16 +28,16 @@ export function BreakdownsTab({ report, configuredEngines }: {
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <HowAiTalks report={report} />
+      {/* Tone summary reads as a full-width banner (a short chip strip) instead of
+          a short card leaving dead space next to the taller engine card. */}
+      <HowAiTalks report={report} />
+      {/* Two similar-height breakdowns side by side (stretched to align); the taller
+          persona list runs full width below so nothing is left ragged. */}
+      <div className="grid items-stretch gap-4 lg:grid-cols-2">
         <EngineCoverage report={report} configuredEngines={configuredEngines} />
-      </div>
-      {/* By persona / By topic + the visibility heatmaps — moved here from the
-          Sample answers tab so all the measured breakdowns live together. */}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <PersonaBreakdown report={report} />
         <TopicBreakdown report={report} />
       </div>
+      <PersonaBreakdown report={report} />
       <VisibilityHeatmaps report={report} />
       <PersonaStageMatrix funnel={report.funnel} />
     </div>
