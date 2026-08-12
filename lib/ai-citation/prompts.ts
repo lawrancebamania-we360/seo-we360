@@ -79,21 +79,20 @@ const INTENTS: PromptIntent[] = ["informational", "commercial", "comparison", "t
 // line to anchor on the category, a competitor, an integration, or a capability.
 // Quotas sum to ~29; tuned to fit one gpt-4o call inside the 60s function cap.
 const INTENT_BUCKETS: { label: string; quota: number; rule: string }[] = [
-  { label: "best-of", quota: 6, rule: 'UNBRANDED "best [category] ..." shopping queries. Add the market/year if the data implies one, plus ONE distinct real constraint each (team size, a capability, a budget). All distinct, never paraphrases.' },
+  { label: "best-of", quota: 7, rule: 'UNBRANDED "best [category] ..." shopping queries. Add the market/year if the data implies one, plus ONE distinct real constraint each (team size, a capability, a budget). All distinct, never paraphrases.' },
   { label: "integration", quota: 5, rule: "UNBRANDED. Name a specific integration buyers in THIS category care about (the PM tool, chat tool, payroll/HRMS, BI tool) OR a named capability, ALWAYS paired with the category word. Do NOT name the brand." },
   { label: "comparison", quota: 2, rule: 'UNBRANDED. Frame as a NAMED competitor vs its wider field / best alternatives for a specific use case - a shape where an AI naturally lists SEVERAL products, so the brand can surface UNPROMPTED. e.g. "is [competitor] still the best [category] for a 200-person BPO, or are there better-value alternatives?", "[competitor] vs the best alternatives for a hybrid IT team - which actually fits?". NEVER "[brand] vs ...", and AVOID a bare "[competitor A] vs [competitor B]" two-horse head-to-head (it rarely surfaces a third brand and yields no signal for a lesser-known brand).' },
-  { label: "alternatives", quota: 5, rule: 'UNBRANDED "alternatives to [a competitor]" / "something better than [a competitor] for ...". NEVER "[brand] alternatives" here. We want AI to surface the brand AS the alternative.' },
-  { label: "use-case", quota: 5, rule: 'UNBRANDED first-person scenario ("i need to...") asking WHICH TOOLS do a specific NAMED capability, paired with the category word. A natural question, never listy, never the brand name.' },
+  { label: "alternatives", quota: 6, rule: 'UNBRANDED "alternatives to [a competitor]" / "something better than [a competitor] for ...". NEVER "[brand] alternatives" here. We want AI to surface the brand AS the alternative.' },
+  { label: "use-case", quota: 6, rule: 'UNBRANDED first-person scenario ("i need to...") asking WHICH TOOLS do a specific NAMED capability, paired with the category word. A natural question, never listy, never the brand name.' },
   { label: "vertical", quota: 2, rule: "UNBRANDED. A NAMED segment/vertical relevant to this category (a specific industry, team type, or size band), never a vague 'mid-sized'." },
-  { label: "reputation", quota: 3, rule: 'THE ONLY BRANDED BUCKET. ALL of these belong to ONE persona - a current/prospective customer checking the brand: "is [brand] worth it", "[brand] reviews / complaints / is it legit", "why are people leaving [brand] / [brand] alternatives". This is where we catch negative news to fix. No OTHER prompt may name the brand.' },
   { label: "pricing-roi", quota: 1, rule: "UNBRANDED. cheapest / best-value / ROI framing, naming the category, never the brand." },
 ];
 
 type BucketDef = (typeof INTENT_BUCKETS)[number];
 // Floors that always run even when the user did not pick them - the auto-added
-// spine: reputation (3, the ONE branded persona), best-of / category (6), one
-// competitor comparison (1). Klimb adds these regardless of the user's scope.
-const BUCKET_FLOOR: Record<string, number> = { reputation: 3, "best-of": 6, comparison: 1 };
+// spine: best-of / category (7) and one competitor comparison (1). Every prompt
+// is UNBRANDED - the brand is never named in a query.
+const BUCKET_FLOOR: Record<string, number> = { "best-of": 7, comparison: 1 };
 
 // Resolve which buckets to generate for a given scope. `undefined` -> the full
 // default set (~29, back-compat). A selection keeps picked buckets at full quota
@@ -145,29 +144,29 @@ ${country ? `Primary market: ${country}` : ""}
 
 FIRST, silently infer from the data block (do NOT output this reasoning): (1) the EXACT category in plain buyer words; (2) the BUSINESS TYPE - software/app product, physical product (e-commerce goods), local in-person service (clinic, salon, restaurant), or online/B2B service or agency; (3) the 6-8 best-known competitors / providers in this category AND market; (4) what buyers actually weigh (integrations, capabilities, location, format). Every prompt must use these real anchors, and the buckets must FIT the business type (see ADAPT THE BUCKETS).${i.localPin ? "\n\nTHIS IS A LOCAL IN-PERSON SERVICE: every prompt MUST pin a city / area / \"near me\", and the integration bucket = access (online booking, insurance accepted, hours / weekend), NEVER software integration." : ""}
 
-BRAND-NAMING RULE (critical): real buyers almost never name a brand. Designate EXACTLY ONE persona as a "reputation checker" - a current/prospective customer evaluating ${brand} directly. ALL reputation-bucket prompts belong to that ONE persona and DO name ${brand}. EVERY OTHER persona and EVERY OTHER bucket must NEVER mention ${brand} - they ask category / competitor / integration / capability questions where the win is AI surfacing ${brand} UNPROMPTED. Cluster the unbranded prompts around the category and "${target || "the brand's core use case"}".
+BRAND-NAMING RULE (critical): real buyers almost never name a brand, and here they NEVER do. EVERY persona and EVERY bucket must NEVER mention ${brand} - they ask category / competitor / integration / capability questions where the win is AI surfacing ${brand} UNPROMPTED. Cluster every prompt around the category and "${target || "the brand's core use case"}".
 
 Return ONLY a JSON object with exactly these keys:
 {
   "personas": [ { "label": "...", "description": "..." } ],   // ${i.personaCount} VIVID, SITUATIONAL buyers (a real person in a real situation, not a job title). Span the segments that actually buy in this category. label e.g. "Ops lead at a 200-person BPO scaling night shifts". description = one sentence on their situation + what they actually weigh.
-  "topics":   [ { "label": "..." } ],                          // the query-intent buckets you used: best-of, integration, comparison, alternatives, use-case, vertical, reputation, pricing-roi.
-  "prompts":  [ { "text": "...", "persona": "...", "topic": "...", "intent": "informational|commercial|comparison|transactional", "branded": true|false, "demand": "low|medium|high" } ]   // EXACTLY ${total}, distributed across the INTENT QUOTAS below. topic = EXACTLY one of best-of|integration|comparison|alternatives|use-case|vertical|reputation|pricing-roi (no other value). branded=true ONLY for reputation prompts. persona = one of the labels above. demand = your honest directional estimate of how often a real buyer asks this (lean on the keywords + real queries above).
+  "topics":   [ { "label": "..." } ],                          // the query-intent buckets you used: best-of, integration, comparison, alternatives, use-case, vertical, pricing-roi.
+  "prompts":  [ { "text": "...", "persona": "...", "topic": "...", "intent": "informational|commercial|comparison|transactional", "branded": false, "demand": "low|medium|high" } ]   // EXACTLY ${total}, distributed across the INTENT QUOTAS below. topic = EXACTLY one of best-of|integration|comparison|alternatives|use-case|vertical|pricing-roi (no other value). branded is ALWAYS false - no prompt names the brand. persona = one of the labels above. demand = your honest directional estimate of how often a real buyer asks this (lean on the keywords + real queries above).
 }
 
 RELEVANCE IS NON-NEGOTIABLE: every persona, topic, and prompt MUST be specific to THIS category and grounded in the keywords + queries + competitors in the data block - a real buyer evaluating tools in this exact category would type it into ChatGPT. Never generic business or SaaS questions ("how do I improve productivity") that fit any product.
 
 THE MANDATORY ANCHOR (the core rule). Every prompt MUST contain at least ONE of these in plain words:
   (a) the product category said outright, in the buyer's words (inferred from the data); OR
-  (b) a named competitor from the data block (or, if none are configured, a well-known product in this exact category) - the brand "${brand}" may appear ONLY in the reputation bucket, nowhere else; OR
+  (b) a named competitor from the data block (or, if none are configured, a well-known product in this exact category) - the brand "${brand}" must NEVER appear in any prompt; OR
   (c) a specific named integration that buyers in this category use; OR
   (d) a specific named capability of this category.
 A prompt that says "tool / software / system / something / these tools / a solution" with NONE of (a)-(d) attached is AUTO-REJECTED - rewrite it until it anchors.
 
 INTENT QUOTAS - generate to these buckets. Produce EXACTLY ${total} prompts${i.compact
-    ? `, with EACH of the ${i.personaCount} personas getting EXACTLY 2 prompts - no more, no fewer. ONE persona is the reputation checker and owns BOTH reputation prompts; the other ${i.personaCount - 1} personas each own exactly 2 prompts drawn from the buckets below (spread across personas as fits their situation)`
-    : `, spreading the ${i.personaCount} personas and varied segments WITHIN the buckets (the reputation bucket is ONE persona only)`}. Generate the reputation bucket FIRST as a hard floor:
+    ? `, with EACH of the ${i.personaCount} personas getting EXACTLY 2 prompts - no more, no fewer, drawn from the buckets below (spread across personas as fits their situation)`
+    : `, spreading the ${i.personaCount} personas and varied segments WITHIN the buckets`}. Hit the highest-signal buckets (best-of / comparison / integration) first:
 ${quotaLines}
-No two prompts may be paraphrases - vary the constraint every time (team size, segment, integration, capability, price ceiling, region). If a bucket would be short, replace the softest line elsewhere to fill it; never drop the reputation floor.
+No two prompts may be paraphrases - vary the constraint every time (team size, segment, integration, capability, price ceiling, region). If a bucket would be short, replace the softest line elsewhere to fill it.
 
 ADAPT THE BUCKETS TO THE BUSINESS TYPE (the 8 buckets stay; two change shape so they never produce nonsense):
 - INTEGRATION bucket:
@@ -179,7 +178,7 @@ ADAPT THE BUCKETS TO THE BUSINESS TYPE (the 8 buckets stay; two change shape so 
 - BEST-OF bucket: for a LOCAL service ALWAYS pin a city / area / "near me". Otherwise pin a real constraint (size, capability, budget).
 TOPIC ACCURACY: only label a prompt "integration" when the integration / compatibility / how-you-get-it (booking, subscription, where-to-buy) IS the actual ask. If it merely mentions a feature, quality, or scenario, label it "use-case" or "best-of" instead.
 
-REPUTATION vs DISCOVERY: ONLY the 3 reputation prompts (one persona) name ${brand}. Everything else is UNBRANDED - the real signal is whether AI recommends ${brand} when the buyer does NOT know it yet. Comparisons are competitor-vs-competitor; alternatives are "alternatives to a competitor". If you catch yourself writing ${brand} outside the reputation bucket, rewrite it unbranded.
+FULLY UNBRANDED: NEVER name ${brand} in ANY prompt. Every question must be one a buyer asks BEFORE they know ${brand} exists - the real signal is whether AI recommends ${brand} unprompted. Comparisons are competitor-vs-field; alternatives are "alternatives to a competitor". If you catch yourself writing ${brand} anywhere, rewrite it unbranded.
 
 HUMAN VOICE (keep the texture, force the specificity back in):
 - First person, present tense, conversational, lowercase ok ("i'm looking for", "we're about 60 people", "honestly which is...").
@@ -203,15 +202,12 @@ PER-LINE SELF-CHECK (run silently on every line; discard + regenerate if any ans
   5. HUMAN + GRAMMAR: first person, natural, a COMPLETE grammatical sentence a person would really type (no garbled stems, no missing verb, never starts with a bare third-person verb like "suggests" / "provides"), hyphens only, no headline/survey-speak? If no -> rewrite (do not discard).
 
 GOOD shape (human voice AND forces named products - substitute the real category/competitor/integration):
-UNBRANDED (most personas - NEVER name the brand):
+UNBRANDED (ALL personas - NEVER name the brand):
 - "what's the best [category] in [market] right now for a 60-person team, ideally something not too invasive?"
 - "is [competitor] still the best [category] for a remote team, or are there better-value alternatives worth a look?"
 - "which [category] tools actually integrate with [the PM tool] and [the chat tool]? we live in those and don't want a separate silo."
 - "any solid alternatives to [competitor] that handle [a specific capability] as well or better?"
 - "i need to [do a specific job with a named capability] for a 30-person team - which [category] tools actually do that well?"
-REPUTATION (the ONE branded persona only):
-- "is [brand] worth it for a 25-person startup, and what's the cost per user?"
-- "what are people actually saying about [brand] - any real complaints or red flags i should know?"
 BAD (never write like this):
 - "Top [category] solutions for compliance-conscious enterprises"  (SEO headline, Title Case, plural "solutions")
 - "are there tools that can help us align without being creepy?"  (no category/capability, nothing nameable)
@@ -241,19 +237,17 @@ export async function generatePromptSet(input: GeneratePromptInput): Promise<Gen
   // Signup auto-run (owner-directed cost cut): exactly 6 personas x 2 prompts
   // each = 12 total, ChatGPT-only (the caller - runAiVisibilityNow's onboarding
   // path - passes engines: ["chatgpt"] so Claude/Perplexity never even run until
-  // real keys are added). Reputation stays isolated to ONE persona (both of their
-  // 2 prompts); the other 5 personas' 10 prompts spread across the remaining
-  // buckets, prioritizing the highest-signal ones (best-of/comparison/integration)
+  // real keys are added). All 12 prompts are UNBRANDED, spread across the buckets
+  // and prioritizing the highest-signal ones (best-of/comparison/integration)
   // first. `compact` is exclusively used by the onboarding orchestrator - safe to
   // redefine its shape without touching manual runs or the weekly cron.
   const effectivePersonaCount = input.compact ? 6 : personaCount;
   if (input.compact) {
     buckets = [
-      { ...INTENT_BUCKETS.find((b) => b.label === "reputation")!, quota: 2 },
-      { ...INTENT_BUCKETS.find((b) => b.label === "best-of")!, quota: 2 },
+      { ...INTENT_BUCKETS.find((b) => b.label === "best-of")!, quota: 3 },
       { ...INTENT_BUCKETS.find((b) => b.label === "comparison")!, quota: 2 },
       { ...INTENT_BUCKETS.find((b) => b.label === "integration")!, quota: 2 },
-      { ...INTENT_BUCKETS.find((b) => b.label === "alternatives")!, quota: 1 },
+      { ...INTENT_BUCKETS.find((b) => b.label === "alternatives")!, quota: 2 },
       { ...INTENT_BUCKETS.find((b) => b.label === "use-case")!, quota: 1 },
       { ...INTENT_BUCKETS.find((b) => b.label === "vertical")!, quota: 1 },
       { ...INTENT_BUCKETS.find((b) => b.label === "pricing-roi")!, quota: 1 },
