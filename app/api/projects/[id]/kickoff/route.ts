@@ -7,6 +7,7 @@ import { runPageSpeed } from "@/lib/cron/phase-4-cwv";
 import { recalculatePillarScores } from "@/lib/cron/phase-7-pillars";
 import { runIntelligencePhase } from "@/lib/cron/phase-9-intelligence";
 import { runCannibalization, runFreshness } from "@/lib/cron/phase-10-gsc-ga4-weekly";
+import { runCompetitorKeywordPhase } from "@/lib/cron/phase-11-competitor-keywords";
 import { verifyProjectAccess } from "@/lib/auth/verify-access";
 import { env } from "@/lib/env";
 import type { Project } from "@/lib/types/database";
@@ -19,7 +20,7 @@ import type { Project } from "@/lib/types/database";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const PHASES = ["audit", "apify", "pagespeed", "intelligence", "competitors", "analytics", "pillars"] as const;
+const PHASES = ["audit", "apify", "pagespeed", "intelligence", "competitor_keywords", "competitors", "analytics", "pillars"] as const;
 type Phase = typeof PHASES[number];
 
 interface JobRow {
@@ -107,6 +108,12 @@ async function runPhase(phase: Phase, project: Project) {
     }
     case "intelligence": {
       return await runIntelligencePhase(admin, project);
+    }
+    case "competitor_keywords": {
+      // santhej/website-traffic-intel — own phase (not folded into
+      // "intelligence") so a slow keyword_gap run for one competitor can't
+      // blow the same 60s budget the 5-actor intelligence chain already uses.
+      return await runCompetitorKeywordPhase(admin, project);
     }
     case "competitors": {
       // Fan-out analyze each competitor in parallel (capped at 5 concurrent).

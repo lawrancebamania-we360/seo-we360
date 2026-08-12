@@ -39,7 +39,7 @@ const CATALOG: Record<Exclude<IntegrationProvider, "supabase">, Omit<Integration
   apify: {
     provider: "apify",
     name: "Apify",
-    description: "Powers blog discovery + full intelligence layer: SERP tracking, AI Overview citations, backlinks, Domain Authority, content gap. ~$1.30/project/month.",
+    description: "Powers blog discovery + full intelligence layer: SERP tracking, AI Overview citations, backlinks, Domain Authority, content gap, competitor keyword rankings. ~$2.40/project/month (rises from ~$2.10 after the santhej actor's Aug 23, 2026 price change).",
     icon: "🕷️",
     iconBg: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
     envVars: ["APIFY_TOKEN", "APIFY_ACTOR_ID"],
@@ -60,6 +60,7 @@ const CATALOG: Record<Exclude<IntegrationProvider, "supabase">, Omit<Integration
       { title: "Backlink profile", description: "pro100chok/ahrefs-seo-tools — referring domains, top anchors, dofollow/nofollow split.", cadence: "monthly", costEstimate: "$1.00/project" },
       { title: "Domain Authority (you + competitors)", description: "zhorex/domain-authority-checker — DA score for your domain and all tracked competitors.", cadence: "monthly", costEstimate: "$0.02/project" },
       { title: "Content gap vs competitors", description: "apilab/ai-content-gap-agent — missing subtopics, keyword ideas, outline suggestions.", cadence: "monthly", costEstimate: "$0.16/project" },
+      { title: "Competitor keyword rankings + gap analysis", description: "santhej/website-traffic-intel — per-competitor top keywords, keyword count, and genuine ranking gaps vs your domain. Powers the Competitors page's \"What they rank for\" boards and Keyword gap panel.", cadence: "monthly", costEstimate: "~$0.77–1.07/project (5 competitors; rises after Aug 23, 2026)" },
     ],
     docsUrl: "https://apify.com/store",
   },
