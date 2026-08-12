@@ -3,14 +3,15 @@
 // discussion: $0.10/domain overview [$0.16 from 2026-08-23], $0.05/keyword-gap
 // comparison, $0.001 start fee — no subscription).
 //
-// UNVERIFIED OUTPUT SCHEMA: the actor's input schema is documented, but its
-// per-item OUTPUT field names are not published in detail. We parse
-// defensively with multiple plausible key aliases (same approach the
-// apilab/ai-content-gap-agent wrapper needed after its documented schema
-// turned out to be wrong — see intelligence.ts). Run
-// `npx tsx scripts/debug-santhej-actor.ts <domain>` against a real APIFY_TOKEN
-// and true up the aliases below against the actual response before relying on
-// this in production.
+// OUTPUT SCHEMA verified 2026-08-12 via `npx tsx scripts/debug-santhej-actor.ts`
+// against a real token. Two things the documented input schema didn't reveal:
+//   1. Every dataset item is snake_case (estimated_monthly_organic_traffic,
+//      organic_keyword_count, search_volume, ...), not camelCase.
+//   2. Each run's dataset includes a trailing `run_summary` record alongside
+//      the real data record(s) — must filter on `record_type`, not just map
+//      every item. `keyword_gap` mode in particular returns ONE record per
+//      target/competitor pair with the actual keyword rows NESTED under
+//      `shared_keywords`, not one record per keyword.
 
 const APIFY_BASE = "https://api.apify.com/v2/acts";
 const DEFAULT_TIMEOUT_MS = 55_000;
@@ -80,33 +81,14 @@ const START_FEE = 0.001;
 // per domain regardless of batching.
 // ==========================================================================
 interface OverviewActorItem {
+  record_type?: string;
   domain?: string;
-  target?: string;
-  website?: string;
-  estimatedMonthlyTraffic?: number;
-  monthlyTraffic?: number;
-  organicTraffic?: number;
-  traffic?: number;
-  totalKeywords?: number;
-  keywordsRanked?: number;
-  rankedKeywords?: number;
-  organicKeywords?: number;
-  topKeywords?: Array<{
+  estimated_monthly_organic_traffic?: number;
+  organic_keyword_count?: number;
+  top_keywords?: Array<{
     keyword?: string;
-    term?: string;
     position?: number;
-    rank?: number;
-    volume?: number;
-    searchVolume?: number;
-    cpc?: number;
-  }>;
-  keywords?: Array<{
-    keyword?: string;
-    term?: string;
-    position?: number;
-    rank?: number;
-    volume?: number;
-    searchVolume?: number;
+    search_volume?: number;
     cpc?: number;
   }>;
 }
@@ -138,25 +120,24 @@ export async function runCompetitorDomainOverview(args: {
   }, args.timeoutMs);
   if (!items) return { results: [], cost_estimate_usd: 0 };
 
-  const results: CompetitorDomainOverview[] = items.map((it) => {
-    const domain = cleanDomain(it.domain ?? it.target ?? it.website ?? "");
-    const rawKeywords = it.topKeywords ?? it.keywords ?? [];
-    return {
-      domain,
-      estimated_traffic:
-        it.estimatedMonthlyTraffic ?? it.monthlyTraffic ?? it.organicTraffic ?? it.traffic ?? null,
-      keywords_ranked:
-        it.totalKeywords ?? it.keywordsRanked ?? it.rankedKeywords ?? it.organicKeywords ?? rawKeywords.length,
-      top_keywords: rawKeywords
-        .map((k) => ({
-          keyword: k.keyword ?? k.term ?? "",
-          position: k.position ?? k.rank ?? null,
-          volume: k.volume ?? k.searchVolume ?? null,
-          cpc: k.cpc ?? null,
-        }))
-        .filter((k) => k.keyword.length > 0),
-    };
-  }).filter((r) => r.domain.length > 0);
+  const results: CompetitorDomainOverview[] = items
+    .filter((it) => it.record_type == null || it.record_type === "domain_overview")
+    .map((it) => {
+      const rawKeywords = it.top_keywords ?? [];
+      return {
+        domain: cleanDomain(it.domain ?? ""),
+        estimated_traffic: it.estimated_monthly_organic_traffic ?? null,
+        keywords_ranked: it.organic_keyword_count ?? null,
+        top_keywords: rawKeywords
+          .map((k) => ({
+            keyword: k.keyword ?? "",
+            position: k.position ?? null,
+            volume: k.search_volume ?? null,
+            cpc: k.cpc ?? null,
+          }))
+          .filter((k) => k.keyword.length > 0),
+      };
+    }).filter((r) => r.domain.length > 0);
 
   const cost = domains.length * overviewPricePerDomain() + START_FEE;
   return { results, cost_estimate_usd: Number(cost.toFixed(4)) };
@@ -165,18 +146,17 @@ export async function runCompetitorDomainOverview(args: {
 // ==========================================================================
 // "keyword_gap" mode — one target-vs-competitor pair per call.
 // ==========================================================================
-interface GapActorItem {
+interface GapKeywordRow {
   keyword?: string;
-  term?: string;
-  targetPosition?: number | null;
-  target_position?: number | null;
-  ourPosition?: number | null;
-  competitorPosition?: number;
-  competitor_position?: number;
-  rank?: number;
-  volume?: number;
-  searchVolume?: number;
+  search_volume?: number;
   cpc?: number;
+  target_position?: number | null;
+  competitor_position?: number | null;
+}
+
+interface GapActorItem {
+  record_type?: string;
+  shared_keywords?: GapKeywordRow[];
 }
 
 export interface CompetitorKeywordGapRow {
@@ -224,13 +204,17 @@ export async function runCompetitorKeywordGap(args: {
   }, args.timeoutMs);
   if (!items) return { results: [], cost_estimate_usd: 0 };
 
-  const rows: CompetitorKeywordGapRow[] = items.map((it) => ({
-    keyword: it.keyword ?? it.term ?? "",
-    our_position: it.targetPosition ?? it.target_position ?? it.ourPosition ?? null,
-    competitor_position: it.competitorPosition ?? it.competitor_position ?? it.rank ?? null,
-    volume: it.volume ?? it.searchVolume ?? null,
-    cpc: it.cpc ?? null,
-  })).filter((r) => r.keyword.length > 0 && r.competitor_position != null);
+  const rows: CompetitorKeywordGapRow[] = items
+    .filter((it) => it.record_type == null || it.record_type === "keyword_gap")
+    .flatMap((it) => it.shared_keywords ?? [])
+    .map((k) => ({
+      keyword: k.keyword ?? "",
+      our_position: k.target_position ?? null,
+      competitor_position: k.competitor_position ?? null,
+      volume: k.search_volume ?? null,
+      cpc: k.cpc ?? null,
+    }))
+    .filter((r) => r.keyword.length > 0 && r.competitor_position != null);
 
   // Keep genuine GAPS only — the actor's mode returns the full overlap set
   // (keywords both sides rank for), but the panel promises "terms rivals rank
