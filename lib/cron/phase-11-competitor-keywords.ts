@@ -78,7 +78,7 @@ export async function runCompetitorKeywordPhase(
       token,
       domains: competitors.map((c) => c.url),
       country: project.country,
-      timeoutMs: 30_000,
+      timeoutMs: 20_000,
     });
 
     // Match results back to competitor rows by normalized domain.
@@ -122,7 +122,7 @@ export async function runCompetitorKeywordPhase(
         projectDomain: project.domain,
         competitorDomain: comp.url,
         country: project.country,
-        timeoutMs: 7_000,
+        timeoutMs: 35_000,
       });
       return { comp, top: results.slice(0, 10), cost_estimate_usd };
     }));
