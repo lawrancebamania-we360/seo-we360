@@ -12,18 +12,21 @@
 //   8. What they rank for (per-rival keyword boards)          ← REAL delete
 //   (9. Add-competitor modal lives in competitor-dialogs.tsx, opened from the rail)
 //
-// DATA MODEL: the owner approved representative demo data so this screen renders
-// POPULATED like the comp (rank tracking that would compute these metrics live
-// isn't shipped yet). The real, live signals are still kept where the app
-// provides them: the competitor list + names (the rail, scorecard, donut and
-// keyword boards weave in the real project/competitor names), the real AI share
-// of voice for the KPI when a citation run exists, and the real add/delete
-// competitor mutations. Everything the app can't yet measure — the weekly
-// visibility trend, the head-to-head numbers (visibility / avg-pos / keywords /
-// AI-citations / domain-rating / content / site-health), the keyword-gap
-// volumes/intents/positions, and per-rival keyword positions/volumes — comes
-// from the clearly-labelled DEMO_BENCHMARK constant below. All colours resolve
-// to brand tokens, keeping this file style-drift clean.
+// DATA MODEL: the owner approved representative demo data so this screen stays
+// POPULATED even for brand-new projects or metrics we can't measure yet. Real
+// data now covers: the competitor list + names (rail, scorecard, donut, keyword
+// boards), Share of voice + AI citations (per brand, from the AI Visibility
+// citation runs — lib/data/competitor-citations.ts), Domain Rating (per domain,
+// from the zhorex/domain-authority-checker Apify actor — already collected
+// monthly by phase-9-intelligence.ts), and — as of the santhej/website-traffic-
+// intel integration — the "Keyword gap" panel and each rival's ranked-keyword
+// list + keyword count (lib/cron/phase-11-competitor-keywords.ts, monthly).
+// Each of those falls back to the DEMO_BRANDS numbers per-brand when no real
+// snapshot exists yet for that competitor (e.g. right after it's added, before
+// the next monthly refresh) — never a demo KEYWORD STRING standing in as real,
+// only aggregate numbers. Still demo/unmeasured: the weekly visibility trend,
+// avg-position, and site health. All colours resolve to brand tokens, keeping
+// this file style-drift clean.
 
 import * as React from "react";
 import { Megaphone, Sparkles } from "lucide-react";
@@ -35,6 +38,12 @@ import { NewCompetitorDialog, DeleteCompetitorButton } from "@/components/sectio
 import type { Competitor } from "@/lib/types/database";
 import type { CompetitorCitationStats } from "@/lib/data/competitor-citations";
 import type { CompetitorSiteHealthRow } from "@/lib/data/competitor-site-health";
+import type {
+  CompetitorKeywordSnapshot,
+  CompetitorKeywordGap,
+  DomainRating,
+} from "@/lib/data/competitor-keyword-intel";
+import { formatVolume } from "@/lib/ui-helpers";
 
 // Categorical series palette — all brand tokens (usable directly as an SVG
 // stroke / conic segment; no raw hex / banned palette classes). Maps 1:1 to the
@@ -204,22 +213,6 @@ const DEMO_KPIS: { label: string; value: string; rank: string; delta: string; ic
   },
 ];
 
-// Keyword gap — leaderIndex points at a DEMO_BRANDS slot so the leader logo picks
-// up the real (woven) competitor name/logo when one exists at that slot.
-// Real competitor rank-tracking (keyword gap + per-rival keyword boards) isn't
-// built yet — render an honest "coming soon" state instead of the placeholder
-// demo keywords, so a project never sees another industry's data as its own.
-// Flip to true once real competitor keyword/DR data is wired in.
-const BENCHMARK_LIVE = false;
-
-const DEMO_GAPS: { kw: string; vol: string; intent: string; leaderIndex: number; our: string; priority: "High" | "Medium" | "Low" }[] = [
-  { kw: "skydiving cost india", vol: "8.1K", intent: "Commercial", leaderIndex: 1, our: "#12", priority: "High" },
-  { kw: "indoor skydiving bangalore", vol: "3.6K", intent: "Commercial", leaderIndex: 2, our: "—", priority: "High" },
-  { kw: "paragliding vs skydiving", vol: "2.4K", intent: "Informational", leaderIndex: 4, our: "—", priority: "Medium" },
-  { kw: "tandem jump training", vol: "1.9K", intent: "Commercial", leaderIndex: 3, our: "#8", priority: "Medium" },
-  { kw: "skydiving license india", vol: "1.2K", intent: "Commercial", leaderIndex: 1, our: "#15", priority: "Low" },
-];
-
 // Same canonical day-based lookback set as Overview. The competitor benchmark
 // numbers here are approved demo data (rank tracking that would compute a real
 // time series isn't shipped), so the control re-labels the view but the metrics
@@ -232,6 +225,13 @@ const COMPETITOR_PRESETS: RangePreset[] = [
   { value: "all", label: "All time" },
 ];
 
+// Strip protocol/www/trailing-slash — matches the normalization phase-9 /
+// phase-11 apply before writing `domain_authority.domain` and
+// `competitor_keyword_snapshots.domain`, so lookups by raw competitor.url hit.
+function cleanDomain(d: string): string {
+  return d.replace(/^https?:\/\//, "").replace(/\/$/, "").replace(/^www\./, "");
+}
+
 export function CompetitorsScreen({
   competitors,
   projectId,
@@ -239,6 +239,9 @@ export function CompetitorsScreen({
   projectDomain,
   canManage,
   citationStats,
+  keywordSnapshots,
+  keywordGaps,
+  domainRatings,
   rangeValue,
   rangeLabel,
   rangeFrom = null,
@@ -250,6 +253,12 @@ export function CompetitorsScreen({
   projectDomain: string;
   canManage: boolean;
   citationStats: CompetitorCitationStats;
+  // Real per-competitor keyword data (santhej/website-traffic-intel, monthly)
+  // and Domain Rating (zhorex/domain-authority-checker, monthly) — see
+  // lib/data/competitor-keyword-intel.ts. Keyed by competitor.id / clean domain.
+  keywordSnapshots: Map<string, CompetitorKeywordSnapshot>;
+  keywordGaps: CompetitorKeywordGap[];
+  domainRatings: Map<string, DomainRating>;
   // siteHealth is still supplied by the route (real PageSpeed data), but the
   // scorecard's site-health column renders the demo benchmark to match the comp,
   // so it is intentionally not consumed here.
@@ -267,25 +276,52 @@ export function CompetitorsScreen({
       ? `${rangeDayLabel(rangeFrom)} – ${rangeDayLabel(rangeTo)}`
       : COMPETITOR_PRESETS.find((p) => p.value === activeRangeValue)?.label ?? "Last 90 days");
 
-  // ── Weave real names/logos over the demo brand slots ──────────────────────
+  // ── Weave real names/logos/metrics over the demo brand slots ──────────────
   // Slot 0 = the project ("YOU"); slots 1..n = real competitors; anything beyond
   // the real set falls back to the demo brand name so the board stays populated.
-  type Brand = DemoBrand & { domain: string | null; you: boolean; competitorId: string | null; color: string };
+  type Brand = DemoBrand & {
+    domain: string | null;
+    you: boolean;
+    competitorId: string | null;
+    color: string;
+    keywordSnapshot: CompetitorKeywordSnapshot | null;
+  };
   const realSlots: { name: string; domain: string | null; competitorId: string | null }[] = [
     { name: projectName || DEMO_BRANDS[0].name, domain: projectDomain || null, competitorId: null },
     ...competitors.map((c) => ({ name: c.name, domain: c.url ?? null, competitorId: c.id })),
   ];
+  const citationById = new Map(citationStats.competitors.filter((c) => c.id).map((c) => [c.id as string, c]));
   const brandCount = Math.max(DEMO_BRANDS.length, realSlots.length);
   const brands: Brand[] = Array.from({ length: brandCount }, (_, i) => {
     const demo = DEMO_BRANDS[i % DEMO_BRANDS.length];
     const real = realSlots[i];
+    const competitorId = i === 0 ? null : (real?.competitorId ?? null);
+    const domain = real?.domain ?? null;
+
+    // Real Share of voice + AI citations — the project uses citationStats.project,
+    // competitors match by id. Falls back to the demo number per-brand when no
+    // citation run has touched this brand yet.
+    const citationRow = i === 0
+      ? (citationStats.hasData ? citationStats.project : null)
+      : (competitorId ? citationById.get(competitorId) ?? null : null);
+
+    // Real Domain Rating — domain_authority already covers the project domain
+    // + every tracked competitor (phase-9's daTask runs for all of them).
+    const drRow = domain ? domainRatings.get(cleanDomain(domain)) : undefined;
+
+    const keywordSnapshot = competitorId ? keywordSnapshots.get(competitorId) ?? null : null;
+
     return {
       ...demo,
       name: real?.name ?? demo.name,
-      domain: real?.domain ?? null,
+      domain,
       you: i === 0,
-      competitorId: i === 0 ? null : (real?.competitorId ?? null),
+      competitorId,
       color: SERIES[i % SERIES.length],
+      sov: citationRow?.sov ?? demo.sov,
+      aiCitations: citationRow?.citations ?? demo.aiCitations,
+      dr: drRow?.score ?? demo.dr,
+      keywordSnapshot,
     };
   });
 
@@ -297,9 +333,13 @@ export function CompetitorsScreen({
     return asc ? Math.min(...vals) : Math.max(...vals);
   };
 
-  // Share of voice — prefer the real AI share-of-voice for the KPI headline when
-  // a citation run exists; the donut keeps the comp's demo split for fidelity.
+  // KPI headline + delta — real once a citation run exists. No historical
+  // comparison is computed yet, so a real value gets a neutral delta rather
+  // than the comp's fabricated "+3.2 pts" sitting next to a real number.
   const kpiSov = citationStats.hasData ? `${citationStats.project.sov}%` : DEMO_KPIS[0].value;
+  const kpiSovDelta = citationStats.hasData ? "—" : DEMO_KPIS[0].delta;
+  const kpiCitations = citationStats.hasData ? String(citationStats.project.citations) : DEMO_KPIS[1].value;
+  const kpiCitationsDelta = citationStats.hasData ? "—" : DEMO_KPIS[1].delta;
   const donutTotal = donutBrands.reduce((s, b) => s + b.sov, 0) || 1;
   const donutSegs: string[] = [];
   let sweep = 0;
@@ -352,9 +392,9 @@ export function CompetitorsScreen({
           <StatCard
             key={k.label}
             label={k.label}
-            value={i === 0 ? kpiSov : k.value}
+            value={i === 0 ? kpiSov : kpiCitations}
             rank={k.rank}
-            delta={k.delta}
+            delta={i === 0 ? kpiSovDelta : kpiCitationsDelta}
             icon={k.icon}
             tint={k.tint}
           />
@@ -447,32 +487,37 @@ export function CompetitorsScreen({
         <section className="rounded-2xl border border-border bg-card px-6 pb-3 pt-6 shadow-sm">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="font-heading text-[17px] font-semibold tracking-tight text-foreground">Keyword gap</h2>
-            {BENCHMARK_LIVE && (
+            {keywordGaps.length > 0 && (
               <span className="rounded-full bg-ember-50 px-2.5 py-0.5 text-xs font-semibold text-ember-600">
-                {DEMO_GAPS.length} opportunities
+                {keywordGaps.length} opportunities
               </span>
             )}
           </div>
           <p className="mt-1 mb-2 text-[12.5px] text-slate-400">
             High-value terms rivals rank for where you&rsquo;re weak or absent.
           </p>
-          {!BENCHMARK_LIVE && (
+          {keywordGaps.length === 0 && (
             <p className="border-t border-slate-150 py-6 text-center text-[13px] text-slate-400">
               Competitor keyword gaps will appear here once rank tracking is live.
             </p>
           )}
           <div>
-            {BENCHMARK_LIVE && DEMO_GAPS.map((g) => {
-              const leader = brands[g.leaderIndex] ?? brands[0];
-              const missing = g.our === "—";
+            {keywordGaps.map((g) => {
+              const leader = brands.find((b) => b.competitorId === g.competitorId) ?? brands[0];
+              const missing = g.ourPosition == null;
+              const vol = formatVolume(g.volume)?.replace(/\/mo$/, "") ?? "—";
               return (
-                <div key={g.kw} className="flex items-center gap-3 border-t border-slate-150 py-3">
+                <div key={`${g.competitorId}-${g.keyword}`} className="flex items-center gap-3 border-t border-slate-150 py-3">
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13.5px] font-semibold text-slate-800">{g.kw}</div>
+                    <div className="truncate text-[13.5px] font-semibold text-slate-800">{g.keyword}</div>
                     <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-slate-400">
-                      <span>{g.vol}/mo</span>
-                      <span>·</span>
-                      <span>{g.intent}</span>
+                      <span>{vol}/mo</span>
+                      {g.intent && (
+                        <>
+                          <span>·</span>
+                          <span>{g.intent}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <CompanyLogo
@@ -488,7 +533,7 @@ export function CompetitorsScreen({
                       missing ? "text-slate-350" : "text-slate-600",
                     )}
                   >
-                    {g.our}
+                    {missing ? "—" : `#${g.ourPosition}`}
                   </span>
                   <span
                     className={cn(
@@ -564,8 +609,12 @@ function StatCard({
   );
 }
 
-// Green (or red) delta chip with the comp's up-arrow glyph.
+// Green (or red) delta chip with the comp's up-arrow glyph. Renders as a plain
+// neutral dash — no arrow — when there's no historical comparison yet (text === "—").
 function Delta({ text, up }: { text: string; up: boolean }) {
+  if (text === "—") {
+    return <span className="text-[12.5px] font-semibold text-slate-400">—</span>;
+  }
   return (
     <span className={cn("inline-flex items-center gap-0.5 text-[12.5px] font-semibold", up ? "text-success-strong" : "text-error")}>
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" className={up ? undefined : "rotate-180"}>
@@ -608,13 +657,18 @@ function posPillClass(pos: number): string {
 // ---- "What they rank for" per-rival board — comp shape: 34px logo, name (+ YOU
 // on the project), "N keywords ranked", DR pill, then five keyword rows with a
 // position pill + monthly volume. Real competitors keep their delete control.
+// Domain Rating is always shown (a blended real-or-demo aggregate, like the
+// scorecard column); the keyword count + row list only render together once a
+// real monthly snapshot exists for this brand — never a fake keyword count
+// paired with a real "coming soon" list, or vice versa.
 function RivalBoard({
   brand: b,
   canManage,
 }: {
-  brand: DemoBrand & { domain: string | null; you: boolean; competitorId: string | null };
+  brand: DemoBrand & { domain: string | null; you: boolean; competitorId: string | null; keywordSnapshot: CompetitorKeywordSnapshot | null };
   canManage: boolean;
 }) {
+  const snap = b.keywordSnapshot;
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <div className="mb-4 flex items-center gap-2.5">
@@ -628,18 +682,28 @@ function RivalBoard({
               </span>
             )}
           </div>
-          {BENCHMARK_LIVE && <div className="mt-px text-xs text-slate-400">{b.keywords.toLocaleString()} keywords ranked</div>}
+          {snap && (
+            <div className="mt-px flex items-center gap-1.5 text-xs text-slate-400">
+              <span>{(snap.keywordsRanked ?? 0).toLocaleString()} keywords ranked</span>
+              {snap.keywordsRankedDelta != null && snap.keywordsRankedDelta !== 0 && (
+                <span className={snap.keywordsRankedDelta > 0 ? "font-semibold text-success-strong" : "font-semibold text-error"}>
+                  {snap.keywordsRankedDelta > 0 ? "+" : ""}
+                  {snap.keywordsRankedDelta} mo/mo
+                </span>
+              )}
+            </div>
+          )}
         </div>
-        {BENCHMARK_LIVE && <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-slate-600">DR {b.dr}</span>}
+        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-slate-600">DR {b.dr}</span>
         {canManage && b.competitorId && <DeleteCompetitorButton competitorId={b.competitorId} name={b.name} />}
       </div>
-      {BENCHMARK_LIVE ? b.topKeywords.map((k) => (
-        <div key={k.kw} className="flex items-center gap-2.5 border-t border-slate-150 py-2.5">
-          <span className={cn("flex h-6 min-w-6 items-center justify-center rounded-lg px-1.5 text-[11px] font-bold tabular-nums", posPillClass(k.pos))}>
-            #{k.pos}
+      {snap ? snap.topKeywords.slice(0, 5).map((k) => (
+        <div key={k.keyword} className="flex items-center gap-2.5 border-t border-slate-150 py-2.5">
+          <span className={cn("flex h-6 min-w-6 items-center justify-center rounded-lg px-1.5 text-[11px] font-bold tabular-nums", posPillClass(k.position ?? 99))}>
+            {k.position != null ? `#${k.position}` : "—"}
           </span>
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-700">{k.kw}</span>
-          <span className="shrink-0 font-mono text-xs text-slate-400">{k.vol}/mo</span>
+          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-700">{k.keyword}</span>
+          <span className="shrink-0 font-mono text-xs text-slate-400">{formatVolume(k.volume) ?? "—"}</span>
         </div>
       )) : (
         <p className="border-t border-slate-150 py-4 text-center text-[12.5px] text-slate-400">

@@ -29,6 +29,10 @@ export async function POST(
   const p = project as Project;
 
   // Run the 5-actor intelligence + cannibalization + freshness in parallel.
+  // Competitor keyword intelligence (santhej/website-traffic-intel) runs from
+  // its own /refresh-competitor-keywords endpoint with its own 60s Vercel
+  // function budget — see that route's header comment for why it isn't
+  // chained in here.
   const [intelligence, cannibalization, freshness] = await Promise.allSettled([
     runIntelligencePhase(admin, p),
     runCannibalization(admin, p),
