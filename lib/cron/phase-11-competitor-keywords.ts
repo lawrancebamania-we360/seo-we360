@@ -6,15 +6,18 @@ import { getApifyCreds } from "@/lib/integrations/secrets";
 // Phase 11 — competitor keyword intelligence (santhej/website-traffic-intel).
 // Runs monthly, from its OWN /refresh-competitor-keywords route (own 60s
 // Vercel function budget) rather than chained inside phase-9's request — up
-// to 6 sequential Apify calls (1 overview + up to 5 keyword_gap) would risk
-// blowing a shared 60s budget on top of phase-9's own ~80s. Timeouts below
-// are tuned tighter than phase-9's 55s default accordingly; a slow/timed-out
-// call degrades to 0 rows for that competitor rather than failing the phase.
+// to 21 Apify calls (1 overview + up to 20 keyword_gap) would blow a shared
+// 60s budget on top of phase-9's own ~80s, and even on its own budget would
+// blow it if run sequentially. Timeouts below are tuned tight accordingly; a
+// slow/timed-out call degrades to 0 rows for that competitor rather than
+// failing the phase.
 //
 //   1. One batched "overview" run across all tracked competitors → keyword
 //      count + top keywords per competitor (feeds "What they rank for").
-//   2. One "keyword_gap" run PER competitor, target=project vs competitor →
-//      genuine ranking gaps (feeds the "Keyword gap" panel).
+//   2. One "keyword_gap" run PER competitor, target=project vs competitor,
+//      fired CONCURRENTLY (not sequential) — 20 sequential 7s-timeout calls
+//      could take up to 140s, well past the 60s ceiling; run together they
+//      cost roughly one call's wall-clock time instead of the sum.
 
 export interface CompetitorKeywordPhaseResult {
   overview: { rows: number; skipped?: string; error?: string; cost_usd: number };
@@ -57,7 +60,7 @@ export async function runCompetitorKeywordPhase(
     .from("competitors")
     .select("id, url")
     .eq("project_id", project.id)
-    .limit(5);
+    .limit(20);
   const competitors = ((compRows ?? []) as Array<{ id: string; url: string }>);
   if (competitors.length === 0) {
     return {
@@ -75,7 +78,7 @@ export async function runCompetitorKeywordPhase(
       token,
       domains: competitors.map((c) => c.url),
       country: project.country,
-      timeoutMs: 20_000,
+      timeoutMs: 30_000,
     });
 
     // Match results back to competitor rows by normalized domain.
@@ -98,7 +101,8 @@ export async function runCompetitorKeywordPhase(
       .filter((r): r is NonNullable<typeof r> => r !== null);
 
     if (insertRows.length > 0) {
-      await supabase.from("competitor_keyword_snapshots").insert(insertRows);
+      const { error: insertError } = await supabase.from("competitor_keyword_snapshots").insert(insertRows);
+      if (insertError) throw new Error(`insert failed: ${insertError.message}`);
     }
     await finishRun(supabase, overviewRunId, "success", { rows_inserted: insertRows.length, cost_estimate_usd });
     overview = { rows: insertRows.length, cost_usd: cost_estimate_usd };
@@ -108,13 +112,11 @@ export async function runCompetitorKeywordPhase(
     overview = { rows: 0, error: msg, cost_usd: 0 };
   }
 
-  // ========== 2. Keyword gap — one call per competitor ==========
+  // ========== 2. Keyword gap — one call per competitor, fired concurrently ==========
   const gapRunId = await startRun(supabase, project.id);
   let gaps: { rows: number; error?: string; cost_usd: number };
   try {
-    let totalRows = 0;
-    let totalCost = 0;
-    for (const comp of competitors) {
+    const perCompetitor = await Promise.all(competitors.map(async (comp) => {
       const { results, cost_estimate_usd } = await runCompetitorKeywordGap({
         token,
         projectDomain: project.domain,
@@ -122,25 +124,29 @@ export async function runCompetitorKeywordPhase(
         country: project.country,
         timeoutMs: 7_000,
       });
-      totalCost += cost_estimate_usd;
-      const top = results.slice(0, 10);
-      if (top.length > 0) {
-        await supabase.from("competitor_keyword_gaps").insert(top.map((r) => ({
-          project_id: project.id,
-          competitor_id: comp.id,
-          keyword: r.keyword,
-          volume: r.volume,
-          cpc: r.cpc,
-          competitor_position: r.competitor_position,
-          our_position: r.our_position,
-          priority: r.priority,
-          intent: r.intent,
-        })));
-        totalRows += top.length;
-      }
+      return { comp, top: results.slice(0, 10), cost_estimate_usd };
+    }));
+
+    const insertRows = perCompetitor.flatMap(({ comp, top }) =>
+      top.map((r) => ({
+        project_id: project.id,
+        competitor_id: comp.id,
+        keyword: r.keyword,
+        volume: r.volume,
+        cpc: r.cpc,
+        competitor_position: r.competitor_position,
+        our_position: r.our_position,
+        priority: r.priority,
+        intent: r.intent,
+      }))
+    );
+    if (insertRows.length > 0) {
+      const { error: insertError } = await supabase.from("competitor_keyword_gaps").insert(insertRows);
+      if (insertError) throw new Error(`insert failed: ${insertError.message}`);
     }
-    await finishRun(supabase, gapRunId, "success", { rows_inserted: totalRows, cost_estimate_usd: totalCost });
-    gaps = { rows: totalRows, cost_usd: Number(totalCost.toFixed(4)) };
+    const totalCost = perCompetitor.reduce((sum, r) => sum + r.cost_estimate_usd, 0);
+    await finishRun(supabase, gapRunId, "success", { rows_inserted: insertRows.length, cost_estimate_usd: totalCost });
+    gaps = { rows: insertRows.length, cost_usd: Number(totalCost.toFixed(4)) };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await finishRun(supabase, gapRunId, "failed", { error_message: msg });
