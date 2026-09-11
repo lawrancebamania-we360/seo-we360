@@ -127,7 +127,7 @@ export async function setQuestionBrandOfInterest(input: {
       : error.message };
   }
 
-  revalidatePath("/dashboard/ai-visibility");
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
   return { ok: true };
 }
 
@@ -188,6 +188,6 @@ export async function setQuestionSourceFlag(input: {
     if (error) return { ok: false, error: missingTable(error.message) };
   }
 
-  revalidatePath("/dashboard/ai-visibility");
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
   return { ok: true };
 }

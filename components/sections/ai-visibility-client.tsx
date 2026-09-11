@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { AI_ENGINES, ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
+import { AI_ENGINES, ENGINE_LABEL, type AiEngine, type AiVisibilityCategory } from "@/lib/ai-citation/types";
 import type { AiVisibilityReport } from "@/lib/ai-citation/report";
 import type { Ga4AiReferral } from "@/lib/google/ga4";
 import { generateAiVisibilityPrompts, runAiVisibilityNow, resumeAiVisibilityRun, upsertOutreach, scoreOutreachDomains, draftOutreach } from "@/lib/actions/ai-visibility";
@@ -69,9 +69,12 @@ const DEMAND_TONE: Record<string, string> = {
 
 
 export function AiVisibilityClient({
-  projectId, personas, googleConnected, report, prompts, configuredEngines, canManage, aiReferral, sourceGap, outreach, competitors, suggestedTopics, defaultKeyword, scope, initialRun,
+  projectId, category, personas, googleConnected, report, prompts, configuredEngines, canManage, aiReferral, sourceGap, outreach, competitors, suggestedTopics, defaultKeyword, scope, initialRun,
 }: {
   projectId: string;
+  /** Which product this page scans/reports on - threaded into every run/generate
+   *  call so Employee Monitoring and Workforce Analytics stay independent. */
+  category: AiVisibilityCategory;
   personas: PersonaRow[];
   googleConnected: boolean;
   report: AiVisibilityReport;
@@ -179,7 +182,7 @@ export function AiVisibilityClient({
       createdAt: new Date().toISOString(),
     }));
     start(async () => {
-      const r = await runAiVisibilityNow({ project_id: projectId });
+      const r = await runAiVisibilityNow({ project_id: projectId, category });
       setBusy(null);
       const latest = await fetchRunStatus();
       // Did this attempt actually create a durable run row? Only if the latest
@@ -210,7 +213,7 @@ export function AiVisibilityClient({
   const genPrompts = () => {
     setBusy("gen");
     start(async () => {
-      const r = await generateAiVisibilityPrompts({ project_id: projectId });
+      const r = await generateAiVisibilityPrompts({ project_id: projectId, category });
       setBusy(null);
       if (r.ok) { toast.success(`Generated ${r.count ?? 0} buyer prompts across personas and topics.`); router.refresh(); }
       else toast.error(r.error ?? "Generation failed");

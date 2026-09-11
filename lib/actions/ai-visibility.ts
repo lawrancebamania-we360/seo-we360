@@ -180,7 +180,7 @@ export async function generateAiVisibilityPrompts(input: { project_id: string; c
       }
     }
     if (gate) await gate.record({ kind: "ai_call", feature: "ai_citation_prompts", cost_cents: estCents, user_id: user.id });
-    revalidatePath("/dashboard/ai-visibility");
+    revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
     return { ok: true, count: inserted };
   } catch (e) {
     if (gate) { try { await gate.release(); } catch { /* best-effort refund */ } }
@@ -211,7 +211,7 @@ export async function updatePersona(input: z.infer<typeof PersonaEdit>): Promise
   const { error } = await createAdminClient()
     .from("ai_citation_personas").update(patch).eq("id", persona_id).eq("project_id", project_id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility");
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
   return { ok: true };
 }
 
@@ -224,7 +224,7 @@ export async function togglePersona(input: z.infer<typeof PersonaToggle>): Promi
   const { error } = await createAdminClient()
     .from("ai_citation_personas").update({ active }).eq("id", persona_id).eq("project_id", project_id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility");
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
   return { ok: true };
 }
 
@@ -245,7 +245,7 @@ export async function addPersona(input: z.infer<typeof PersonaAdd>): Promise<{ o
     .insert({ project_id, label: label.trim(), description: description?.trim() || null, source: "user", active: true, position })
     .select("id").single();
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility");
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
   return { ok: true, id: (data as { id: string }).id };
 }
 
@@ -439,7 +439,7 @@ export async function upsertOutreach(input: {
   const { error } = await admin.from("ai_citation_outreach")
     .upsert(row as never, { onConflict: "project_id,source_domain" });
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility");
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
   return { ok: true };
 }
 
@@ -503,7 +503,7 @@ export async function draftOutreach(input: {
       drafted_at: new Date().toISOString(), created_by: user.id, updated_at: new Date().toISOString(),
     } as never, { onConflict: "project_id,source_domain" });
 
-    revalidatePath("/dashboard/ai-visibility");
+    revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
     return { ok: true, draft };
   } catch (e) {
     try { await gate.release(); } catch { /* best-effort refund */ }
@@ -584,7 +584,7 @@ export async function scoreOutreachDomains(input: { project_id: string; domains:
     const scoreByDomain = new Map(results.map((r) => [clean(r.domain), r.da_score]));
     const scores: Record<string, number | null> = {};
     for (const d of domains) scores[d] = scoreByDomain.get(d) ?? null;
-    revalidatePath("/dashboard/ai-visibility");
+    revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
     return { ok: true, scores };
   } catch (e) {
     try { await gate.release(); } catch { /* best-effort refund */ }
@@ -677,7 +677,7 @@ export async function runAiVisibilityNow(input: {
     { project_id, runs_confirmed: (scope?.runs_confirmed ?? 0) + 1, updated_at: new Date().toISOString() },
     { onConflict: "project_id" },
   );
-  revalidatePath("/dashboard/ai-visibility");
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
   return {
     ok: true, cited: sum.cited, mentioned: sum.mentioned, totalRuns: sum.totalRuns,
     truncated: sum.truncated, batchId: sum.batchId, remainingTasks: sum.remainingTasks,
@@ -704,7 +704,7 @@ export async function resumeAiVisibilityRun(input: {
     return { ok: false, error: res.summary?.error ?? res.skipped ?? res.closed ?? "Could not continue the run." };
   }
   const remainingTasks = res.summary?.remainingTasks ?? 0;
-  if (remainingTasks === 0) revalidatePath("/dashboard/ai-visibility");
+  if (remainingTasks === 0) { revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics"); }
   return { ok: true, remainingTasks, done: remainingTasks === 0 };
 }
 
@@ -752,7 +752,7 @@ export async function saveAiVisibilityScope(input: z.infer<typeof ScopeInput>): 
     updated_at: new Date().toISOString(),
   }, { onConflict: "project_id" });
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility");
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
   return { ok: true };
 }
 
@@ -799,7 +799,7 @@ export async function addScopeCompetitor(input: { project_id: string; url: strin
   const { data: ins, error } = await admin.from("competitors")
     .insert({ project_id: input.project_id, name, url: `https://${host}` }).select("id, name").single();
   if (error || !ins) return { ok: false, error: error?.message ?? "Could not add competitor." };
-  revalidatePath("/dashboard/ai-visibility");
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
   return { ok: true, id: ins.id, name: ins.name };
 }
 
@@ -810,7 +810,7 @@ export async function removeScopeCompetitor(input: { project_id: string; competi
   const admin = createAdminClient();
   const { error } = await admin.from("competitors").delete().eq("id", input.competitor_id).eq("project_id", input.project_id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility");
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
   return { ok: true };
 }
 

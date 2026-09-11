@@ -160,7 +160,7 @@ export async function classifyAnswerSentiment(input: { project_id: string }): Pr
         try { await gate.release(); } catch { /* nothing ran - refund the reservation */ }
       }
     }
-    if (result.classified > 0) revalidatePath("/dashboard/ai-visibility");
+    if (result.classified > 0) { revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics"); }
     return { ok: true, classified: result.classified, remaining: result.remaining };
   } catch (e) {
     if (gate) { try { await gate.release(); } catch { /* best-effort refund */ } }
