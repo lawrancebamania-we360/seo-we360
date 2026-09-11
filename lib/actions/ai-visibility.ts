@@ -25,7 +25,7 @@ import { runProjectCitations, estimateRunCostCents, resumeRunBatch } from "@/lib
 import { getOpportunityPools } from "@/lib/google/gsc-opportunities";
 import { profileForIndustry } from "@/lib/ai-citation/industry-profiles";
 import { configuredEngines } from "@/lib/ai-citation/engines";
-import type { AiEngine } from "@/lib/ai-citation/types";
+import { DEFAULT_CATEGORY, type AiEngine, type AiVisibilityCategory } from "@/lib/ai-citation/types";
 import { explainWhyCompetitorCited, type WhyCitedResult } from "@/lib/ai-citation/why-cited";
 import { runDomainAuthority } from "@/lib/apify/intelligence";
 import { getApifyCreds } from "@/lib/integrations/secrets";
@@ -570,6 +570,9 @@ export async function runAiVisibilityNow(input: {
   /** Onboarding-only sampling-depth override (e.g. { chatgpt: 2 }). Omitted ->
    *  today's behavior: the project's saved depth for chatgpt, defaults elsewhere. */
   nByEngine?: Partial<Record<AiEngine, number>>;
+  /** Which product this scan is for (the run-test modal passes the current
+   *  category page's value). Omitted -> workforce_analytics. */
+  category?: AiVisibilityCategory;
 }): Promise<RunNowResult> {
   const { project_id } = ProjectInput.parse(input);
   const a = await authProject(project_id);
@@ -597,13 +600,18 @@ export async function runAiVisibilityNow(input: {
   // Cooldown guard. The concurrency lock below only blocks SIMULTANEOUS runs -
   // once a run finishes (~30s) the lock releases, so an impatient second click
   // would launch a fresh metered run within the same minute and pay twice for
-  // LLM + Apify. Refuse a new run if one started within COOLDOWN_S. Cheap: hits
-  // the (project_id, created_at desc) index.
+  // LLM + Apify. Refuse a new run if one started within COOLDOWN_S. Scoped to
+  // THIS category - the two categories are independent products, so finishing
+  // an Employee Monitoring check must not block starting Workforce Analytics
+  // right after. Cheap: hits the (project_id, category, created_at desc) index
+  // (degrades to never-triggers if the category column isn't migrated yet).
   const COOLDOWN_S = 60;
+  const runCategory: AiVisibilityCategory = input.category ?? DEFAULT_CATEGORY;
   const { data: lastRun } = await createAdminClient()
     .from("ai_citation_runs")
     .select("created_at")
     .eq("project_id", project_id)
+    .eq("category", runCategory)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -622,6 +630,7 @@ export async function runAiVisibilityNow(input: {
     runProjectCitations(project_id, {
       engines, nByEngine: input.nByEngine ?? { chatgpt: depth }, userId: a.user.id,
       apifyToken: apifyToken ?? undefined, aioPromptCap: AIO_ONDEMAND_CAP,
+      category: runCategory,
     }),
   );
   if ((locked as { skipped?: string } | null)?.skipped === "locked") {

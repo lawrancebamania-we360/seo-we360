@@ -8,6 +8,17 @@
 // user-visible engine list (AI_ENGINES) - see engines/perplexity.ts's header.
 export type AiEngine = "chatgpt" | "claude" | "perplexity" | "google_aio" | "gemini";
 
+// We360 sells 2 products; AI Visibility scans + reports on each independently
+// (own prompts, own runs, own composite score), with room for more later. Every
+// prompt/run/batch/score row carries this (see the category migration).
+export type AiVisibilityCategory = "employee_monitoring" | "workforce_analytics";
+export const AI_VISIBILITY_CATEGORIES: AiVisibilityCategory[] = ["employee_monitoring", "workforce_analytics"];
+export const CATEGORY_LABEL: Record<AiVisibilityCategory, string> = {
+  employee_monitoring: "Employee Monitoring",
+  workforce_analytics: "Workforce Analytics",
+};
+export const DEFAULT_CATEGORY: AiVisibilityCategory = "workforce_analytics";
+
 // The user-visible/active roster. Perplexity intentionally excluded (retired,
 // not deleted - re-add it here to bring it back).
 export const AI_ENGINES: AiEngine[] = ["chatgpt", "claude", "gemini", "google_aio"];

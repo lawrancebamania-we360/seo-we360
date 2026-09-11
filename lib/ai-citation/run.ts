@@ -29,10 +29,11 @@ import { cleanCompetitorRows } from "./clean-inputs";
 import { configuredEngines, ENGINE_ADAPTERS } from "./engines";
 import { detectInAnswer } from "./detect";
 import { aiVisibilityComposite, positionScoreFrom, shareOfVoice } from "./report";
-import { AI_ENGINES, type AiEngine } from "./types";
+import { AI_ENGINES, DEFAULT_CATEGORY, type AiEngine, type AiVisibilityCategory } from "./types";
 import {
   startRunBatch, heartbeatRunBatch, finishRunBatch, reapStaleBatches,
-  parkRunBatchForResume, claimBatchForResume, MAX_RESUME_PASSES,
+  parkRunBatchForResume, claimBatchForResume, MAX_RESUME_PASSES, isMissingColumn,
+  getRunBatchCategory,
   type RunTrigger, type EngineProgress, type RunBatchSpec,
 } from "./run-state";
 
@@ -75,6 +76,10 @@ export interface RunOptions {
   /** INTERNAL (drain cron): continue an existing PARKED batch instead of opening a
    *  new one. Callers use resumeRunBatch, which claims the batch and fills this in. */
   resumeBatch?: { id: string };
+  /** Which product this scan is for - scopes which prompts run AND which score/
+   *  batch/run rows get written. Defaults to workforce_analytics (today's only
+   *  real category) so pre-category callers are unaffected. */
+  category?: AiVisibilityCategory;
 }
 
 export interface RunSummary {
@@ -145,10 +150,20 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
   const competitors = cleanCompetitorRows((compRows ?? []) as { id: string; name: string; url: string }[])
     .map((c) => ({ id: c.id, name: c.name, domain: clean(c.url) }));
 
+  const category: AiVisibilityCategory = opts.category ?? DEFAULT_CATEGORY;
   let pq = admin.from("ai_citation_prompts")
-    .select("id, text, persona, topic, country").eq("project_id", projectId).eq("active", true);
+    .select("id, text, persona, topic, country")
+    .eq("project_id", projectId).eq("active", true).eq("category", category);
   if (opts.promptIds?.length) pq = pq.in("id", opts.promptIds);
-  const { data: prompts } = await pq;
+  let { data: prompts, error: promptsErr } = await pq;
+  if (promptsErr && isMissingColumn(promptsErr.message)) {
+    // The category migration isn't applied yet - degrade to pre-category
+    // behavior (every active prompt) rather than breaking every run.
+    let fallback = admin.from("ai_citation_prompts")
+      .select("id, text, persona, topic, country").eq("project_id", projectId).eq("active", true);
+    if (opts.promptIds?.length) fallback = fallback.in("id", opts.promptIds);
+    ({ data: prompts } = await fallback);
+  }
   if (!prompts?.length) return bail("no active prompts");
 
   // Only run engines that are configured; drop AIO if we have no Apify token.
@@ -248,7 +263,7 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
     const { specPersisted } = await startRunBatch(admin, {
       projectId, batchId, totalTasks: allTasks.length, engines,
       trigger: opts.trigger ?? "on_demand", userId: opts.userId ?? null,
-      spec,
+      spec, category,
     });
     // Parking is only safe when the spec landed (pre-migration it does not) -
     // otherwise a truncated run falls back to P0-5's truncate-and-finish.
@@ -299,7 +314,7 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
     if (det?.project.mentioned) mentioned++;
     runRows.push({
       id: runId, project_id: projectId, prompt_id: t.p.id, engine: t.engine,
-      run_index: t.i, run_batch_id: batchId,
+      run_index: t.i, run_batch_id: batchId, category,
       answer_text: res.answerText ? res.answerText.slice(0, 8000) : null,
       project_cited: det?.project.cited ?? false,
       project_mentioned: det?.project.mentioned ?? false,
@@ -358,7 +373,12 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
 
     // Persist runs first (sources FK to runs.id, which we set client-side).
     if (runRows.length) {
-      const { error } = await admin.from("ai_citation_runs").insert(runRows);
+      let { error } = await admin.from("ai_citation_runs").insert(runRows);
+      if (error && isMissingColumn(error.message)) {
+        // Category migration not applied yet - degrade to pre-category rows
+        // rather than losing the whole run's results.
+        ({ error } = await admin.from("ai_citation_runs").insert(runRows.map(({ category: _category, ...r }) => r)));
+      }
       if (error) throw new Error(`insert runs: ${error.message}`);
     }
     if (sourceRows.length) {
@@ -388,7 +408,7 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
       const agg = await loadBatchRows(admin, batchId);
       if (agg) { aggRows = agg.rows; aggHits = agg.hits; }
     }
-    await writeRollups(admin, projectId, aggRows, aggHits);
+    await writeRollups(admin, projectId, aggRows, aggHits, category);
 
     const anyOk = aggRows.some((r) => !r.error);
     const aggCited = aggRows.filter((r) => r.project_cited === true).length;
@@ -546,8 +566,11 @@ async function closeOutIncompleteBatch(
   const anyOk = rows.some((r) => !r.error);
   if (agg && rows.length) {
     // Make the day's rollup reflect everything the batch produced (idempotent
-    // delete+insert inside writeRollups; no-ops when every row errored).
-    await writeRollups(admin, projectId, rows, agg.hits);
+    // delete+insert inside writeRollups; no-ops when every row errored). This
+    // path only has batchId, not the original run's category variable, so look
+    // it up from the batch's own row.
+    const category = await getRunBatchCategory(admin, batchId);
+    await writeRollups(admin, projectId, rows, agg.hits, category);
   }
   await finishRunBatch(admin, batchId, anyOk
     ? {
@@ -597,6 +620,7 @@ async function writeRollups(
   projectId: string,
   runRows: Array<Record<string, unknown> & { engine: AiEngine }>,
   compHitRows: Array<Record<string, unknown>>,
+  category: AiVisibilityCategory,
 ): Promise<void> {
   if (!runRows.length) return;
   // A fully-failed batch (every engine errored) must NOT delete + overwrite a
@@ -649,10 +673,25 @@ async function writeRollups(
   const sov = shareOfVoice(totals.m, competitorMentions);
   const positionScore = positionScoreFrom(runRows.filter((r) => !r.error).map((r) => r.position as number | null));
   const composite = aiVisibilityComposite(citationRate, mentionRate, sov, positionScore);
-  await admin.from("ai_visibility_scores").delete().eq("project_id", projectId).eq("period_date", period);
-  const { error } = await admin.from("ai_visibility_scores").insert({
+  // Scoped by category so a same-day run of the OTHER category can't delete this
+  // one's score row - each category keeps its own independent "latest run of the
+  // day wins" rollup.
+  let del = admin.from("ai_visibility_scores").delete().eq("project_id", projectId).eq("period_date", period);
+  const scoreRow: Record<string, unknown> = {
     project_id: projectId, period_date: period, engine: null,
     composite_score: composite, mention_sov: r4(sov), citation_sov: r4(citationRate), readiness_score: null,
-  });
+    category,
+  };
+  let delErr = (await del.eq("category", category)).error;
+  if (delErr && isMissingColumn(delErr.message)) {
+    // Category column not applied yet: fall back to the pre-category blanket
+    // delete-by-day (today's only real behavior anyway until migration lands).
+    delErr = (await admin.from("ai_visibility_scores").delete().eq("project_id", projectId).eq("period_date", period)).error;
+  }
+  let { error } = await admin.from("ai_visibility_scores").insert(scoreRow);
+  if (error && isMissingColumn(error.message)) {
+    const { category: _category, ...scoreRowNoCategory } = scoreRow;
+    ({ error } = await admin.from("ai_visibility_scores").insert(scoreRowNoCategory));
+  }
   if (error) console.error("[ai-citation] insert score:", error.message);
 }

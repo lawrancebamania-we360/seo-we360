@@ -34,7 +34,7 @@
 // a member can never mutate a run row; reads are RLS-scoped via has_project_access.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AiEngine } from "./types";
+import { DEFAULT_CATEGORY, type AiEngine, type AiVisibilityCategory } from "./types";
 
 export type RunBatchStatus = "queued" | "running" | "succeeded" | "failed" | "timed_out";
 export type RunTrigger = "on_demand" | "cron" | "script";
@@ -89,7 +89,7 @@ function isMissingTable(message: string | undefined): boolean {
 // migration 20260704000001, applied manually - until then every helper that
 // touches them must degrade, not break the run. Checked BEFORE isMissingTable
 // where both could match (the schema-cache phrasing contains "schema cache").
-function isMissingColumn(message: string | undefined): boolean {
+export function isMissingColumn(message: string | undefined): boolean {
   return !!message && (/column .* does not exist/i.test(message) || /could not find the '.+' column/i.test(message));
 }
 
@@ -102,6 +102,8 @@ export interface StartBatchInput {
   userId?: string | null;
   /** Task recipe for continuation. Optional so callers degrade gracefully. */
   spec?: RunBatchSpec;
+  /** Which product this scan is for. Defaults to workforce_analytics. */
+  category?: AiVisibilityCategory;
 }
 
 /**
@@ -125,13 +127,25 @@ export async function startRunBatch(admin: SupabaseClient, input: StartBatchInpu
     user_id: input.userId ?? null,
     heartbeat_at: now,
     started_at: now,
+    category: input.category ?? DEFAULT_CATEGORY,
   };
+  // 3-tier cascade so a column missing from ONE migration doesn't needlessly drop
+  // a field from an unrelated, already-applied one (category and run_spec landed
+  // in separate migrations, possibly applied at different times): try everything,
+  // then drop only category, then drop both. The lifecycle row should carry as
+  // much real data as the schema currently supports, never less.
   const withSpec = input.spec ? { ...base, run_spec: input.spec } : base;
   let { error } = await admin.from("ai_citation_run_batches").insert(withSpec);
   let specPersisted = !error && !!input.spec;
-  if (error && input.spec && isMissingColumn(error.message)) {
-    // Continuation column not applied yet: keep the P0-5 behavior intact.
-    ({ error } = await admin.from("ai_citation_run_batches").insert(base));
+  if (error && isMissingColumn(error.message)) {
+    const { category: _category, ...baseNoCategory } = base;
+    const withSpecNoCategory = input.spec ? { ...baseNoCategory, run_spec: input.spec } : baseNoCategory;
+    ({ error } = await admin.from("ai_citation_run_batches").insert(withSpecNoCategory));
+    specPersisted = !error && !!input.spec;
+  }
+  if (error && isMissingColumn(error.message)) {
+    const { category: _category, ...baseNoCategory } = base;
+    ({ error } = await admin.from("ai_citation_run_batches").insert(baseNoCategory));
     specPersisted = false;
   }
   if (error && !isMissingTable(error.message)) {
@@ -445,4 +459,22 @@ export async function getLatestRunBatch(
     completedAt: (r.completed_at as string | null) ?? null,
     createdAt: r.created_at as string,
   };
+}
+
+/**
+ * Best-effort read of a batch's own category (stamped by startRunBatch), for
+ * callers that only have a batchId - e.g. closeOutIncompleteBatch, which must
+ * roll the day's ai_visibility_scores row up under the RIGHT category. Defaults
+ * to DEFAULT_CATEGORY on any error (missing column, missing row) so a
+ * not-yet-migrated env degrades instead of breaking the closeout.
+ */
+export async function getRunBatchCategory(admin: SupabaseClient, batchId: string): Promise<AiVisibilityCategory> {
+  try {
+    const { data, error } = await admin.from("ai_citation_run_batches")
+      .select("category").eq("id", batchId).maybeSingle();
+    if (error || !data) return DEFAULT_CATEGORY;
+    return ((data as { category?: string }).category as AiVisibilityCategory | undefined) ?? DEFAULT_CATEGORY;
+  } catch {
+    return DEFAULT_CATEGORY;
+  }
 }
