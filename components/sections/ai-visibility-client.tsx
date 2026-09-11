@@ -29,6 +29,7 @@ type OutreachRow = { source_domain: string; action_type: string; status: string;
 const OUTREACH_STATUS_LABEL: Record<OutreachStatus, string> = { todo: "To-do", drafted: "Drafted", posted: "Posted" };
 const OUTREACH_ACTION_LABEL: Record<OutreachAction, string> = { pitch: "Pitch", guest_post: "Guest post", get_listed: "Get listed", comment: "Comment", other: "Other" };
 import { AiVisibilityScopeDrawer } from "@/components/sections/ai-visibility-scope-drawer";
+import { RunTestModal } from "@/components/sections/run-test-modal";
 import { EngineLogo } from "@/components/icons/engines/engine-logo";
 import { PersonaReview } from "@/components/sections/persona-review";
 import type { PersonaRow } from "@/lib/data/personas";
@@ -69,7 +70,7 @@ const DEMAND_TONE: Record<string, string> = {
 
 
 export function AiVisibilityClient({
-  projectId, category, personas, googleConnected, report, prompts, configuredEngines, canManage, aiReferral, sourceGap, outreach, competitors, suggestedTopics, defaultKeyword, scope, initialRun,
+  projectId, category, personas, googleConnected, report, prompts, configuredEngines, canManage, aiReferral, sourceGap, outreach, competitors, suggestedTopics, defaultKeyword, scope, initialRun, engineBudgets,
 }: {
   projectId: string;
   /** Which product this page scans/reports on - threaded into every run/generate
@@ -89,6 +90,8 @@ export function AiVisibilityClient({
   defaultKeyword: string;
   scope: { competitor_ids: string[]; topics: string[]; depth_n: number; runs_confirmed: number; target_keyword: string | null } | null;
   initialRun: RunBatchState;
+  /** Per-engine budget cap/spend so far, for the run-test modal (ticket 10). */
+  engineBudgets: Record<AiEngine, { capUsd: number | null; spentUsd: number | null }>;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("overview");
@@ -96,6 +99,7 @@ export function AiVisibilityClient({
   const [busy, setBusy] = useState<"run" | "gen" | null>(null);
   const [setupOpen, setSetupOpen] = useState(false); // first-run setup drawer
   const [scopeOpen, setScopeOpen] = useState(false); // pre-run scope confirm (fades after a few runs)
+  const [runModalOpen, setRunModalOpen] = useState(false); // ticket 10: engine picker + budget + N before a run
 
   // Durable run state (P0-5). Seeded from the server on first paint, then kept
   // live by polling /run-status while a run is active. This - not the server
@@ -163,7 +167,7 @@ export function AiVisibilityClient({
     return () => { cancelled = true; clearInterval(interval); };
   }, [runActive, fetchRunStatus, router, projectId]);
 
-  const runNow = () => {
+  const runNow = (override?: { engines: AiEngine[]; nByEngine: Partial<Record<AiEngine, number>> }) => {
     setBusy("run");
     // Remember the run that existed BEFORE this click, so we can tell whether a
     // real batch row was created for THIS attempt (a newer id) vs. the action
@@ -182,7 +186,10 @@ export function AiVisibilityClient({
       createdAt: new Date().toISOString(),
     }));
     start(async () => {
-      const r = await runAiVisibilityNow({ project_id: projectId, category });
+      const r = await runAiVisibilityNow({
+        project_id: projectId, category,
+        ...(override ? { engines: override.engines, nByEngine: override.nByEngine } : {}),
+      });
       setBusy(null);
       const latest = await fetchRunStatus();
       // Did this attempt actually create a durable run row? Only if the latest
@@ -244,7 +251,7 @@ export function AiVisibilityClient({
               <SlidersHorizontal className="size-3.5" />
               Personas &amp; setup
             </Button>
-            <Button size="sm" variant="brand" disabled={pending || runActive} onClick={() => { if ((scope?.runs_confirmed ?? 0) >= 3 && prompts.length) runNow(); else setScopeOpen(true); }} className="gap-1.5">
+            <Button size="sm" variant="brand" disabled={pending || runActive} onClick={() => { if ((scope?.runs_confirmed ?? 0) >= 3 && prompts.length) setRunModalOpen(true); else setScopeOpen(true); }} className="gap-1.5">
               {busy === "run" || runActive ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
               {runActive ? "Running..." : "Run AI-citation test"}
             </Button>
@@ -284,6 +291,18 @@ export function AiVisibilityClient({
         onDone={() => { setTab("overview"); router.refresh(); }}
       />
 
+      <RunTestModal
+        open={runModalOpen}
+        onClose={() => setRunModalOpen(false)}
+        configuredEngines={configuredEngines}
+        engineBudgets={engineBudgets}
+        running={busy === "run" || runActive}
+        onConfirm={(engines, nByEngine) => {
+          setRunModalOpen(false);
+          runNow({ engines, nByEngine });
+        }}
+      />
+
       {!report.hasData ? (
         <FirstRunHero hasPrompts={prompts.length > 0} canManage={canManage} onGoSetup={() => setScopeOpen(true)} />
       ) : (
@@ -304,7 +323,7 @@ export function AiVisibilityClient({
             <SheetDescription>Generate your buyer prompts, then run your first check. Takes about a minute.</SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-6">
-            <SetupTab projectId={projectId} personas={personas} googleConnected={googleConnected} prompts={prompts} engines={configuredEngines} canManage={canManage} busy={busy} pending={pending} onGen={genPrompts} onRun={runNow} />
+            <SetupTab projectId={projectId} personas={personas} googleConnected={googleConnected} prompts={prompts} engines={configuredEngines} canManage={canManage} busy={busy} pending={pending} onGen={genPrompts} onRun={() => setRunModalOpen(true)} />
           </div>
         </SheetContent>
       </Sheet>

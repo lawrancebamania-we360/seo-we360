@@ -5,7 +5,9 @@ import { getAiVisibilityReport } from "@/lib/ai-citation/report";
 import { getSourceGapReport } from "@/lib/ai-citation/source-gap";
 import { getGa4AiReferralTraffic } from "@/lib/google/ga4";
 import { configuredEngines } from "@/lib/ai-citation/engines";
-import { ENGINE_LABEL, type AiVisibilityCategory } from "@/lib/ai-citation/types";
+import { ENGINE_LABEL, type AiEngine, type AiVisibilityCategory } from "@/lib/ai-citation/types";
+import { getIntegrations } from "@/lib/data/integrations";
+import type { IntegrationProvider } from "@/lib/types/database";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { AiVisibilityClient } from "@/components/sections/ai-visibility-client";
 import { AiVisibilityHero } from "@/components/sections/ai-visibility-hero";
@@ -26,7 +28,7 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
   const project = ctx.activeProject;
 
   const supabase = await createClient();
-  const [report, promptsRes, perms, aiReferral, sourceGap, outreachRes, scope, compsRes, kwRes, personas] = await Promise.all([
+  const [report, promptsRes, perms, aiReferral, sourceGap, outreachRes, scope, compsRes, kwRes, personas, integrations] = await Promise.all([
     getAiVisibilityReport(supabase, project.id, category),
     supabase.from("ai_citation_prompts")
       .select("id, text, persona, topic, tags, demand").eq("project_id", project.id).eq("active", true).eq("category", category)
@@ -44,6 +46,7 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
     supabase.from("competitors").select("id, name, url").eq("project_id", project.id),
     supabase.from("keywords").select("keyword").eq("project_id", project.id).limit(20),
     getPersonas(project.id),
+    getIntegrations(),
   ]);
 
   // Durable state of the latest run (P0-5) so the client renders a truthful
@@ -62,6 +65,22 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
   const defaultKeyword = cleanKeywords(((kwRes.data ?? []) as { keyword: string }[]).map((k) => k.keyword), { brand: (project as { name?: string }).name ?? "", industry: (project as { industry?: string | null }).industry ?? "" })[0] ?? "";
 
   const engines = configuredEngines().map((e) => ({ key: e, label: ENGINE_LABEL[e] }));
+
+  // Ticket 10's run-test modal shows amount-left per engine. Maps each AI-citation
+  // engine to the integration card that tracks its spend (google_aio shares the
+  // 'apify' card - see BUDGET_ENGINES in lib/data/integrations.ts).
+  const ENGINE_TO_PROVIDER: Record<AiEngine, IntegrationProvider | null> = {
+    chatgpt: "ai_visibility_chatgpt", claude: "ai_visibility_claude", gemini: "ai_visibility_gemini",
+    google_aio: "apify", perplexity: null,
+  };
+  const byProvider = new Map(integrations.map((it) => [it.provider, it]));
+  const engineBudgets = Object.fromEntries(
+    (["chatgpt", "claude", "gemini", "google_aio"] as AiEngine[]).map((e) => {
+      const provider = ENGINE_TO_PROVIDER[e];
+      const it = provider ? byProvider.get(provider) : undefined;
+      return [e, { capUsd: it?.budgetCapUsd ?? null, spentUsd: it?.spendSoFarUsd ?? null }];
+    }),
+  ) as Record<AiEngine, { capUsd: number | null; spentUsd: number | null }>;
 
   return (
     <div className="space-y-6 p-6 lg:px-10 lg:pt-8">
@@ -83,6 +102,7 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
         defaultKeyword={defaultKeyword}
         scope={scope}
         initialRun={latestRun}
+        engineBudgets={engineBudgets}
       />
     </div>
   );
