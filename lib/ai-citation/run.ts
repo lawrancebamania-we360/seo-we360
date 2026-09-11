@@ -36,16 +36,21 @@ import {
   type RunTrigger, type EngineProgress, type RunBatchSpec,
 } from "./run-state";
 
-const AIO_N = 2; // TEMP bump (was 1) — one extra Google-AIO sample for a one-off run; REVERT to 1 after.
-// Per-engine sampling: ChatGPT (no browsing, high variance) needs N=3 to estimate
-// a citation rate; Perplexity (live web, near-deterministic) N=1 is enough; AIO is
-// on-demand N=1. Same money, far better signal-per-dollar than a flat N everywhere.
-const DEFAULT_N_BY_ENGINE: Record<AiEngine, number> = { chatgpt: 3, claude: 2, perplexity: 1, google_aio: AIO_N };
+const AIO_N = 1; // Google-AIO samples per prompt (reverted from a temp 2x bump).
+// Per-engine sampling: ChatGPT (grounded web_search, high variance across calls)
+// needs N=3 to estimate a citation rate; Claude (no browsing, just wording
+// variance) N=2 is enough; Gemini (grounded, closer to deterministic) N=1;
+// Google AIO is on-demand N=1. Same money, far better signal-per-dollar than a
+// flat N everywhere.
+const DEFAULT_N_BY_ENGINE: Record<AiEngine, number> = { chatgpt: 3, claude: 2, perplexity: 1, google_aio: AIO_N, gemini: 1 };
 const RUN_CONCURRENCY = 12; // parallel adapter calls in flight - turns a ~350s serial run into ~25s for a scoped run
 // Directional per-call cost in cents for metering (NOT shown to users as dollars).
 // chatgpt now browses via the OpenAI web_search tool (pricier than a plain
-// completion -> ~3c); Claude/Perplexity stay cheap; Google AIO (Apify) is dearest.
-const COST_CENTS: Record<AiEngine, number> = { chatgpt: 3, claude: 1, perplexity: 1, google_aio: 12 };
+// completion -> ~3c); Claude stays cheap; Gemini's grounded-search call is a
+// conservative estimate (Google bills grounding per-prompt past a 5,000/mo free
+// allowance - verify at ai.google.dev/gemini-api/docs/pricing if this needs
+// tightening); Google AIO (Apify) is dearest.
+const COST_CENTS: Record<AiEngine, number> = { chatgpt: 3, claude: 1, perplexity: 1, google_aio: 12, gemini: 3 };
 // Launch budget: stop firing new tasks after this. In-flight tasks settle in
 // parallel (tail ~ one slow call, up to the ~20s adapter timeout), so 38s + tail
 // stays under the 60s Vercel cap with margin. Scoped runs finish well before it;
@@ -55,7 +60,7 @@ const DEFAULT_BUDGET_MS = 38_000;
 export interface RunOptions {
   engines?: AiEngine[];   // default = configuredEngines()
   n?: number;             // uniform samples per prompt x engine (legacy; prefer nByEngine)
-  nByEngine?: Partial<Record<AiEngine, number>>; // per-engine sampling (ChatGPT 3 / Claude 2 / Perplexity 1)
+  nByEngine?: Partial<Record<AiEngine, number>>; // per-engine sampling (ChatGPT 3 / Claude 2 / Gemini 1)
   promptIds?: string[];   // default = all active prompts
   apifyToken?: string;    // required for google_aio
   userId?: string | null;

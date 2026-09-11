@@ -198,7 +198,7 @@ function RecommendedNextSteps({ report, configuredEngines, sourceGap, projectId,
 
   // 4. Unconnected engines → add keys. Engine setup, NOT a task board — direct action.
   const onKeys = new Set(configuredEngines.map((e) => e.key));
-  const missing = (["claude", "perplexity"] as AiEngine[]).filter((e) => !onKeys.has(e));
+  const missing = (["claude", "gemini"] as AiEngine[]).filter((e) => !onKeys.has(e));
   if (missing.length) {
     steps.push({
       title: `Connect ${missing.map((e) => ENGINE_LABEL[e]).join(" & ")}`,

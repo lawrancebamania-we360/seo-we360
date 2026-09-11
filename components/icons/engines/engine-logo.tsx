@@ -2,15 +2,17 @@ import type { AiEngine } from "@/lib/ai-citation/types";
 import { ENGINE_LABEL } from "@/lib/ai-citation/types";
 import { cn } from "@/lib/utils";
 
-// Official brand marks for the 4 real AI engines we query (see AiEngine). Shown
-// nominatively - to identify each assistant in the citation report - which is the
-// standard referential use of a product logo. Inline SVG (crisp at any size, zero
-// external calls, no hotlinking); paths are the vendors' own official marks.
-// OpenAI's mark is monochrome so it inherits currentColor and themes light/dark;
-// the other three carry their brand colors.
+// Official brand marks for the AI engines we query or have queried (see AiEngine).
+// Shown nominatively - to identify each assistant in the citation report - which
+// is the standard referential use of a product logo. Inline SVG (crisp at any
+// size, zero external calls, no hotlinking); paths are the vendors' own official
+// marks (Gemini's via simple-icons, a maintained brand-mark library). OpenAI's and
+// Gemini's marks are monochrome so they inherit currentColor and theme light/dark;
+// the others carry their brand colors.
 //
-// Only these four exist on purpose - AiEngine is the source of truth for what we
-// actually run. Do NOT add Gemini / Grok / DeepSeek marks.
+// Perplexity's case stays even though it's retired from AI_ENGINES (types.ts) -
+// historical transcripts/citations from when it was active still reference it and
+// need a real icon, not a broken one.
 //
 // Generated from the vendor SVGs; edit via scratchpad/gen-engine-logos.mjs if the
 // marks change.
@@ -39,6 +41,13 @@ export function EngineLogo({ engine, size = 20, className, title }: Props) {
         <svg width={size} height={size} viewBox="0 0 256 298" role="img" aria-label={label} className={cn("shrink-0", className)}>
           <title>{label}</title>
           <path fill="#20808D" d="m34.831 0l84.689 78.028V.18h16.486v78.197L221.074 0v88.964H256v128.322h-34.819v79.218l-85.175-74.833v75.692H119.52v-74.459l-84.593 74.508v-80.126H0V88.964h34.831zm72.26 105.248H16.487v95.753h18.42v-30.204zm-55.68 72.775v83.052l68.109-59.988v-84.926zm85.069 22.27v-84.212l68.128 61.865v39.34h.088v42.94zm84.701.708h18.333v-95.753h-89.93l71.597 64.87zM204.588 88.964V37.457l-55.904 51.507zm-97.368 0H51.317V37.457z"/>
+        </svg>
+      );
+    case "gemini":
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label={label} className={cn("shrink-0", "text-foreground", className)}>
+          <title>{label}</title>
+          <path fill="currentColor" d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81"/>
         </svg>
       );
     case "google_aio":

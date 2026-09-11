@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
+import { AI_ENGINES, ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
 import type { AiVisibilityReport } from "@/lib/ai-citation/report";
 import type { Ga4AiReferral } from "@/lib/google/ga4";
 import { generateAiVisibilityPrompts, runAiVisibilityNow, resumeAiVisibilityRun, upsertOutreach, scoreOutreachDomains, draftOutreach } from "@/lib/actions/ai-visibility";
@@ -421,6 +421,7 @@ const ENGINE_KEY_META: Record<AiEngine, { provider: string; placeholder: string 
   claude: { provider: "Anthropic", placeholder: "sk-ant-api03-…" },
   perplexity: { provider: "Perplexity", placeholder: "pplx-…" },
   google_aio: { provider: "Google (via Apify)", placeholder: "" },
+  gemini: { provider: "Google AI Studio", placeholder: "AIza…" },
 };
 
 // Engine chips (comp lines 1284-1285): a pill per AI engine, tinted green when
@@ -429,7 +430,7 @@ const ENGINE_KEY_META: Record<AiEngine, { provider: string; placeholder: string 
 // connect-key modal (comp #14). Google AI Overviews is a managed weekly pass, so
 // it never asks for a key.
 function ConfiguredBanner({ engines }: { engines: { key: string; label: string }[] }) {
-  const all: AiEngine[] = ["chatgpt", "claude", "perplexity", "google_aio"];
+  const all: AiEngine[] = AI_ENGINES;
   const onKeys = new Set(engines.map((e) => e.key));
   const [keyOpen, setKeyOpen] = useState<AiEngine | null>(null);
   return (

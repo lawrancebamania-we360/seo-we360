@@ -1,7 +1,10 @@
-// Perplexity engine (sonar). Perplexity searches the live web and returns its
-// cited sources natively, so it is the most accurate "is the brand actually
-// cited" signal of the four engines. Reads PERPLEXITY_API_KEY (add in Vercel
-// later); skipped until then. OpenAI-compatible chat completions shape.
+// Perplexity engine (sonar). RETIRED 2026-09 (founder: swapped for Gemini via
+// Google AI Studio) - kept here, untouched, for easy re-enable: add
+// "perplexity" back to AI_ENGINES in ../types.ts and PERPLEXITY_API_KEY in
+// Vercel, nothing else needs to change. Perplexity searches the live web and
+// returns its cited sources natively, so it was the most accurate "is the
+// brand actually cited" signal of the four engines. OpenAI-compatible chat
+// completions shape.
 
 import type { AiEngine, EngineAdapter, EngineCitation } from "../types";
 import { ANSWER_MAX_TOKENS, engineError, localize } from "./_shared";

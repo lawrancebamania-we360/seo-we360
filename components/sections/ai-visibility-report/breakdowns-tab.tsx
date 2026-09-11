@@ -12,7 +12,7 @@
 import { Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
+import { AI_ENGINES, ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
 import type { AiVisibilityReport } from "@/lib/ai-citation/report";
 import { SENTIMENT_LABEL, type BrandSentiment } from "@/lib/ai-citation/trust";
 import { EngineLogo } from "@/components/icons/engines/engine-logo";
@@ -105,11 +105,13 @@ function HowAiTalks({ report }: { report: AiVisibilityReport }) {
 }
 
 // "Coverage by AI engine" — real mention rate for the engines that ran; a
-// connect / weekly-pass hint for the rest. ChatGPT runs today; Claude &
-// Perplexity light up when their key is added; Google is a weekly managed pass.
-const ALL_ENGINES: AiEngine[] = ["chatgpt", "claude", "perplexity", "google_aio"];
+// connect / weekly-pass hint for the rest. ChatGPT runs today; Claude & Gemini
+// light up when their key is added; Google is a weekly managed pass. Reads the
+// active roster from AI_ENGINES so a retired engine (Perplexity) drops out here
+// automatically.
+const ALL_ENGINES: AiEngine[] = AI_ENGINES;
 const ENGINE_MODEL: Record<AiEngine, string> = {
-  chatgpt: "GPT-4o", claude: "Claude", perplexity: "Perplexity", google_aio: "AI Overviews",
+  chatgpt: "GPT-4.1", claude: "Claude", perplexity: "Perplexity", google_aio: "AI Overviews", gemini: "Gemini 2.5 Flash",
 };
 
 function EngineCoverage({ report, configuredEngines }: {

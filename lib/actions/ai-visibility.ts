@@ -784,7 +784,7 @@ export async function estimateRunScope(input: { project_id: string; topics?: str
   const promptCount = resolveBuckets(input.topics?.length ? input.topics : undefined).reduce((s, b) => s + b.quota, 0);
   const cents = estimateRunCostCents(promptCount, engines, { chatgpt: input.depth_n ?? 3 }, AIO_ONDEMAND_CAP);
   // "checks" = actual AI calls (NOT cents): prompts x per-engine samples (mirrors run.ts's DEFAULT_N_BY_ENGINE).
-  const SAMPLES: Record<string, number> = { chatgpt: input.depth_n ?? 3, claude: 2, perplexity: 1, google_aio: 1 };
+  const SAMPLES: Record<string, number> = { chatgpt: input.depth_n ?? 3, claude: 2, perplexity: 1, google_aio: 1, gemini: 1 };
   const checks = engines.reduce((s, e) => s + (SAMPLES[e] ?? 1) * (e === "google_aio" ? Math.min(AIO_ONDEMAND_CAP, promptCount) : promptCount), 0);
   const creditsLeft = await creditsLeftFor(createAdminClient(), input.project_id);
   return { ok: true, checks, credits: Math.max(1, Math.ceil(cents / 10)), promptCount, creditsLeft };

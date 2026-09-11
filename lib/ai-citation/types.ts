@@ -1,17 +1,23 @@
 // AI Citation - shared types. See PLAN-ai-citation.md (">> RESUME HERE <<").
 
 // The engines we query. ChatGPT + Claude run on the existing callPlatformLLM
-// (Anthropic/OpenAI). Perplexity is a new adapter (sonar, returns citations
-// natively). Google AIO reuses the existing best-effort runAiOverviewTracker.
-export type AiEngine = "chatgpt" | "claude" | "perplexity" | "google_aio";
+// (Anthropic/OpenAI). Gemini is a new adapter (Google AI Studio, grounded search,
+// returns citations natively). Google AIO reuses the existing best-effort
+// runAiOverviewTracker. "perplexity" stays in the type + ENGINE_ADAPTERS for
+// historical run rows and easy re-enable, but is retired from every
+// user-visible engine list (AI_ENGINES) - see engines/perplexity.ts's header.
+export type AiEngine = "chatgpt" | "claude" | "perplexity" | "google_aio" | "gemini";
 
-export const AI_ENGINES: AiEngine[] = ["chatgpt", "claude", "perplexity", "google_aio"];
+// The user-visible/active roster. Perplexity intentionally excluded (retired,
+// not deleted - re-add it here to bring it back).
+export const AI_ENGINES: AiEngine[] = ["chatgpt", "claude", "gemini", "google_aio"];
 
 export const ENGINE_LABEL: Record<AiEngine, string> = {
   chatgpt: "ChatGPT",
   claude: "Claude",
   perplexity: "Perplexity",
   google_aio: "Google AI Overviews",
+  gemini: "Gemini",
 };
 
 // A source an answer cited (domain and/or url).
