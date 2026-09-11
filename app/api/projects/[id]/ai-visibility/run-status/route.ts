@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getLatestRunBatch, reapStaleBatches } from "@/lib/ai-citation/run-state";
+import { DEFAULT_CATEGORY, type AiVisibilityCategory } from "@/lib/ai-citation/types";
 
 // AI-visibility run-status poll. The AI-visibility client polls this while a run
 // is in flight so the UI shows the DURABLE run state (real "x of y" progress + a
@@ -18,8 +19,10 @@ import { getLatestRunBatch, reapStaleBatches } from "@/lib/ai-citation/run-state
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = await params;
+  const categoryParam = request.nextUrl.searchParams.get("category");
+  const category: AiVisibilityCategory = categoryParam === "employee_monitoring" ? "employee_monitoring" : DEFAULT_CATEGORY;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -30,8 +33,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   await reapStaleBatches(createAdminClient(), projectId);
 
   // RLS-scoped read: a caller without access to this project id gets null (no
-  // IDOR — the session client only sees the caller's own projects).
-  const batch = await getLatestRunBatch(supabase, projectId);
+  // IDOR — the session client only sees the caller's own projects). Scoped to
+  // THIS category so polling on one category page never adopts the OTHER
+  // category's in-flight run.
+  const batch = await getLatestRunBatch(supabase, projectId, category);
   if (!batch) return NextResponse.json({ batch: null });
 
   const active = batch.status === "queued" || batch.status === "running";

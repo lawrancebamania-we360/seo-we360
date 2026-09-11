@@ -114,14 +114,14 @@ export function AiVisibilityClient({
   // Fetch the latest durable run state. Returns the batch (or null).
   const fetchRunStatus = useCallback(async (): Promise<RunBatchState> => {
     try {
-      const res = await fetch(`/api/projects/${projectId}/ai-visibility/run-status`, { cache: "no-store" });
+      const res = await fetch(`/api/projects/${projectId}/ai-visibility/run-status?category=${category}`, { cache: "no-store" });
       if (!res.ok) return null;
       const j = (await res.json()) as { batch: RunBatchState };
       return j.batch ?? null;
     } catch {
       return null; // network blip - the poll interval retries
     }
-  }, [projectId]);
+  }, [projectId, category]);
 
   // Poll while a run is active. Stops as soon as the run reaches a terminal
   // state, then toasts the outcome once and refreshes the server data so the

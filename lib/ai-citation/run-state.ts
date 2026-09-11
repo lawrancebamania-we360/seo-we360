@@ -434,13 +434,20 @@ export interface LatestRunBatch {
 export async function getLatestRunBatch(
   supabase: SupabaseClient,
   projectId: string,
+  category: AiVisibilityCategory = DEFAULT_CATEGORY,
 ): Promise<LatestRunBatch | null> {
-  const { data, error } = await supabase.from("ai_citation_run_batches")
-    .select("id, status, total_tasks, completed_tasks, engines, progress, cited, mentioned, total_runs, truncated, error_message, started_at, completed_at, created_at")
-    .eq("project_id", projectId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Scoped to THIS category so the run banner on one category page never shows
+  // the OTHER category's progress/status. A genuinely empty result (no batches
+  // for this category yet) is NOT an error - only fall back to the unscoped
+  // read if the category column itself doesn't exist yet.
+  const SELECT = "id, status, total_tasks, completed_tasks, engines, progress, cited, mentioned, total_runs, truncated, error_message, started_at, completed_at, created_at";
+  let { data, error } = await supabase.from("ai_citation_run_batches")
+    .select(SELECT).eq("project_id", projectId).eq("category", category)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (error && isMissingColumn(error.message)) {
+    ({ data, error } = await supabase.from("ai_citation_run_batches")
+      .select(SELECT).eq("project_id", projectId).order("created_at", { ascending: false }).limit(1).maybeSingle());
+  }
   if (error || !data) return null; // missing table / no row / RLS miss -> null
   const r = data as Record<string, unknown>;
   return {

@@ -12,6 +12,8 @@
 // Apify budget is nearly tapped, so v1 ranks by citation frequency alone.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { DEFAULT_CATEGORY, type AiVisibilityCategory } from "./types";
+import { isMissingColumn } from "./run-state";
 
 export interface SourceGapRow {
   domain: string;
@@ -44,10 +46,17 @@ const EMPTY: SourceGapReport = { hasData: false, targets: [], allThirdParty: [] 
 export async function getSourceGapReport(
   supabase: SupabaseClient,
   projectId: string,
+  category: AiVisibilityCategory = DEFAULT_CATEGORY,
 ): Promise<SourceGapReport> {
-  // Same anchor as report.ts: the latest run batch for the project.
-  const { data: lastRun } = await supabase.from("ai_citation_runs")
-    .select("run_batch_id").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  // Same anchor as report.ts: the latest run batch for the project, scoped to
+  // THIS category (degrades to any-category if the column isn't migrated yet).
+  let { data: lastRun, error: lastRunErr } = await supabase.from("ai_citation_runs")
+    .select("run_batch_id").eq("project_id", projectId).eq("category", category)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (lastRunErr && isMissingColumn(lastRunErr.message)) {
+    ({ data: lastRun } = await supabase.from("ai_citation_runs")
+      .select("run_batch_id").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1).maybeSingle());
+  }
   const batchId = (lastRun?.run_batch_id as string | undefined) ?? undefined;
   if (!batchId) return EMPTY;
 

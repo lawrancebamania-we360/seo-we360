@@ -9,7 +9,8 @@
 // works). Everything degrades to an empty state before the first run.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AiEngine } from "./types";
+import { DEFAULT_CATEGORY, type AiEngine, type AiVisibilityCategory } from "./types";
+import { isMissingColumn } from "./run-state";
 import { FUNNEL_STAGES, asBrandSentiment, stageForTags, type BrandSentiment, type FunnelStage } from "./trust";
 import { buildQuestionRows, type QuestionRow } from "./question-tracker";
 
@@ -83,6 +84,7 @@ export function shareOfVoice(projectMentions: number, competitorMentions: number
 export async function getAiVisibilityReport(
   supabase: SupabaseClient,
   projectId: string,
+  category: AiVisibilityCategory = DEFAULT_CATEGORY,
 ): Promise<AiVisibilityReport> {
   const empty = (projectLabel: string): AiVisibilityReport => ({
     hasData: false, period: null, composite: 0, compositePrev: null, trend: [],
@@ -98,8 +100,17 @@ export async function getAiVisibilityReport(
   const { data: project } = await supabase.from("projects").select("name").eq("id", projectId).maybeSingle();
   const projectLabel = (project?.name as string) || "You";
 
-  const { data: lastRun } = await supabase.from("ai_citation_runs")
-    .select("run_batch_id").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  // Scoped to THIS category's own latest batch, so Employee Monitoring and
+  // Workforce Analytics show genuinely independent reports/scores. Degrades to
+  // the pre-category "latest run of any category" if the column isn't migrated
+  // yet, rather than showing empty on both pages.
+  let { data: lastRun, error: lastRunErr } = await supabase.from("ai_citation_runs")
+    .select("run_batch_id").eq("project_id", projectId).eq("category", category)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (lastRunErr && isMissingColumn(lastRunErr.message)) {
+    ({ data: lastRun } = await supabase.from("ai_citation_runs")
+      .select("run_batch_id").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1).maybeSingle());
+  }
   const batchId = lastRun?.run_batch_id as string | undefined;
   if (!batchId) return empty(projectLabel);
 
@@ -110,10 +121,12 @@ export async function getAiVisibilityReport(
   if (!runList.length) return empty(projectLabel);
   const runIds = runList.map((r) => r.id);
 
-  const [scoresRes, promptsRes, hitsRes, sourcesRes, compRes, watchRes] = await Promise.all([
+  let [scoresRes, promptsRes, hitsRes, sourcesRes, compRes, watchRes] = await Promise.all([
     supabase.from("ai_visibility_scores").select("period_date, composite_score, citation_sov, mention_sov")
-      .eq("project_id", projectId).is("engine", null).order("period_date", { ascending: false }).limit(8),
-    supabase.from("ai_citation_prompts").select("id, text, persona, topic, tags, active").eq("project_id", projectId),
+      .eq("project_id", projectId).is("engine", null).eq("category", category).order("period_date", { ascending: false }).limit(8),
+    // Scoped to THIS category - a question-tracker row must not include the OTHER
+    // category's prompts (which would show as "0 runs" ghosts in this report).
+    supabase.from("ai_citation_prompts").select("id, text, persona, topic, tags, active").eq("project_id", projectId).eq("category", category),
     // competitor_id (not just the name) so the question tracker can match a
     // question's watched brand to its hit rows.
     supabase.from("ai_citation_competitor_hits").select("run_id, competitor_id, competitor_name, mentioned, cited").in("run_id", runIds),
@@ -127,6 +140,15 @@ export async function getAiVisibilityReport(
     // question watches the project's own brand", which is the default anyway.
     supabase.from("ai_citation_prompts").select("id, brand_of_interest_competitor_id").eq("project_id", projectId),
   ]);
+  // Category column not applied yet on one or both of these - degrade to the
+  // pre-category (all-categories) read rather than an empty score/prompt list.
+  if (scoresRes.error && isMissingColumn(scoresRes.error.message)) {
+    scoresRes = await supabase.from("ai_visibility_scores").select("period_date, composite_score, citation_sov, mention_sov")
+      .eq("project_id", projectId).is("engine", null).order("period_date", { ascending: false }).limit(8);
+  }
+  if (promptsRes.error && isMissingColumn(promptsRes.error.message)) {
+    promptsRes = await supabase.from("ai_citation_prompts").select("id, text, persona, topic, tags, active").eq("project_id", projectId);
+  }
 
   const scores = (scoresRes.data ?? []) as Array<{ period_date: string; composite_score: number; citation_sov: number | null; mention_sov: number | null }>;
   const prompts = (promptsRes.data ?? []) as Array<{ id: string; text: string; persona: string | null; topic: string | null; tags: string[] | null; active: boolean }>;

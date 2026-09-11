@@ -17,11 +17,9 @@ import { profileForIndustry } from "@/lib/ai-citation/industry-profiles";
 import { cleanCompetitorRows, cleanKeywords } from "@/lib/ai-citation/clean-inputs";
 
 // Shared body for both category pages (employee-monitoring/, workforce-analytics/).
-// NOTE (ticket 6 scope): the prompts list below IS scoped by category; the deeper
-// report (score/heatmaps/answers/sources - getAiVisibilityReport, getSourceGapReport)
-// is NOT yet - that's ticket 7. Until it lands, both category pages show the same
-// (today's, mostly workforce_analytics-backfilled) report data even though the
-// RUN/GENERATE actions already correctly scope by category (tickets 4-5).
+// The report (score/heatmaps/answers/sources), the source-gap read, and the
+// prompts list are all scoped to THIS category (ticket 7), same as every
+// run/generate action (tickets 4-5) - the two pages are fully independent.
 export async function AiVisibilityCategoryPage({ category }: { category: AiVisibilityCategory }) {
   const ctx = await requireSection("ai_visibility");
   if (!ctx.activeProject) return <EmptyProjectState canCreate={ctx.canManageProjects} />;
@@ -29,7 +27,7 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
 
   const supabase = await createClient();
   const [report, promptsRes, perms, aiReferral, sourceGap, outreachRes, scope, compsRes, kwRes, personas] = await Promise.all([
-    getAiVisibilityReport(supabase, project.id),
+    getAiVisibilityReport(supabase, project.id, category),
     supabase.from("ai_citation_prompts")
       .select("id, text, persona, topic, tags, demand").eq("project_id", project.id).eq("active", true).eq("category", category)
       .order("created_at", { ascending: true }).limit(200),
@@ -37,7 +35,7 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
     // Is being cited actually sending traffic? Best-effort GA4 AI-referral read.
     getGa4AiReferralTraffic(project.ga4_property_id ?? null, project.id),
     // Build 3: off-site domains AI cites for competitors but not us (live, no storage).
-    getSourceGapReport(supabase, project.id),
+    getSourceGapReport(supabase, project.id, category),
     // Existing outreach tracker rows (degrades to empty before the migration is applied).
     supabase.from("ai_citation_outreach")
       .select("source_domain, action_type, status, notes, draft, draft_subject, draft_kind").eq("project_id", project.id),
@@ -51,7 +49,7 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
   // Durable state of the latest run (P0-5) so the client renders a truthful
   // running/failed/timed_out banner + Retry on first paint (then polls to
   // update). null before the migration is applied or before the first run.
-  const latestRun = await getLatestRunBatch(supabase, project.id);
+  const latestRun = await getLatestRunBatch(supabase, project.id, category);
   // D5: drives the locked-persona cards — no Google → "Connect to unlock"; connected
   // with locked personas still present → the C5 "refresh + extend" offer.
   const googleConnected = await isGoogleServiceAccountConfigured();

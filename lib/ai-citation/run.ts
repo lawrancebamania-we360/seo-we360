@@ -497,12 +497,19 @@ export async function resumeRunBatch(
   opts: { maxMs?: number; apifyToken?: string } = {},
 ): Promise<ResumeResult> {
   const admin = createAdminClient();
-  const { data } = await admin.from("ai_citation_run_batches")
-    .select("id, project_id, status, run_spec, trigger, user_id, resume_count")
+  let { data, error: batchErr } = await admin.from("ai_citation_run_batches")
+    .select("id, project_id, status, run_spec, trigger, user_id, resume_count, category")
     .eq("id", batchId).maybeSingle();
+  if (batchErr && isMissingColumn(batchErr.message)) {
+    // Category column not applied yet - fall back without it (category resolves
+    // to DEFAULT_CATEGORY below, matching this batch's own pre-migration default).
+    ({ data } = await admin.from("ai_citation_run_batches")
+      .select("id, project_id, status, run_spec, trigger, user_id, resume_count")
+      .eq("id", batchId).maybeSingle());
+  }
   const b = data as {
     id: string; project_id: string; status: string; run_spec: RunBatchSpec | null;
-    trigger: string | null; user_id: string | null; resume_count: number | null;
+    trigger: string | null; user_id: string | null; resume_count: number | null; category?: AiVisibilityCategory;
   } | null;
   if (!b) return { ok: false, skipped: "batch not found" };
   if (b.status !== "queued") return { ok: false, skipped: `status is ${b.status}` };
@@ -537,6 +544,11 @@ export async function resumeRunBatch(
     apifyToken: opts.apifyToken,
     maxMs: opts.maxMs,
     userId: b.user_id,
+    // Continue under the SAME category the original run opened with - without
+    // this, the category-filtered prompt query below would mismatch spec.promptIds
+    // (they belong to the batch's real category) and the resume would wrongly
+    // fail with "no active prompts".
+    category: b.category ?? DEFAULT_CATEGORY,
     trigger: (b.trigger as RunTrigger | null) ?? "cron",
     resumeBatch: { id: batchId },
   });
