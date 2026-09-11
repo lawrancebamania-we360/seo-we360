@@ -58,9 +58,19 @@ async function authProject(project_id: string): Promise<AuthedProject | { error:
 
 export interface GenPromptsResult { ok: boolean; error?: string; count?: number }
 
-export async function generateAiVisibilityPrompts(input: { project_id: string; compact?: boolean }): Promise<GenPromptsResult> {
+// Category -> a distinct, concrete analysis-focus string that steers generation
+// toward genuinely different buyer language per product (monitoring/tracking vs
+// analytics/insights), overriding the project's general analysis_focus so the
+// two categories don't collapse into the same questions.
+const CATEGORY_FOCUS: Record<AiVisibilityCategory, string> = {
+  employee_monitoring: "Employee Monitoring - cloud software that tracks employee attendance, computer/app/website activity, screenshots, and productive-vs-idle time for remote and hybrid teams.",
+  workforce_analytics: "Workforce Analytics - workforce productivity analytics and capacity-planning software that turns activity data into insights: department productivity trends, overstaffing/understaffing, AI-tool adoption ROI, and attrition/burnout risk signals.",
+};
+
+export async function generateAiVisibilityPrompts(input: { project_id: string; compact?: boolean; category?: AiVisibilityCategory }): Promise<GenPromptsResult> {
   const { project_id } = ProjectInput.parse(input);
   const compact = input.compact === true; // signup auto-run: ~half the prompts, 6 personas
+  const category: AiVisibilityCategory = input.category ?? DEFAULT_CATEGORY;
   const a = await authProject(project_id);
   if ("error" in a) return { ok: false, error: a.error };
   const { project, user } = a;
@@ -81,10 +91,26 @@ export async function generateAiVisibilityPrompts(input: { project_id: string; c
   const keywords = cleanKeywords((kws ?? []).map((k: { keyword: string }) => k.keyword), { brand: project.name, industry: project.industry ?? "" });
   // The keyword we most want to get cited for: the saved scope override, else the top tracked keyword.
   const targetKeyword = scope?.target_keyword || keywords[0] || undefined;
-  // Glossary: keep existing prompts (re-checked over time) and ADD a few new deduped ones.
-  const { data: existingRows } = await admin.from("ai_citation_prompts").select("text").eq("project_id", project_id).eq("active", true);
+  // Glossary: keep existing prompts (re-checked over time) and ADD a few new deduped
+  // ones - scoped to THIS category, so generating Employee Monitoring for the first
+  // time (when Workforce Analytics prompts already exist) still does a FULL initial
+  // generation instead of incorrectly entering "grow" mode off the other category's
+  // prompts. Degrades to "no existing prompts" (fresh full generation) if the
+  // category column isn't migrated yet.
+  const { data: existingRows } = await admin.from("ai_citation_prompts")
+    .select("text").eq("project_id", project_id).eq("active", true).eq("category", category);
   const existingTexts = new Set((existingRows ?? []).map((r: { text: string }) => r.text.trim().toLowerCase()));
   const isGrow = existingTexts.size > 0;
+
+  // A FIXED persona list (e.g. the user's locked personas - ticket 8) makes
+  // generation use EXACTLY those personas instead of inventing new ones each
+  // call, for EITHER category (personas are shared across both today). Falls
+  // back to "AI invents personas" when none are saved/active yet.
+  const { data: savedPersonaRows } = await admin.from("ai_citation_personas")
+    .select("label, description").eq("project_id", project_id).eq("active", true).order("position", { ascending: true });
+  const lockedPersonas = (savedPersonaRows ?? [])
+    .filter((p): p is { label: string; description: string | null } => !!p.label)
+    .map((p) => ({ label: p.label, description: p.description ?? "" }));
 
   // Seed from the project's REAL GSC queries (the credibility differentiator vs
   // guessed prompts). Best-effort: if GSC is not connected we fall back to the
@@ -124,26 +150,34 @@ export async function generateAiVisibilityPrompts(input: { project_id: string; c
       topics: scope?.topics?.length ? scope.topics : undefined, // undefined = full default set
       localPin: profile.localPin,
       targetKeyword,
-      // Onboarding-collected grounding (job C): sharpen category + personas.
-      analysisFocus: project.analysis_focus ?? undefined,
+      // Category framing wins over the project's general analysis_focus, so the
+      // two categories genuinely diverge instead of asking the same questions.
+      analysisFocus: CATEGORY_FOCUS[category],
       brandSummary: project.brand_summary ?? undefined,
       compact, // ~half the prompts on the signup auto-run
+      lockedPersonas: lockedPersonas.length ? lockedPersonas : undefined,
     });
     // Persist the GLOSSARY: never wipe existing prompts (we re-check them over time);
     // append only genuinely-new lines, capped to a few once a glossary already exists.
     let fresh = set.prompts.filter((p) => !existingTexts.has(p.text.trim().toLowerCase()));
     if (isGrow) fresh = fresh.slice(0, 8);
     const { inserted } = await saveGeneratedPrompts(admin, project_id, { ...set, prompts: fresh }, {
-      country: project.country ?? undefined, createdBy: user.id, source: "ai_suggested",
+      country: project.country ?? undefined, createdBy: user.id, source: "ai_suggested", category,
     });
     // Persist the personas too (label + description) so the "Review your personas"
     // step has real data instead of just the labels riding on prompt rows. Isolated
     // + best-effort: if ai_citation_personas isn't migrated yet the prompt run still
     // succeeds - this must never fail the whole generation or refund its credits.
-    try {
-      await savePersonas(admin, project_id, set.personas);
-    } catch (e) {
-      console.warn("savePersonas (non-fatal, personas table may be unmigrated):", e instanceof Error ? e.message : e);
+    // SKIPPED when lockedPersonas drove this generation - set.personas is then
+    // exactly the user's already-saved list, and savePersonas only replaces
+    // source='ai_inferred' rows, so re-saving it would insert a DUPLICATE copy
+    // alongside the real (likely source='user') locked rows.
+    if (!lockedPersonas.length) {
+      try {
+        await savePersonas(admin, project_id, set.personas);
+      } catch (e) {
+        console.warn("savePersonas (non-fatal, personas table may be unmigrated):", e instanceof Error ? e.message : e);
+      }
     }
     if (gate) await gate.record({ kind: "ai_call", feature: "ai_citation_prompts", cost_cents: estCents, user_id: user.id });
     revalidatePath("/dashboard/ai-visibility");
