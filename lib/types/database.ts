@@ -169,7 +169,10 @@ export type IntegrationProvider =
   | "pagespeed"
   | "claude"
   | "openai"
-  | "supabase";
+  | "supabase"
+  | "ai_visibility_chatgpt"
+  | "ai_visibility_claude"
+  | "ai_visibility_gemini";
 
 export type IntegrationStatus = "connected" | "setup_required" | "error" | "disabled";
 

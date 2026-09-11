@@ -33,6 +33,13 @@ export interface IntegrationInfo {
   lastError: string | null;
   docsUrl: string;
   byok?: boolean;                    // bring-your-own-key (claude, openai) — no server storage
+  /** Budget-cap tracker (ticket 9). Only set for the 4 AI-Visibility-spend
+   *  providers (the 3 ai_visibility_* cards + apify's google_aio share). Our
+   *  own estimate from summed ai_citation_runs.cost_credits, NOT a live read of
+   *  the vendor's actual account balance. */
+  budgetCapUsd?: number | null;
+  spendSoFarUsd?: number | null;
+  budgetPeriodStart?: string | null;
 }
 
 const CATALOG: Record<Exclude<IntegrationProvider, "supabase">, Omit<IntegrationInfo, "status" | "envPresent" | "lastChecked" | "lastError" | "config">> = {
@@ -183,6 +190,71 @@ const CATALOG: Record<Exclude<IntegrationProvider, "supabase">, Omit<Integration
     ],
     docsUrl: "https://platform.openai.com/docs",
   },
+  // AI Visibility's own platform keys - distinct from the BYOK claude/openai
+  // cards above (those are per-request pasted keys with no server spend). These
+  // 3 + the existing 'apify' card (google_aio engine) get the budget-cap
+  // tracker rendered on their integrations-grid card (see BudgetTracker).
+  ai_visibility_chatgpt: {
+    provider: "ai_visibility_chatgpt",
+    name: "AI Visibility · ChatGPT",
+    description: "Powers the ChatGPT engine in AI Visibility (Employee Monitoring + Workforce Analytics scans) and buyer-question generation. Server-side key, real ongoing spend - set a budget cap below to track it.",
+    icon: "💬",
+    iconBg: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    envVars: ["OPENAI_API_KEY"],
+    fields: [
+      { key: "api_key", label: "API Key", placeholder: "sk-…", type: "password", envVar: "OPENAI_API_KEY" },
+    ],
+    howToConnect: [
+      "Sign up at platform.openai.com and create an API key",
+      "Add it as OPENAI_API_KEY in Vercel → Settings → Environment Variables",
+      "Redeploy — this card shows Connected once the key is live",
+    ],
+    scope: [
+      { title: "AI Visibility ChatGPT engine", description: "Samples ChatGPT (web-search grounded) for both categories' scans.", cadence: "on-demand" },
+      { title: "Buyer-question generation", description: "Writes the unbranded persona questions each category scan runs.", cadence: "on-demand" },
+    ],
+    docsUrl: "https://platform.openai.com/docs",
+  },
+  ai_visibility_claude: {
+    provider: "ai_visibility_claude",
+    name: "AI Visibility · Claude",
+    description: "Powers the Claude engine in AI Visibility. Dedicated key (AI_CITATION_ANTHROPIC_API_KEY) - separate from any BYOK Claude key, and never used for article generation.",
+    icon: "🧠",
+    iconBg: "bg-orange-500/15 text-orange-700 dark:text-orange-300",
+    envVars: ["AI_CITATION_ANTHROPIC_API_KEY"],
+    fields: [
+      { key: "api_key", label: "API Key", placeholder: "sk-ant-api03-…", type: "password", envVar: "AI_CITATION_ANTHROPIC_API_KEY" },
+    ],
+    howToConnect: [
+      "Sign up at console.anthropic.com and create an API key",
+      "Add it as AI_CITATION_ANTHROPIC_API_KEY in Vercel → Settings → Environment Variables",
+      "Redeploy — this card shows Connected once the key is live",
+    ],
+    scope: [
+      { title: "AI Visibility Claude engine", description: "Samples Claude for both categories' scans (no browsing, so no citation URLs - mention/position only).", cadence: "on-demand" },
+    ],
+    docsUrl: "https://docs.anthropic.com/claude/docs",
+  },
+  ai_visibility_gemini: {
+    provider: "ai_visibility_gemini",
+    name: "AI Visibility · Gemini",
+    description: "Powers the Gemini engine in AI Visibility (Google AI Studio, grounded search - returns real cited source URLs like ChatGPT and Perplexity did).",
+    icon: "✦",
+    iconBg: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+    envVars: ["GEMINI_API_KEY"],
+    fields: [
+      { key: "api_key", label: "API Key", placeholder: "AIza…", type: "password", envVar: "GEMINI_API_KEY" },
+    ],
+    howToConnect: [
+      "Get a key at aistudio.google.com (Google AI Studio)",
+      "Add it as GEMINI_API_KEY in Vercel → Settings → Environment Variables",
+      "Redeploy — this card shows Connected once the key is live",
+    ],
+    scope: [
+      { title: "AI Visibility Gemini engine", description: "Samples Gemini (Google Search grounded) for both categories' scans.", cadence: "on-demand" },
+    ],
+    docsUrl: "https://ai.google.dev/gemini-api/docs",
+  },
 };
 
 function envPresent(vars: string[]): boolean {
@@ -195,11 +267,45 @@ function configComplete(fields: IntegrationField[], config: Record<string, strin
   return fields.every((f) => (config[f.key] && config[f.key].length > 0) || (f.envVar && process.env[f.envVar]));
 }
 
+// Which AI-citation engine(s) a budget-tracked provider's spend comes from -
+// summed from ai_citation_runs.cost_credits (cents, despite the column name -
+// see run.ts). google_aio is the AI-Visibility SHARE of Apify spend only, not
+// the vendor's total account (blog discovery / SERP tracking / backlinks use
+// Apify too but aren't tracked here - out of this budget feature's scope).
+const BUDGET_ENGINES: Partial<Record<IntegrationProvider, string[]>> = {
+  ai_visibility_chatgpt: ["chatgpt"],
+  ai_visibility_claude: ["claude"],
+  ai_visibility_gemini: ["gemini"],
+  apify: ["google_aio"],
+};
+
 export async function getIntegrations(): Promise<IntegrationInfo[]> {
   const supabase = await createClient();
   const { data } = await supabase.from("integrations").select("*").is("project_id", null);
   const rows = (data ?? []) as Integration[];
   const byProvider = new Map(rows.map((r) => [r.provider, r]));
+
+  // Best-effort: sum cost_credits per engine across ALL projects (a global
+  // account budget), from each provider's own budget_period_start (or all-time
+  // if never set). One query per tracked provider - only 4, and this page isn't
+  // hot-pathed. Never throws: an error here must not break the integrations page.
+  const spendByProvider = new Map<string, number>();
+  await Promise.all(
+    (Object.entries(BUDGET_ENGINES) as Array<[IntegrationProvider, string[]]>).map(async ([provider, engines]) => {
+      try {
+        const row = byProvider.get(provider);
+        const config = (row?.config as Record<string, string>) ?? {};
+        const periodStart = config.budget_period_start;
+        let q = supabase.from("ai_citation_runs").select("cost_credits").in("engine", engines);
+        if (periodStart) q = q.gte("created_at", periodStart);
+        const { data: runs } = await q;
+        const cents = (runs ?? []).reduce((s, r) => s + (Number((r as { cost_credits: number }).cost_credits) || 0), 0);
+        spendByProvider.set(provider, cents / 100);
+      } catch {
+        // leave unset - the card shows no spend figure rather than a wrong one
+      }
+    }),
+  );
 
   return (Object.keys(CATALOG) as Array<keyof typeof CATALOG>).map((p) => {
     const base = CATALOG[p];
@@ -217,11 +323,16 @@ export async function getIntegrations(): Promise<IntegrationInfo[]> {
       status = "setup_required";
     }
 
+    const capRaw = config.budget_cap_usd ? Number(config.budget_cap_usd) : null;
+
     return {
       ...base,
       status,
       envPresent: hasEnv,
       config,
+      budgetCapUsd: BUDGET_ENGINES[p] && capRaw && capRaw > 0 ? capRaw : null,
+      spendSoFarUsd: BUDGET_ENGINES[p] ? (spendByProvider.get(p) ?? 0) : null,
+      budgetPeriodStart: config.budget_period_start ?? null,
       lastChecked: row?.last_checked_at ?? null,
       lastError: row?.last_error ?? null,
     };

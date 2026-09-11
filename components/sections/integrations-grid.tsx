@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { saveIntegrationConfig } from "@/lib/actions/integrations";
+import { setAiVisibilityBudget, resetAiVisibilityUsage } from "@/lib/actions/integration-budget";
 import type { IntegrationInfo } from "@/lib/data/integrations";
 
 const STATUS_META = {
@@ -90,6 +91,7 @@ export function IntegrationsGrid({ integrations }: { integrations: IntegrationIn
                 <p className="text-xs text-muted-foreground leading-relaxed flex-1">
                   {it.description}
                 </p>
+                {it.spendSoFarUsd != null && <BudgetTracker integration={it} />}
                 <div className="flex items-center gap-2 pt-2 border-t">
                   <Button variant="outline" size="xs" onClick={() => setActive(it)} className="flex-1">
                     {it.byok ? <Info className="size-3" /> : <KeyRound className="size-3" />}
@@ -124,6 +126,72 @@ export function IntegrationsGrid({ integrations }: { integrations: IntegrationIn
       <IntegrationModal integration={active} onClose={() => setActive(null)} />
       <ScopeModal integration={scopeActive} onClose={() => setScopeActive(null)} />
     </>
+  );
+}
+
+// Budget-cap tracker (ticket 9): shown on the 4 AI-Visibility-spend cards. No
+// cap set -> a neutral "set a budget" prompt with an inline input. Cap set ->
+// "$X of $Y left" + a progress bar + Reset usage. The figure is OUR estimate
+// (summed ai_citation_runs.cost_credits), not a live read of the vendor's
+// actual account balance - see lib/data/integrations.ts's BUDGET_ENGINES.
+function BudgetTracker({ integration }: { integration: IntegrationInfo }) {
+  const [editing, setEditing] = useState(integration.budgetCapUsd == null);
+  const [value, setValue] = useState(integration.budgetCapUsd != null ? String(integration.budgetCapUsd) : "15");
+  const [pending, startTransition] = useTransition();
+
+  const cap = integration.budgetCapUsd;
+  const spent = integration.spendSoFarUsd ?? 0;
+  const left = cap != null ? Math.max(0, cap - spent) : null;
+  const pct = cap != null && cap > 0 ? Math.min(100, Math.round((spent / cap) * 100)) : 0;
+
+  const save = () => {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) { toast.error("Enter a budget greater than $0."); return; }
+    startTransition(async () => {
+      const r = await setAiVisibilityBudget(integration.provider, n);
+      if (!r.ok) { toast.error(r.error ?? "Could not save budget."); return; }
+      toast.success(`Budget set to $${n.toFixed(2)}`);
+      setEditing(false);
+    });
+  };
+  const reset = () => {
+    startTransition(async () => {
+      const r = await resetAiVisibilityUsage(integration.provider);
+      if (!r.ok) { toast.error(r.error ?? "Could not reset usage."); return; }
+      toast.success("Usage reset");
+    });
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5 rounded-lg border border-dashed border-border bg-muted/30 px-2.5 py-2">
+        <DollarSign className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="text-[11px] text-muted-foreground shrink-0">Set a budget</span>
+        <Input value={value} onChange={(e) => setValue(e.target.value)} inputMode="decimal"
+          className="h-6 w-16 px-1.5 text-[11px]" placeholder="15" />
+        <Button size="xs" variant="ghost" onClick={save} disabled={pending} className="h-6 px-1.5 text-[11px]">
+          {pending ? <Loader2 className="size-3 animate-spin" /> : "Save"}
+        </Button>
+        {cap != null && (
+          <Button size="xs" variant="ghost" onClick={() => setEditing(false)} className="h-6 px-1.5 text-[11px] text-muted-foreground">Cancel</Button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1 rounded-lg border border-border bg-muted/20 px-2.5 py-2">
+      <div className="flex items-center justify-between gap-2 text-[11px]">
+        <span className="font-semibold text-foreground tabular-nums">${left!.toFixed(2)} left of ${cap!.toFixed(2)}</span>
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => setEditing(true)} className="text-muted-foreground underline underline-offset-2 hover:text-foreground">edit</button>
+          <button type="button" onClick={reset} disabled={pending} className="text-muted-foreground underline underline-offset-2 hover:text-foreground">reset</button>
+        </div>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className={cn("h-full rounded-full", pct >= 90 ? "bg-error-500" : pct >= 70 ? "bg-warning-500" : "bg-success-500")} style={{ width: `${Math.max(2, pct)}%` }} />
+      </div>
+    </div>
   );
 }
 
