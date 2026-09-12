@@ -25,7 +25,7 @@ import Image from "next/image";
 import {
   LayoutDashboard, ListChecks, Search, Swords,
   CalendarRange, Trophy, Users, FolderCog, GitBranch, FileSearch,
-  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, Eye,
+  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/dashboard/user-menu";
@@ -71,7 +71,8 @@ const NAV_SECTION: Record<string, string | null> = {
 // which gets the brand yellow accent (admin-only, deserves visual emphasis).
 // No more rainbow tones — keeps the sidebar quiet so the active item pops.
 type NavTone = "primary" | "yellow";
-type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; tone: NavTone };
+type NavChild = { href: string; label: string };
+type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; tone: NavTone; children?: NavChild[] };
 
 // Wins moved to ADMIN_NAV (per direction: only admins should see it).
 // SEO Gaps + Technical are rolled into Web Tasks. Articles is reachable from
@@ -86,10 +87,18 @@ const DEFAULT_NAV: NavItem[] = [
   { href: "/dashboard/blog-audit", label: "Blog audit",  icon: FileSearch,     tone: "primary" },
   { href: "/dashboard/reports",    label: "Reports",     icon: BarChart3,      tone: "primary" },
   { href: "/dashboard/analytics",  label: "Analytics",   icon: LineChart,      tone: "primary" },
-  // AI Visibility split into 2 independent products (own report + score each),
-  // room for more later - see the category system in lib/ai-citation/types.ts.
-  { href: "/dashboard/ai-visibility/employee-monitoring", label: "Employee Monitoring", icon: Eye,      tone: "primary" },
-  { href: "/dashboard/ai-visibility/workforce-analytics", label: "Workforce Analytics", icon: Sparkles, tone: "primary" },
+  // AI Visibility: one collapsible parent, 2 independent products underneath
+  // (own report + score each) - room for more children later. The parent's own
+  // href is the redirect route (never really "landed on"; see ../page.tsx) -
+  // it exists so this whole group is a SINGLE draggable row in the sidebar's
+  // reorder system, matching every other single-href NavItem.
+  {
+    href: "/dashboard/ai-visibility", label: "AI Visibility", icon: Sparkles, tone: "primary",
+    children: [
+      { href: "/dashboard/ai-visibility/employee-monitoring", label: "Employee Monitoring" },
+      { href: "/dashboard/ai-visibility/workforce-analytics", label: "Workforce Analytics" },
+    ],
+  },
 ];
 
 // Admin-only nav — Wins gets the yellow accent so it stands out as a
@@ -235,7 +244,7 @@ function SidebarInner({ profile, activeProject, canManageTeam, canManageProjects
             <div className="space-y-0.5">
               {orderedNav.map((item) => {
                 const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
-                return <SortableNavLink key={item.href} item={item} active={active} collapsed={collapsed} />;
+                return <SortableNavLink key={item.href} item={item} active={active} collapsed={collapsed} pathname={pathname} />;
               })}
             </div>
           </SortableContext>
@@ -252,7 +261,7 @@ function SidebarInner({ profile, activeProject, canManageTeam, canManageProjects
             <div className="space-y-0.5">
               {ADMIN_NAV.map((item) => {
                 const active = pathname.startsWith(item.href);
-                return <NavLink key={item.href} item={item} active={active} collapsed={collapsed} />;
+                return <NavLink key={item.href} item={item} active={active} collapsed={collapsed} pathname={pathname} />;
               })}
             </div>
           </>
@@ -280,13 +289,13 @@ function SidebarInner({ profile, activeProject, canManageTeam, canManageProjects
   );
 }
 
-function SortableNavLink({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
+function SortableNavLink({ item, active, collapsed, pathname }: { item: NavItem; active: boolean; collapsed: boolean; pathname: string }) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: item.href });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : undefined };
 
   return (
     <div ref={setNodeRef} style={style} className={cn("relative group", isDragging && "opacity-80")}>
-      <NavLink item={item} active={active} collapsed={collapsed} />
+      <NavLink item={item} active={active} collapsed={collapsed} pathname={pathname} />
       {!collapsed && (
         <button
           {...attributes}
@@ -302,7 +311,80 @@ function SortableNavLink({ item, active, collapsed }: { item: NavItem; active: b
   );
 }
 
-function NavLink({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
+// A NavItem with children renders as a collapsible group: a toggle header (not
+// a link - its own href is just a redirect route, never worth landing on) plus
+// an indented list of child links when expanded. Auto-expands whenever the
+// current route is inside the group; the user can still collapse it manually
+// while browsing elsewhere. Collapsed-sidebar (icon-only) mode skips the
+// sub-list entirely and the header itself becomes the link to the first child.
+function NavGroup({ item, active, collapsed, pathname }: { item: NavItem; active: boolean; collapsed: boolean; pathname: string }) {
+  const children = item.children!;
+  const [manualOpen, setManualOpen] = useState<boolean | null>(null);
+  const open = manualOpen ?? active;
+  const Icon = item.icon;
+  const t = TONE[item.tone];
+
+  if (collapsed) {
+    const firstChild = children[0];
+    const content = (
+      <Link
+        href={firstChild.href}
+        className={cn(
+          "relative group/nav flex items-center justify-center size-10 rounded-md text-sm transition-all duration-200",
+          active ? cn(t.active, "font-medium shadow-sm") : cn("text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground", t.hoverShadow),
+        )}
+      >
+        <Icon className={cn("size-4 shrink-0 transition-all group-hover/nav:scale-110", active ? t.activeIcon : t.icon)} />
+      </Link>
+    );
+    return (
+      <Tooltip>
+        <TooltipTrigger render={<div className="block">{content}</div>} />
+        <TooltipContent side="right" sideOffset={8}>{item.label}</TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setManualOpen(!open)}
+        aria-expanded={open}
+        className={cn(
+          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-all duration-200 cursor-pointer",
+          active ? cn(t.active, "font-medium") : cn("text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground", t.hoverShadow),
+        )}
+      >
+        <Icon className={cn("size-4 shrink-0", active ? t.activeIcon : t.icon)} />
+        <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+        <ChevronDown className={cn("size-3.5 shrink-0 text-current opacity-60 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="mt-0.5 ml-[18px] space-y-0.5 border-l border-border pl-3">
+          {children.map((child) => {
+            const childActive = pathname.startsWith(child.href);
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                className={cn(
+                  "block truncate rounded-md px-2 py-1.5 text-[13px] transition-colors",
+                  childActive ? "font-medium text-primary" : "text-sidebar-foreground/60 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+                )}
+              >
+                {child.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NavLink({ item, active, collapsed, pathname }: { item: NavItem; active: boolean; collapsed: boolean; pathname: string }) {
+  if (item.children?.length) return <NavGroup item={item} active={active} collapsed={collapsed} pathname={pathname} />;
   const Icon = item.icon;
   const t = TONE[item.tone];
 
