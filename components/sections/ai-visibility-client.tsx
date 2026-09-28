@@ -337,7 +337,7 @@ export function AiVisibilityClient({
       {/* First-run setup as a right-side drawer (low-friction, not a wizard).
           The Setup tab is the same config once data exists. */}
       <Sheet open={setupOpen} onOpenChange={setSetupOpen}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl lg:max-w-3xl">
+        <SheetContent side="right" className="w-full overflow-y-auto sm:min-w-[50vw] sm:max-w-2xl lg:max-w-3xl">
           <SheetHeader>
             <SheetTitle>Set up AI Visibility</SheetTitle>
             <SheetDescription>Generate your buyer prompts, then run your first check. Takes about a minute.</SheetDescription>

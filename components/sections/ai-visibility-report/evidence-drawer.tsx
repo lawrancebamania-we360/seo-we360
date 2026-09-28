@@ -96,7 +96,7 @@ export function EvidenceDrawer({ projectId, request, onClose }: {
 
   return (
     <Sheet open={!!request} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-3xl lg:max-w-5xl xl:max-w-[1400px]">
+      <SheetContent side="right" className="w-full overflow-y-auto sm:min-w-[50vw] sm:max-w-3xl lg:max-w-5xl xl:max-w-[1400px]">
         <SheetHeader>
           <SheetTitle>{showList ? listMeta.title : "AI answer transcript"}</SheetTitle>
           <SheetDescription>

@@ -127,7 +127,7 @@ export function AiVisibilityScopeDrawer({ open, onOpenChange, projectId, competi
 
   return (
     <Sheet open={open} onOpenChange={(v) => !busy && onOpenChange(v)}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
+      <SheetContent side="right" className="w-full overflow-y-auto sm:min-w-[50vw] sm:max-w-2xl">
         <SheetHeader>
           <SheetTitle>Set up your AI-citation test</SheetTitle>
           <SheetDescription>Two quick things, then Klimb writes the buyer questions and runs them for you.</SheetDescription>
