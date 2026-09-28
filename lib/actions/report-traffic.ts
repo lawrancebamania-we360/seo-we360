@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { executeAction, type GA4Metric } from "@/lib/integrations/composio";
+import { getGoogleAccessToken, isGoogleServiceAccountConfigured } from "@/lib/google/auth";
 
 // Whole-site GA4 ORGANIC SEARCH traffic, last calendar month vs current
 // month-to-date. Powers the two comparison boxes at the top of the Reports
@@ -11,8 +11,14 @@ import { executeAction, type GA4Metric } from "@/lib/integrations/composio";
 // i.e. visitors who arrived from a search engine, not direct / paid /
 // social / referral. This is the number that reflects SEO performance.
 //
-// Live Composio GA4 call, run on demand from the client component so a
-// slow/failed GA4 call degrades only the boxes, not the whole report.
+// Live GA4 Data API call via the native "Connect with Google" OAuth flow
+// (same lib/google/auth.ts token resolver every other GA4 read in the app
+// uses) - was Composio before, moved off it since that connection kept
+// dropping under its own entity_id, unrelated to the native flow's health.
+// Run on demand from the client component so a slow/failed GA4 call
+// degrades only the boxes, not the whole report.
+
+const SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
 
 export interface MonthlyTrafficComparison {
   ok: boolean;
@@ -47,6 +53,9 @@ export async function getMonthlyTrafficComparison(): Promise<MonthlyTrafficCompa
   const propertyId = (project as { ga4_property_id?: string } | null)?.ga4_property_id;
   if (!propertyId) {
     return { ...empty, error: "GA4 property not configured on the project." };
+  }
+  if (!(await isGoogleServiceAccountConfigured())) {
+    return { ...empty, error: "GA4 not connected. Go to Integrations to connect with Google." };
   }
 
   const now = new Date();
@@ -84,18 +93,30 @@ export async function getMonthlyTrafficComparison(): Promise<MonthlyTrafficCompa
 // with no `dimensions` in the request, GA4 still returns a single totals
 // row — the aggregated organic-only session count.
 async function organicSessions(propertyId: string, startDate: string, endDate: string): Promise<number> {
-  const input = {
-    property: `properties/${propertyId}`,
-    dateRanges: [{ startDate, endDate }],
-    metrics: [{ name: "sessions" }],
-    dimensionFilter: {
-      filter: {
-        fieldName: "sessionDefaultChannelGroup",
-        stringFilter: { matchType: "EXACT", value: "Organic Search" },
-      },
+  const token = await getGoogleAccessToken(SCOPE);
+  const res = await fetch(
+    `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        dateRanges: [{ startDate, endDate }],
+        metrics: [{ name: "sessions" }],
+        dimensionFilter: {
+          filter: {
+            fieldName: "sessionDefaultChannelGroup",
+            stringFilter: { matchType: "EXACT", value: "Organic Search" },
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(12000),
     },
-  };
-  const result = await executeAction<GA4Metric>("GOOGLE_ANALYTICS_RUN_REPORT", input);
-  const row = result.data.rows?.[0];
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`GA4 runReport failed (${res.status}): ${body.slice(0, 300)}`);
+  }
+  const data = (await res.json()) as { rows?: { metricValues?: { value: string }[] }[] };
+  const row = data.rows?.[0];
   return parseInt(row?.metricValues?.[0]?.value ?? "0", 10) || 0;
 }
