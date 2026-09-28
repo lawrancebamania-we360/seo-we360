@@ -75,6 +75,7 @@ export interface RunBatchSpec {
   engines: AiEngine[];
   nByEngine: Partial<Record<AiEngine, number>>;
   aioPromptCap?: number | null;
+  promptCapByEngine?: Partial<Record<AiEngine, number>> | null;
   skipGate?: boolean; // ops scripts meter elsewhere; a continued slice must match
 }
 

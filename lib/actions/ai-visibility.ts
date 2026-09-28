@@ -22,6 +22,7 @@ import { sanitizeIndustry } from "@/lib/industries";
 import { estimateAiCostCents } from "@/lib/billing/ai-pricing";
 import { generatePromptSet, saveGeneratedPrompts, savePersonas, resolveBuckets } from "@/lib/ai-citation/prompts";
 import { runProjectCitations, estimateRunCostCents, resumeRunBatch } from "@/lib/ai-citation/run";
+import { isMissingColumn } from "@/lib/ai-citation/run-state";
 import { getOpportunityPools } from "@/lib/google/gsc-opportunities";
 import { profileForIndustry } from "@/lib/ai-citation/industry-profiles";
 import { configuredEngines } from "@/lib/ai-citation/engines";
@@ -255,6 +256,31 @@ export async function addPersona(input: z.infer<typeof PersonaAdd>): Promise<{ o
 // share one LLM call, so this also tops up the prompt glossary by a few lines.
 export async function regeneratePersonas(input: { project_id: string }): Promise<GenPromptsResult> {
   return generateAiVisibilityPrompts(input);
+}
+
+const PromptAdd = z.object({
+  project_id: z.string().uuid(),
+  text: z.string().trim().min(5).max(300),
+  category: z.enum(["employee_monitoring", "workforce_analytics"]).optional(),
+});
+
+// A hand-typed question, e.g. one the buyer wants tested exactly as worded
+// instead of waiting on the AI-generated set. source='manual' so a regenerate
+// (which only replaces the ai_suggested rows) never wipes it.
+export async function addAiVisibilityPrompt(input: z.infer<typeof PromptAdd>): Promise<{ ok: boolean; error?: string; id?: string }> {
+  const { project_id, text, category } = PromptAdd.parse(input);
+  const a = await authProject(project_id);
+  if ("error" in a) return { ok: false, error: a.error };
+  const admin = createAdminClient();
+  const row = { project_id, text, source: "manual", active: true, category: category ?? DEFAULT_CATEGORY, created_by: a.user.id };
+  let { data, error } = await admin.from("ai_citation_prompts").insert(row).select("id").single();
+  if (error && isMissingColumn(error.message)) {
+    const { category: _category, ...rowNoCategory } = row;
+    ({ data, error } = await admin.from("ai_citation_prompts").insert(rowNoCategory).select("id").single());
+  }
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  return { ok: true, id: (data as { id: string }).id };
 }
 
 // A short, honest, LLM-written read of what the AI-visibility score actually
@@ -604,6 +630,10 @@ export async function runAiVisibilityNow(input: {
   /** Onboarding-only sampling-depth override (e.g. { chatgpt: 2 }). Omitted ->
    *  today's behavior: the project's saved depth for chatgpt, defaults elsewhere. */
   nByEngine?: Partial<Record<AiEngine, number>>;
+  /** Run-test-modal "questions" override: cap how many of the active prompts
+   *  (list order) an engine covers, e.g. testing one new engine against just 1
+   *  question instead of the full set. Omitted -> every active prompt. */
+  promptCapByEngine?: Partial<Record<AiEngine, number>>;
   /** Which product this scan is for (the run-test modal passes the current
    *  category page's value). Omitted -> workforce_analytics. */
   category?: AiVisibilityCategory;
@@ -664,6 +694,7 @@ export async function runAiVisibilityNow(input: {
     runProjectCitations(project_id, {
       engines, nByEngine: input.nByEngine ?? { chatgpt: depth }, userId: a.user.id,
       apifyToken: apifyToken ?? undefined, aioPromptCap: AIO_ONDEMAND_CAP,
+      promptCapByEngine: input.promptCapByEngine,
       category: runCategory,
     }),
   );

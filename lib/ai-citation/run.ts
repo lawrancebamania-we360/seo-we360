@@ -70,6 +70,10 @@ export interface RunOptions {
   /** Cap how many prompts the (expensive, slow) google_aio engine covers - used by
    *  the on-demand run to bound Apify cost + time. undefined = every prompt (cron). */
   aioPromptCap?: number;
+  /** Per-engine prompt cap for any engine (run-test modal "questions" field) - lets
+   *  a run ask e.g. only the first 1 of 40 active prompts to a given engine. Applied
+   *  in prompt list order. google_aio uses aioPromptCap instead when both are set. */
+  promptCapByEngine?: Partial<Record<AiEngine, number>>;
   /** What kicked off this run, recorded on the lifecycle row so the UI can show
    *  only user-initiated runs. Defaults to 'on_demand'. */
   trigger?: RunTrigger;
@@ -185,8 +189,10 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
     const p = prompts[pi];
     for (const engine of engines) {
       // Cap the expensive google_aio engine to the first aioPromptCap prompts (the
-      // on-demand cost/time guard); the other engines cover every prompt.
-      if (engine === "google_aio" && opts.aioPromptCap != null && pi >= opts.aioPromptCap) continue;
+      // on-demand cost/time guard) unless a run-test-modal override replaces it;
+      // any other engine can be capped the same way via promptCapByEngine.
+      const cap = engine === "google_aio" ? (opts.aioPromptCap ?? opts.promptCapByEngine?.[engine]) : opts.promptCapByEngine?.[engine];
+      if (cap != null && pi >= cap) continue;
       const samples = nFor(engine);
       for (let i = 0; i < samples; i++) allTasks.push({ p, engine, i });
     }
@@ -258,6 +264,7 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
       engines,
       nByEngine: Object.fromEntries(engines.map((e) => [e, nFor(e)])) as Partial<Record<AiEngine, number>>,
       aioPromptCap: opts.aioPromptCap ?? null,
+      promptCapByEngine: opts.promptCapByEngine ?? null,
       skipGate: opts.skipGate || undefined,
     };
     const { specPersisted } = await startRunBatch(admin, {
@@ -540,6 +547,7 @@ export async function resumeRunBatch(
     nByEngine: spec.nByEngine,
     promptIds: spec.promptIds,
     aioPromptCap: spec.aioPromptCap ?? undefined,
+    promptCapByEngine: spec.promptCapByEngine ?? undefined,
     skipGate: spec.skipGate === true,
     apifyToken: opts.apifyToken,
     maxMs: opts.maxMs,

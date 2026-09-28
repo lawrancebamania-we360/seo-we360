@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { AI_ENGINES, ENGINE_LABEL, type AiEngine, type AiVisibilityCategory } from "@/lib/ai-citation/types";
 import type { AiVisibilityReport } from "@/lib/ai-citation/report";
 import type { Ga4AiReferral } from "@/lib/google/ga4";
-import { generateAiVisibilityPrompts, runAiVisibilityNow, resumeAiVisibilityRun, upsertOutreach, scoreOutreachDomains, draftOutreach } from "@/lib/actions/ai-visibility";
+import { generateAiVisibilityPrompts, runAiVisibilityNow, resumeAiVisibilityRun, upsertOutreach, scoreOutreachDomains, draftOutreach, addAiVisibilityPrompt } from "@/lib/actions/ai-visibility";
 import type { SourceGapReport, SourceGapRow } from "@/lib/ai-citation/source-gap";
 
 type OutreachAction = "pitch" | "guest_post" | "get_listed" | "comment" | "other";
@@ -41,7 +41,7 @@ import { BreakdownsTab } from "@/components/sections/ai-visibility-report/breakd
 import { AnswersTab } from "@/components/sections/ai-visibility-report/answers-tab";
 
 type Tab = "overview" | "breakdowns" | "answers" | "sources" | "setup";
-type PromptRow = { id: string; text: string; persona: string | null; topic: string | null; tags: string[] | null; demand: string | null };
+export type PromptRow = { id: string; text: string; persona: string | null; topic: string | null; tags: string[] | null; demand: string | null };
 
 // Durable run-lifecycle state (P0-5), read from ai_citation_run_batches. Shape
 // matches lib/ai-citation/run-state.ts LatestRunBatch (server-serialized). null
@@ -167,7 +167,7 @@ export function AiVisibilityClient({
     return () => { cancelled = true; clearInterval(interval); };
   }, [runActive, fetchRunStatus, router, projectId]);
 
-  const runNow = (override?: { engines: AiEngine[]; nByEngine: Partial<Record<AiEngine, number>> }) => {
+  const runNow = (override?: { engines: AiEngine[]; nByEngine: Partial<Record<AiEngine, number>>; promptCapByEngine?: Partial<Record<AiEngine, number>> }) => {
     setBusy("run");
     // Remember the run that existed BEFORE this click, so we can tell whether a
     // real batch row was created for THIS attempt (a newer id) vs. the action
@@ -188,7 +188,7 @@ export function AiVisibilityClient({
     start(async () => {
       const r = await runAiVisibilityNow({
         project_id: projectId, category,
-        ...(override ? { engines: override.engines, nByEngine: override.nByEngine } : {}),
+        ...(override ? { engines: override.engines, nByEngine: override.nByEngine, promptCapByEngine: override.promptCapByEngine } : {}),
       });
       setBusy(null);
       const latest = await fetchRunStatus();
@@ -225,6 +225,11 @@ export function AiVisibilityClient({
       if (r.ok) { toast.success(`Generated ${r.count ?? 0} buyer prompts across personas and topics.`); router.refresh(); }
       else toast.error(r.error ?? "Generation failed");
     });
+  };
+  const addPrompt = async (text: string): Promise<{ ok: boolean; error?: string }> => {
+    const r = await addAiVisibilityPrompt({ project_id: projectId, text, category });
+    if (r.ok) router.refresh();
+    return r.ok ? { ok: true } : { ok: false, error: r.error };
   };
 
   const tabs: { key: Tab; label: string }[] = [
@@ -302,9 +307,19 @@ export function AiVisibilityClient({
         configuredEngines={configuredEngines}
         engineBudgets={engineBudgets}
         running={busy === "run" || runActive}
-        onConfirm={(engines, nByEngine) => {
+        promptCount={prompts.length}
+        projectId={projectId}
+        personas={personas}
+        googleConnected={googleConnected}
+        canManage={canManage}
+        prompts={prompts}
+        busy={busy}
+        pending={pending}
+        onGenPrompts={genPrompts}
+        onAddPrompt={addPrompt}
+        onConfirm={(engines, nByEngine, promptCapByEngine) => {
           setRunModalOpen(false);
-          runNow({ engines, nByEngine });
+          runNow({ engines, nByEngine, promptCapByEngine });
         }}
       />
 
