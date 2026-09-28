@@ -2,7 +2,7 @@
 // One-shot backfill: any blog_task whose brief.generated_by indicates an Apify
 // enrichment ALREADY happened (so the content-gap-style data is in the brief)
 // gets brief.content_gap_at stamped retroactively. This prevents the weekly
-// cron in scripts/composio/weekly-content-gap.ts from re-enriching them.
+// cron in scripts/weekly-content-gap.ts from re-enriching them.
 //
 // We use generated_by as the signal because that's the only post-enrichment
 // marker the prior version of enrich-blog-tasks-apify.ts set. Going forward,

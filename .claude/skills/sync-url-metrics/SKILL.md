@@ -1,11 +1,12 @@
 ---
 name: sync-url-metrics
-version: 2.0.0
+version: 3.0.0
 description: |
   Daily sync of GSC + GA4 metrics for every tracked URL on the we360.ai
-  project. Pulls via Composio REST API (no MCP), writes results to the
-  Postgres url_metrics table. Read by blog audit, task detail panels,
-  Web Tasks list, and the brief data_backing auto-fill.
+  project. Pulls via the app's own native "Connect with Google" OAuth token
+  (lib/google/auth.ts), writes results to the Postgres url_metrics table.
+  Read by blog audit, task detail panels, Web Tasks list, and the brief
+  data_backing auto-fill.
 
   Trigger this skill once a day around 10am IST. Pre-registered via the
   schedule skill — this file just orchestrates a single Node call.
@@ -14,22 +15,25 @@ allowed-tools:
   - Bash
 ---
 
-# Sync URL metrics via Composio REST API
+# Sync URL metrics via native GA4 + GSC APIs
 
-The sync runs as a single Node script. No MCP, no orchestration loop —
-the script handles everything (queue insert, per-URL GA4 + GSC pulls,
-DB writes, run-status updates) end to end.
+The sync runs as a single Node script. No MCP, no orchestration loop, no
+third-party broker — the script handles everything (queue insert, per-URL
+GA4 + GSC pulls, DB writes, run-status updates) end to end, authenticating
+via the same "Connect with Google" OAuth connection the live app uses.
 
 ## Run
 
 ```bash
-npx tsx scripts/composio/sync-url-metrics.ts
+npx tsx scripts/sync-url-metrics.ts
 ```
 
-The script reads `COMPOSIO_API_KEY` from `.env.local` and writes to the
-project's `url_metrics` and `url_metrics_runs` tables. Expected runtime:
-~5-10 minutes for the current URL count (we sleep 350ms between calls to
-stay well under Composio's rate limits).
+The script needs `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, and
+`OAUTH_TOKEN_ENCRYPTION_KEY` in `.env.local` (same values as Vercel) to
+decrypt the refresh token stored in the `integrations` table, and writes to
+the project's `url_metrics` and `url_metrics_runs` tables. Expected runtime:
+~5-10 minutes for the current URL count (a light 150ms delay between calls
+keeps well under GA4/GSC's own rate limits).
 
 ## Report
 
@@ -62,21 +66,27 @@ const a = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABA
 If you see URLs with non-zero GSC clicks and GA4 sessions, the sync is
 working. If everything is zero, check:
 
-  • Composio API key is valid (run a single test execute via the docs)
-  • GA4 property ID 273620287 is correct
-  • GSC site URL https://we360.ai/ is correct
-  • The connected accounts in Composio dashboard are still Active
+  • The "Connect with Google" connection is still active on the
+    Integrations page (Reconnect if it shows disconnected).
+  • GA4 property ID 273620287 is correct.
+  • GSC site URL https://we360.ai/ is correct.
+  • The scopes granted include `analytics.readonly` and
+    `webmasters.readonly` (Google Cloud Console -> OAuth consent screen ->
+    Data access).
 
 ## Failure modes
 
-  • `Composio GOOGLE_ANALYTICS_RUN_REPORT: HTTP 404` — the slug name is
-    wrong for that tool. Look up the exact slug at
-    https://app.composio.dev/toolkits/google_analytics and update
-    `lib/integrations/composio.ts`.
+  • `GA4 URL-snapshot query failed (404)` — the GA4 property ID is wrong,
+    or the connected Google account lost access to that property.
 
-  • `Composio GOOGLE_SEARCH_CONSOLE_QUERY_ANALYTICS: HTTP 403` — the
-    service account or OAuth connection lost access to that GSC property.
-    Reconnect in Composio dashboard.
+  • `GSC URL-snapshot query failed (403)` — the connected Google account
+    lost access to that Search Console property. Reconnect via the
+    Integrations page.
+
+  • `Google not connected...` — the OAuth refresh token is missing or
+    invalid. Reconnect via the Integrations page's "Connect with Google"
+    card, or check that `GOOGLE_OAUTH_CLIENT_ID`/`_SECRET` still match
+    what's in Google Cloud Console (a rotated secret breaks this).
 
   • Some URLs show all-zero metrics — that page genuinely has no traffic
     in the window (normal for new posts) OR the URL format mismatches

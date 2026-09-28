@@ -89,7 +89,7 @@ interface BlogBriefSeed {
   generated_by: string;
   secondary_keywords: string[];
   // ISO timestamp set when the content-gap actor ran for this task. The
-  // weekly cron in scripts/composio/weekly-content-gap.ts skips tasks whose
+  // weekly cron in scripts/weekly-content-gap.ts skips tasks whose
   // brief already has BOTH recommended_h2s.length >= 3 AND content_gap_at
   // populated — so by stamping this here, the cron won't re-enrich tasks
   // this script already touched (avoids redundant ~$0.40/task Apify spend).

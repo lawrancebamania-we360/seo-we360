@@ -1,7 +1,8 @@
 // Shared types for url_metrics — the central GSC + GA4 store.
-// Populated daily by the local Claude Code skill via Composio; read by
-// the blog audit page, task detail dialog, web tasks list, and the brief
-// data_backing auto-fill.
+// Populated daily via the native "Connect with Google" OAuth flow
+// (scripts/sync-url-metrics.ts, run by the Claude Code skill / GitHub
+// Actions); read by the blog audit page, task detail dialog, web tasks
+// list, and the brief data_backing auto-fill.
 
 export type MetricPeriod = "30d" | "60d" | "90d";
 

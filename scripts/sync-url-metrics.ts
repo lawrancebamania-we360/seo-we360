@@ -1,16 +1,18 @@
 // End-to-end daily sync: pull GA4 + GSC for every tracked URL × 30/60/90
 // day windows, write to url_metrics. One Node entrypoint, no MCP needed.
 //
-// Usage: npx tsx scripts/composio/sync-url-metrics.ts
+// Usage: npx tsx scripts/sync-url-metrics.ts
 //
-// Reads COMPOSIO_API_KEY from .env.local. Coverage: every <loc> in the
-// site's sitemap (handles sitemap indexes one level deep), plus URLs
-// referenced by task rows, plus a small fixed list of critical pages.
-// All three sources are deduped. Sleeps 350ms between calls to stay
-// under Composio's rate limit (20K-100K/10min depending on plan).
+// Auth: same native "Connect with Google" OAuth token this app's server
+// actions use (lib/google/auth.ts) - reads the encrypted refresh token
+// from the `integrations` table, no separate broker/API key required.
+// Coverage: every <loc> in the site's sitemap (handles sitemap indexes one
+// level deep), plus URLs referenced by task rows, plus a small fixed list
+// of critical pages. All three sources are deduped.
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
-import { ga4UrlSnapshot, gscUrlSnapshot, urlToPagePath } from "@/lib/integrations/composio";
+import { getGa4UrlSnapshot } from "@/lib/google/ga4";
+import { getGscUrlSnapshot } from "@/lib/google/gsc";
 
 config({ path: ".env.local" });
 const admin = createClient(
@@ -25,8 +27,9 @@ const SITEMAP_URL = "https://we360.ai/sitemap.xml";
 const PERIODS = [30, 60, 90] as const;
 
 // Hard cap on URLs per run so an accidentally enormous sitemap doesn't
-// blow the GitHub Action timeout or burn Composio quota on a single day.
-// Adjust upward later if you genuinely have more pages worth syncing.
+// blow the GitHub Action timeout or hammer GA4/GSC's own rate limits on a
+// single day. Adjust upward later if you genuinely have more pages worth
+// syncing.
 const URL_CAP = 500;
 
 // Restrict sitemap URLs to we360.ai paths only — outbound links from
@@ -38,6 +41,15 @@ const FIXED_URLS = [
   "https://we360.ai/pricing",
   "https://we360.ai/contact",
 ];
+
+function urlToPagePath(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.pathname + (u.search ?? "");
+  } catch {
+    return url;
+  }
+}
 
 async function listUrls(): Promise<string[]> {
   const set = new Set<string>(FIXED_URLS);
@@ -77,7 +89,7 @@ async function listUrls(): Promise<string[]> {
     .maybeSingle();
   const prevTotal = (lastRun as { urls_total?: number } | null)?.urls_total ?? 0;
 
-  // Cap so a runaway sitemap can't burn the whole Composio quota.
+  // Cap so a runaway sitemap can't blow the run's time budget.
   let urls = [...set].filter((u) => isOwnDomain(u)).sort();
   const totalBeforeCap = urls.length;
   if (urls.length > URL_CAP) {
@@ -204,7 +216,7 @@ async function startRun(): Promise<string> {
   return (data as { id: string }).id;
 }
 
-async function writeMetric(runId: string, url: string, period: 30 | 60 | 90, gsc: Awaited<ReturnType<typeof gscUrlSnapshot>>, ga: Awaited<ReturnType<typeof ga4UrlSnapshot>>): Promise<void> {
+async function writeMetric(runId: string, url: string, period: 30 | 60 | 90, gsc: Awaited<ReturnType<typeof getGscUrlSnapshot>>, ga: Awaited<ReturnType<typeof getGa4UrlSnapshot>>): Promise<void> {
   const row = {
     project_id: PROJECT_ID,
     url,
@@ -275,18 +287,22 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
       try {
         console.log(`  [${urlIdx}/${urls.length}] ${url}  (${period}d)`);
         const [gsc, ga] = await Promise.all([
-          gscUrlSnapshot(GSC_SITE_URL, url, period).catch((e) => {
+          getGscUrlSnapshot(GSC_SITE_URL, url, period).catch((e) => {
             console.error(`    GSC failed: ${e instanceof Error ? e.message : e}`);
             return { clicks: 0, impressions: 0, ctr: 0, position: 0, topQueries: [] };
           }),
-          ga4UrlSnapshot(GA4_PROPERTY_ID, pagePath, period).catch((e) => {
+          getGa4UrlSnapshot(GA4_PROPERTY_ID, pagePath, period).catch((e) => {
             console.error(`    GA4 failed: ${e instanceof Error ? e.message : e}`);
             return { sessions: 0, engagedSessions: 0, engagementRate: 0, averageEngagementTime: 0, bounceRate: 0, conversions: 0, topReferrers: [] };
           }),
         ]);
         await writeMetric(runId, url, period, gsc, ga);
         console.log(`    ✓ gsc=${gsc.clicks}c/${gsc.impressions}i  ga=${ga.sessions}s`);
-        await sleep(350);
+        // Small politeness delay between calls - native GA4/GSC quotas are
+        // far more generous than Composio's broker limit was, but a
+        // 500-URL x 3-period run is still ~3000 calls, so a light throttle
+        // avoids bursting either API.
+        await sleep(150);
       } catch (e) {
         urlOk = false;
         console.error(`    ✗ ${e instanceof Error ? e.message : e}`);

@@ -1,7 +1,7 @@
 -- url_metrics — single source of truth for GSC + GA4 data across the dashboard.
 --
 -- Populated daily by the local Claude Code skill `sync-url-metrics` via the
--- Composio MCP integration. Read by:
+-- app's own native "Connect with Google" OAuth flow. Read by:
 --   • Blog audit page (decision tree: prune / merge / refresh / keep)
 --   • Task detail dialog (live performance panel per URL)
 --   • Web Tasks list (small impressions/clicks badge per row)

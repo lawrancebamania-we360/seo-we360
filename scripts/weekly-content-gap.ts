@@ -12,9 +12,9 @@
 // upside drained first.
 //
 // Usage:
-//   npx tsx scripts/composio/weekly-content-gap.ts                # process top 2
-//   npx tsx scripts/composio/weekly-content-gap.ts --cap=5        # override cap
-//   npx tsx scripts/composio/weekly-content-gap.ts --dry-run      # show plan only
+//   npx tsx scripts/weekly-content-gap.ts                # process top 2
+//   npx tsx scripts/weekly-content-gap.ts --cap=5        # override cap
+//   npx tsx scripts/weekly-content-gap.ts --dry-run      # show plan only
 
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";

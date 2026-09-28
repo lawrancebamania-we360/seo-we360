@@ -7,16 +7,16 @@
 // re-runs skip tasks where brief.enriched_at is already set.
 //
 // Usage:
-//   npx tsx scripts/composio/backfill-serp.ts                # dry run, list candidates
-//   npx tsx scripts/composio/backfill-serp.ts --execute      # actually run + write
-//   npx tsx scripts/composio/backfill-serp.ts --execute --cap=50
+//   npx tsx scripts/backfill-serp.ts                # dry run, list candidates
+//   npx tsx scripts/backfill-serp.ts --execute      # actually run + write
+//   npx tsx scripts/backfill-serp.ts --execute --cap=50
 
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 import {
   callSerp, mergeSerpIntoBrief, formatSerpEnrichmentSummary, stripPriorEnrichment,
   type BriefSeed,
-} from "../../lib/apify/serp";
+} from "../lib/apify/serp";
 
 config({ path: ".env.local" });
 

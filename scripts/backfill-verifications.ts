@@ -9,8 +9,8 @@
 // itself with no signal to the user.
 //
 // Usage:
-//   npx tsx scripts/composio/backfill-verifications.ts                # dry-run, list candidates
-//   npx tsx scripts/composio/backfill-verifications.ts --execute      # actually enqueue
+//   npx tsx scripts/backfill-verifications.ts                # dry-run, list candidates
+//   npx tsx scripts/backfill-verifications.ts --execute      # actually enqueue
 
 import { createAdminClient } from "@/lib/supabase/admin";
 

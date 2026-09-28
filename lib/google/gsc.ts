@@ -254,6 +254,60 @@ export async function getGscUrlAggregates(args: {
   })).filter((r) => r.url.length > 0);
 }
 
+export interface GscUrlSnapshot {
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  topQueries: Array<{ query: string; clicks: number; impressions: number; position: number }>;
+}
+
+/**
+ * Per-URL, per-period snapshot for the daily url_metrics sync - clicks/
+ * impressions/position for ONE page over the last `daysAgo` days, plus its
+ * top queries. Companion to getGscUrlAggregates (many URLs, one window);
+ * this is one URL, one of several windows (30/60/90d).
+ */
+export async function getGscUrlSnapshot(siteUrl: string, pageUrl: string, daysAgo: 30 | 60 | 90): Promise<GscUrlSnapshot> {
+  const token = await getGoogleAccessToken(SCOPE);
+  const res = await fetch(
+    `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        startDate: dateOffset(daysAgo),
+        endDate: dateOffset(3), // GSC has a ~3-day reporting lag, same as queryRange/getGscUrlAggregates
+        dimensions: ["query"],
+        dimensionFilterGroups: [{ filters: [{ dimension: "page", operator: "equals", expression: pageUrl }] }],
+        rowLimit: 25,
+      }),
+      signal: AbortSignal.timeout(15000),
+    },
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`GSC URL-snapshot query failed (${res.status}): ${body.slice(0, 300)}`);
+  }
+  const data = (await res.json()) as { rows?: GscQueryRow[] };
+  const rows = data.rows ?? [];
+  const clicks = rows.reduce((s, r) => s + (r.clicks || 0), 0);
+  const impressions = rows.reduce((s, r) => s + (r.impressions || 0), 0);
+  // Clicks-weighted average position; falls back to simple avg if no clicks.
+  const position = clicks > 0
+    ? rows.reduce((s, r) => s + (r.position || 0) * (r.clicks || 0), 0) / clicks
+    : rows.length > 0
+      ? rows.reduce((s, r) => s + (r.position || 0), 0) / rows.length
+      : 0;
+  return {
+    clicks,
+    impressions,
+    ctr: impressions > 0 ? clicks / impressions : 0,
+    position,
+    topQueries: rows.slice(0, 10).map((r) => ({ query: r.keys[0] ?? "", clicks: r.clicks, impressions: r.impressions, position: r.position })),
+  };
+}
+
 export async function getGscCannibalization(
   siteUrl: string | null,
   options: { minImpressionsPerUrl?: number } = {}

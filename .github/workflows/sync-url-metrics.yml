@@ -1,4 +1,6 @@
-# Daily GA4 + GSC sync via Composio REST API.
+# Daily GA4 + GSC sync via the app's own native "Connect with Google" OAuth
+# token - same lib/google/auth.ts resolver every live GA4/GSC read in the
+# app uses, no third-party broker.
 #
 # Runs from GitHub-hosted runner so we don't depend on anyone's laptop
 # being on. ~30 sec per run, well inside the free 2000 min/month quota.
@@ -7,7 +9,11 @@
 # Secrets required in repo Settings -> Secrets and variables -> Actions:
 #   - NEXT_PUBLIC_SUPABASE_URL
 #   - SUPABASE_SERVICE_ROLE_KEY
-#   - COMPOSIO_API_KEY
+#   - GOOGLE_OAUTH_CLIENT_ID
+#   - GOOGLE_OAUTH_CLIENT_SECRET
+#   - OAUTH_TOKEN_ENCRYPTION_KEY
+# (same three OAuth values already set in Vercel - the refresh token itself
+# lives encrypted in Supabase, not in a secret here.)
 
 name: Sync URL Metrics
 
@@ -45,6 +51,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
-          COMPOSIO_ENTITY_ID: lawrance
-        run: npx tsx scripts/composio/sync-url-metrics.ts
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          OAUTH_TOKEN_ENCRYPTION_KEY: ${{ secrets.OAUTH_TOKEN_ENCRYPTION_KEY }}
+        run: npx tsx scripts/sync-url-metrics.ts

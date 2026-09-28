@@ -227,6 +227,83 @@ export async function getGa4UrlAggregates(args: {
   return out;
 }
 
+export interface Ga4UrlSnapshot {
+  sessions: number;
+  engagedSessions: number;
+  engagementRate: number;
+  averageEngagementTime: number;
+  bounceRate: number;
+  conversions: number;
+  topReferrers: Array<{ source: string; sessions: number }>;
+}
+
+/**
+ * Per-URL, per-period snapshot for the daily url_metrics sync - core
+ * engagement metrics for ONE page over the last `daysAgo` days, plus its top
+ * referrer sources. Companion to getGa4UrlAggregates (many URLs, one window);
+ * this is one URL, one of several windows (30/60/90d).
+ */
+export async function getGa4UrlSnapshot(propertyId: string, pagePath: string, daysAgo: 30 | 60 | 90): Promise<Ga4UrlSnapshot> {
+  const token = await getGoogleAccessToken(SCOPE);
+  const dateRanges = [{ startDate: `${daysAgo}daysAgo`, endDate: "today" }];
+  const pageFilter = { filter: { fieldName: "pagePath", stringFilter: { matchType: "EXACT", value: pagePath } } };
+
+  const runQuery = async (body: Record<string, unknown>): Promise<RunReportRow[]> => {
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15000),
+      },
+    );
+    if (!res.ok) {
+      const errBody = await res.text();
+      throw new Error(`GA4 URL-snapshot query failed (${res.status}): ${errBody.slice(0, 300)}`);
+    }
+    const data = (await res.json()) as { rows?: RunReportRow[] };
+    return data.rows ?? [];
+  };
+
+  const [mainRows, refRows] = await Promise.all([
+    runQuery({
+      dateRanges,
+      dimensions: [{ name: "pagePath" }],
+      metrics: [
+        { name: "sessions" }, { name: "engagedSessions" }, { name: "engagementRate" },
+        { name: "averageSessionDuration" }, { name: "bounceRate" }, { name: "conversions" },
+      ],
+      dimensionFilter: pageFilter,
+      limit: 1,
+    }),
+    // Top referrers - separate small query, best-effort.
+    runQuery({
+      dateRanges,
+      dimensions: [{ name: "sessionSource" }],
+      metrics: [{ name: "sessions" }],
+      dimensionFilter: pageFilter,
+      limit: 5,
+    }).catch(() => [] as RunReportRow[]),
+  ]);
+
+  const m = mainRows[0]?.metricValues ?? [];
+  const get = (i: number) => parseFloat(m[i]?.value ?? "0") || 0;
+
+  return {
+    sessions: get(0),
+    engagedSessions: get(1),
+    engagementRate: get(2),
+    averageEngagementTime: get(3), // averageSessionDuration - named to match the stored ga_avg_engagement_time column
+    bounceRate: get(4),
+    conversions: get(5),
+    topReferrers: refRows.map((r) => ({
+      source: r.dimensionValues[0]?.value ?? "(unknown)",
+      sessions: parseInt(r.metricValues[0]?.value ?? "0", 10) || 0,
+    })),
+  };
+}
+
 // Content freshness: compares each page's last-7-day traffic against a
 // 90-day baseline (days 60-150 ago, so we're not polluting the baseline with
 // the current decline). Pages below 50% of baseline daily avg are "decaying"

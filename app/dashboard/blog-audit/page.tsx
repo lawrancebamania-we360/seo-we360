@@ -40,7 +40,7 @@ export default async function BlogAuditPage() {
           <FileSearch className="size-8 text-muted-foreground mx-auto" />
           <div className="text-sm font-medium">No url_metrics data yet</div>
           <div className="text-xs text-muted-foreground max-w-md mx-auto">
-            Run the daily Composio sync (locally: <code className="px-1.5 py-0.5 rounded bg-muted text-foreground/80 text-[10px]">npx tsx scripts/composio/sync-url-metrics.ts</code>, or wait for the GitHub Actions schedule at 10am IST) to populate <code className="px-1 py-0.5 rounded bg-muted text-[10px]">url_metrics</code>.
+            Run the daily sync (locally: <code className="px-1.5 py-0.5 rounded bg-muted text-foreground/80 text-[10px]">npx tsx scripts/sync-url-metrics.ts</code>, or wait for the GitHub Actions schedule at 10am IST) to populate <code className="px-1 py-0.5 rounded bg-muted text-[10px]">url_metrics</code>.
           </div>
         </Card>
       ) : (
