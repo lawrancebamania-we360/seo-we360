@@ -251,7 +251,12 @@ export function AiVisibilityClient({
               <SlidersHorizontal className="size-3.5" />
               Personas &amp; setup
             </Button>
-            <Button size="sm" variant="brand" disabled={pending || runActive} onClick={() => { if ((scope?.runs_confirmed ?? 0) >= 3 && prompts.length) setRunModalOpen(true); else setScopeOpen(true); }} className="gap-1.5">
+            {/* Once prompts exist for this category, always go through the engine
+                picker (ticket 10) so the user controls which engines/N run and
+                never blind-spends across all 4. Only a genuinely first-ever run
+                (no prompts yet) falls back to the scope drawer, which is the only
+                flow that also sets up competitors/keyword + generates prompts. */}
+            <Button size="sm" variant="brand" disabled={pending || runActive} onClick={() => { if (prompts.length) setRunModalOpen(true); else setScopeOpen(true); }} className="gap-1.5">
               {busy === "run" || runActive ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
               {runActive ? "Running..." : "Run AI-citation test"}
             </Button>
