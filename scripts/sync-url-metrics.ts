@@ -1,18 +1,13 @@
-// End-to-end daily sync: pull GA4 + GSC for every tracked URL × 30/60/90
-// day windows, write to url_metrics. One Node entrypoint, no MCP needed.
+// Manual/local runner for the url_metrics sync - calls the SAME
+// runUrlMetricsTick() the Vercel Cron route (app/api/cron/url-metrics)
+// uses in production, just looped locally with a generous per-call budget
+// until today's run is fully "completed". Useful for backfilling or
+// testing without waiting for the 5 staggered daily cron entries.
 //
 // Usage: npx tsx scripts/sync-url-metrics.ts
-//
-// Auth: same native "Connect with Google" OAuth token this app's server
-// actions use (lib/google/auth.ts) - reads the encrypted refresh token
-// from the `integrations` table, no separate broker/API key required.
-// Coverage: every <loc> in the site's sitemap (handles sitemap indexes one
-// level deep), plus URLs referenced by task rows, plus a small fixed list
-// of critical pages. All three sources are deduped.
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
-import { getGa4UrlSnapshot } from "@/lib/google/ga4";
-import { getGscUrlSnapshot } from "@/lib/google/gsc";
+import { runUrlMetricsTick } from "@/lib/cron/url-metrics";
 
 config({ path: ".env.local" });
 const admin = createClient(
@@ -20,301 +15,26 @@ const admin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!.trim(),
 );
 
-const PROJECT_ID = "11111111-1111-4111-8111-000000000001";
-const GA4_PROPERTY_ID = "273620287";
-const GSC_SITE_URL = "https://we360.ai/";
-const SITEMAP_URL = "https://we360.ai/sitemap.xml";
-const PERIODS = [30, 60, 90] as const;
-
-// Hard cap on URLs per run so an accidentally enormous sitemap doesn't
-// blow the GitHub Action timeout or hammer GA4/GSC's own rate limits on a
-// single day. Adjust upward later if you genuinely have more pages worth
-// syncing.
-const URL_CAP = 500;
-
-// Restrict sitemap URLs to we360.ai paths only — outbound links from
-// the sitemap (rare but possible) get filtered out.
-const ALLOWED_HOST = "we360.ai";
-
-const FIXED_URLS = [
-  "https://we360.ai/",
-  "https://we360.ai/pricing",
-  "https://we360.ai/contact",
-];
-
-function urlToPagePath(url: string): string {
-  try {
-    const u = new URL(url);
-    return u.pathname + (u.search ?? "");
-  } catch {
-    return url;
-  }
-}
-
-async function listUrls(): Promise<string[]> {
-  const set = new Set<string>(FIXED_URLS);
-
-  // 1. Sitemap — every public URL the site advertises to search engines.
-  //    Fetched fresh every run (no caching) so a sitemap updated at
-  //    9:55am IST is fully reflected in the 10:00am sync.
-  try {
-    const sitemapUrls = await fetchSitemapUrls(SITEMAP_URL);
-    for (const u of sitemapUrls) set.add(normalize(u));
-    console.log(`  sitemap: ${sitemapUrls.length} URLs`);
-  } catch (e) {
-    console.error(`  sitemap fetch failed: ${e instanceof Error ? e.message : e}`);
-    console.error("  continuing with task URLs only");
-  }
-
-  // 2. Task URLs — catches things in flight that may not be in sitemap yet
-  //    (e.g. blog tasks where the published_url was filled before indexing).
-  const { data } = await admin
-    .from("tasks")
-    .select("published_url, url")
-    .eq("project_id", PROJECT_ID);
-  for (const t of (data ?? []) as Array<{ published_url: string | null; url: string | null }>) {
-    if (t.published_url) set.add(normalize(t.published_url));
-    if (t.url && t.url.startsWith("http")) set.add(normalize(t.url));
-  }
-
-  // 3. Compare against yesterday's sync so we can call out new URLs in
-  //    the log. Helps verify the freshness pipeline is actually working.
-  const { data: lastRun } = await admin
-    .from("url_metrics_runs")
-    .select("urls_total, finished_at")
-    .eq("project_id", PROJECT_ID)
-    .eq("status", "completed")
-    .order("finished_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const prevTotal = (lastRun as { urls_total?: number } | null)?.urls_total ?? 0;
-
-  // Cap so a runaway sitemap can't blow the run's time budget.
-  let urls = [...set].filter((u) => isOwnDomain(u)).sort();
-  const totalBeforeCap = urls.length;
-  if (urls.length > URL_CAP) {
-    console.log(`  ⚠ capping ${urls.length} URLs to ${URL_CAP} (raise URL_CAP if needed)`);
-    urls = urls.slice(0, URL_CAP);
-  }
-  const delta = totalBeforeCap - prevTotal;
-  console.log(`  total: ${totalBeforeCap} URLs (yesterday: ${prevTotal}, delta: ${delta >= 0 ? "+" : ""}${delta})`);
-  return urls;
-}
-
-function normalize(url: string): string {
-  try { const u = new URL(url); u.hash = ""; return u.toString(); }
-  catch { return url; }
-}
-
-function isOwnDomain(url: string): boolean {
-  try { return new URL(url).hostname.endsWith(ALLOWED_HOST); }
-  catch { return false; }
-}
-
-// Fetch a sitemap and recursively expand sitemap-index entries one level
-// deep. Returns the union of all <loc> values found. Same-domain filter
-// happens in listUrls().
-//
-// Cache discipline: every daily run does a fresh fetch — never reuses
-// HTTP cache, never serves stale data. We force this three ways:
-//   • cache: "no-store"          tells fetch to bypass its own cache
-//   • Cache-Control headers      asks any intermediate proxy to skip cache
-//   • cache-busting query param  defeats CDN-level caching keyed on URL
-// This guarantees that if writers add a new blog and update sitemap.xml
-// at 9:55 IST, the 10:00 IST run sees the new URL.
-async function fetchSitemapUrls(url: string, depth = 0): Promise<string[]> {
-  if (depth > 2) return [];                          // guard against loops
-  // we360.ai's sitemap currently points to Google Drive — the default
-  // download URL serves an HTML "virus scan warning" interstitial, not
-  // the XML. Rewrite to drive.usercontent.google.com with &confirm=t.
-  const base = rewriteDriveDownload(url);
-  const cacheBuster = `_t=${Date.now()}`;
-  const fetchUrl = base + (base.includes("?") ? "&" : "?") + cacheBuster;
-
-  const resp = await fetch(fetchUrl, {
-    cache: "no-store",
-    headers: {
-      "User-Agent": "We360-SEO-Sync/1.0",
-      "Cache-Control": "no-cache, no-store, must-revalidate",
-      "Pragma": "no-cache",
-    },
-  });
-  if (!resp.ok) throw new Error(`sitemap ${url} returned HTTP ${resp.status}`);
-
-  // Surface freshness in CI logs so you can verify each daily run pulled
-  // a fresh response. Date header is set by the origin / CDN; if it's
-  // hours old, that's the upstream's cache, not ours.
-  const lastMod = resp.headers.get("last-modified");
-  const dateHdr = resp.headers.get("date");
-  console.log(`    fetched ${url} · response date=${dateHdr ?? "?"} · last-modified=${lastMod ?? "?"}`);
-
-  const xml = await resp.text();
-
-  // Sitemap index — contains <sitemap><loc>...</loc></sitemap> entries
-  // pointing to sub-sitemaps. Fetch each, recurse.
-  if (/<sitemapindex\b/i.test(xml)) {
-    const subs = extractLocs(xml);
-    const all: string[] = [];
-    for (const sub of subs) {
-      try {
-        const inner = await fetchSitemapUrls(sub, depth + 1);
-        all.push(...inner);
-      } catch (e) {
-        console.error(`    sub-sitemap ${sub} failed: ${e instanceof Error ? e.message : e}`);
-      }
-    }
-    return all;
-  }
-
-  // Plain urlset — <url><loc>...</loc></url> entries.
-  return extractLocs(xml);
-}
-
-function extractLocs(xml: string): string[] {
-  const out: string[] = [];
-  const re = /<loc>\s*([^<\s]+)\s*<\/loc>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(xml)) !== null) {
-    const u = decodeXmlEntities(m[1].trim());
-    if (u.startsWith("http")) out.push(u);
-  }
-  return out;
-}
-
-// Sitemaps follow XML rules — `&` becomes `&amp;` etc. If we hand a raw
-// `&amp;` URL to fetch() it 400s. Decode the five standard entities.
-// Rewrite a Google Drive "uc?export=download&id=X" URL into the
-// userdrive form that bypasses the interstitial. No-op for any URL
-// that isn't a drive.google.com download link.
-function rewriteDriveDownload(url: string): string {
-  try {
-    const u = new URL(url);
-    if (u.hostname !== "drive.google.com") return url;
-    const id = u.searchParams.get("id");
-    if (!id) return url;
-    return `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`;
-  } catch { return url; }
-}
-
-function decodeXmlEntities(s: string): string {
-  return s
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)));
-}
-
-async function startRun(): Promise<string> {
-  const { data, error } = await admin
-    .from("url_metrics_runs")
-    .insert({ project_id: PROJECT_ID, status: "running" })
-    .select("id")
-    .single();
-  if (error) throw error;
-  return (data as { id: string }).id;
-}
-
-async function writeMetric(runId: string, url: string, period: 30 | 60 | 90, gsc: Awaited<ReturnType<typeof getGscUrlSnapshot>>, ga: Awaited<ReturnType<typeof getGa4UrlSnapshot>>): Promise<void> {
-  const row = {
-    project_id: PROJECT_ID,
-    url,
-    period: `${period}d`,
-    gsc_clicks: gsc.clicks,
-    gsc_impressions: gsc.impressions,
-    gsc_ctr: gsc.ctr,
-    gsc_position: gsc.position,
-    gsc_top_queries: gsc.topQueries,
-    ga_sessions: ga.sessions,
-    ga_engaged_sessions: ga.engagedSessions,
-    ga_engagement_rate: ga.engagementRate,
-    ga_avg_engagement_time: Math.round(ga.averageEngagementTime),
-    ga_bounce_rate: ga.bounceRate,
-    ga_conversions: ga.conversions,
-    ga_top_referrers: ga.topReferrers,
-    snapshot_date: new Date().toISOString().slice(0, 10),
-    source_run_id: runId,
-  };
-  const { error } = await admin
-    .from("url_metrics")
-    .upsert(row, { onConflict: "project_id,url,period,snapshot_date" });
-  if (error) throw error;
-}
-
-async function bumpCounter(runId: string, field: "urls_succeeded" | "urls_failed"): Promise<void> {
-  const { data } = await admin
-    .from("url_metrics_runs")
-    .select(field)
-    .eq("id", runId)
-    .single();
-  const current = (data as Record<string, number> | null)?.[field] ?? 0;
-  await admin
-    .from("url_metrics_runs")
-    .update({ [field]: current + 1 })
-    .eq("id", runId);
-}
-
-async function finishRun(runId: string, urlsTotal: number, errorMsg?: string): Promise<void> {
-  await admin
-    .from("url_metrics_runs")
-    .update({
-      finished_at: new Date().toISOString(),
-      urls_total: urlsTotal,
-      status: errorMsg ? "failed" : "completed",
-      error_message: errorMsg ?? null,
-    })
-    .eq("id", runId);
-}
-
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+// No Vercel duration ceiling locally - use a large per-call budget so a
+// full drain takes only a couple of calls, not dozens.
+const LOCAL_TICK_BUDGET_MS = 4 * 60_000;
 
 (async () => {
-  console.log("Sync url_metrics — start");
-  const runId = await startRun();
-  console.log(`  run_id=${runId}\n`);
-
-  const urls = await listUrls();
-  console.log(`  ${urls.length} URLs to process × ${PERIODS.length} periods = ${urls.length * PERIODS.length} metric rows\n`);
-
-  let urlIdx = 0;
-  for (const url of urls) {
-    urlIdx++;
-    const pagePath = urlToPagePath(url);
-    let urlOk = true;
-
-    for (const period of PERIODS) {
-      try {
-        console.log(`  [${urlIdx}/${urls.length}] ${url}  (${period}d)`);
-        const [gsc, ga] = await Promise.all([
-          getGscUrlSnapshot(GSC_SITE_URL, url, period).catch((e) => {
-            console.error(`    GSC failed: ${e instanceof Error ? e.message : e}`);
-            return { clicks: 0, impressions: 0, ctr: 0, position: 0, topQueries: [] };
-          }),
-          getGa4UrlSnapshot(GA4_PROPERTY_ID, pagePath, period).catch((e) => {
-            console.error(`    GA4 failed: ${e instanceof Error ? e.message : e}`);
-            return { sessions: 0, engagedSessions: 0, engagementRate: 0, averageEngagementTime: 0, bounceRate: 0, conversions: 0, topReferrers: [] };
-          }),
-        ]);
-        await writeMetric(runId, url, period, gsc, ga);
-        console.log(`    ✓ gsc=${gsc.clicks}c/${gsc.impressions}i  ga=${ga.sessions}s`);
-        // Small politeness delay between calls - native GA4/GSC quotas are
-        // far more generous than Composio's broker limit was, but a
-        // 500-URL x 3-period run is still ~3000 calls, so a light throttle
-        // avoids bursting either API.
-        await sleep(150);
-      } catch (e) {
-        urlOk = false;
-        console.error(`    ✗ ${e instanceof Error ? e.message : e}`);
-      }
+  console.log("Sync url_metrics — start\n");
+  for (let pass = 1; ; pass++) {
+    const summary = await runUrlMetricsTick(admin, { budgetMs: LOCAL_TICK_BUDGET_MS });
+    console.log(
+      `  pass ${pass}: status=${summary.status} run_id=${summary.runId} ` +
+      `${summary.nextIndex}/${summary.tasksTotal} tasks (+${summary.tasksDoneNow} this pass, ${summary.urlsTotal} URLs)`,
+    );
+    if (!summary.ok) {
+      console.error(`  ✗ ${summary.error}`);
+      process.exit(1);
     }
-
-    await bumpCounter(runId, urlOk ? "urls_succeeded" : "urls_failed");
+    if (summary.status === "completed" || summary.status === "already_done") break;
   }
-
-  await finishRun(runId, urls.length);
-  console.log(`\nSync complete — run_id=${runId}`);
-})().catch(async (e) => {
+  console.log("\nSync complete");
+})().catch((e) => {
   console.error("Crash:", e instanceof Error ? e.message : e);
   process.exit(1);
 });

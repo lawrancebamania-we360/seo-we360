@@ -12,6 +12,11 @@
     {
       "path": "/api/cron/monthly-intelligence",
       "schedule": "0 3 1 * *"
-    }
+    },
+    { "path": "/api/cron/url-metrics", "schedule": "10 22 * * *" },
+    { "path": "/api/cron/url-metrics", "schedule": "10 23 * * *" },
+    { "path": "/api/cron/url-metrics", "schedule": "10 0 * * *" },
+    { "path": "/api/cron/url-metrics", "schedule": "10 1 * * *" },
+    { "path": "/api/cron/url-metrics", "schedule": "10 2 * * *" }
   ]
 }
