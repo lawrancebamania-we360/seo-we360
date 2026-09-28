@@ -4,9 +4,12 @@
 // (GEMINI_API_KEY) so it stays OFF until you deliberately add it, same pattern
 // as Claude's AI_CITATION_ANTHROPIC_API_KEY.
 //
-// Model: gemini-2.5-flash (Google's price-performance tier for high-volume,
-// low-latency calls - verified against ai.google.dev/gemini-api/docs/models,
-// same role gpt-4.1 plays for the ChatGPT engine). Override via
+// Model: gemini-3.6-flash (Google's price-performance tier for high-volume,
+// low-latency calls - same role gpt-4.1 plays for the ChatGPT engine).
+// Was gemini-2.5-flash until that model got locked out for keys without
+// prior 2.5 usage (404 "no longer available to new users" - 2.5 fully
+// retires 2026-10-20); moved to 3.6-flash, its GA replacement, verified
+// against ai.google.dev/gemini-api/docs/deprecations. Override via
 // AI_CITATION_GEMINI_MODEL if Google ships a newer default worth moving to.
 //
 // Cost: grounding is billed per-prompt (not per model token) once past
@@ -20,7 +23,7 @@ import type { AiEngine, EngineAdapter, EngineCitation } from "../types";
 import { ANSWER_MAX_TOKENS, engineError, localize } from "./_shared";
 
 const ENGINE: AiEngine = "gemini";
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.6-flash";
 
 function key(): string {
   return process.env.GEMINI_API_KEY?.trim() || "";
