@@ -151,7 +151,21 @@ function ListView({ items, total, loading, onOpen, onLoadMore }: {
           </div>
           <p className="text-sm font-medium">{a.promptText}</p>
           {a.snippet && <p className="line-clamp-2 text-xs text-muted-foreground">{a.snippet}</p>}
-          <p className="text-xs font-medium text-primary">Read the full answer</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-primary">Read the full answer</p>
+            {a.sourceUrls?.[0] && (
+              <a
+                href={a.sourceUrls[0]}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                title="Open the cited page"
+              >
+                View cited URL <ExternalLink className="size-3" />
+              </a>
+            )}
+          </div>
         </button>
       ))}
       {items.length < total && (

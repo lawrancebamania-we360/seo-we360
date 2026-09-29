@@ -35,7 +35,7 @@ import { PersonaReview } from "@/components/sections/persona-review";
 import type { PersonaRow } from "@/lib/data/personas";
 // Trust features (evidence drawer + sentiment + funnel matrix) live in their own
 // folder; this file only mounts them. OverviewTab / AnswersTab moved there too.
-import { AivEvidenceProvider } from "@/components/sections/ai-visibility-report/evidence-context";
+import { AivEvidenceProvider, useEvidence } from "@/components/sections/ai-visibility-report/evidence-context";
 import { OverviewTab } from "@/components/sections/ai-visibility-report/overview-tab";
 import { BreakdownsTab } from "@/components/sections/ai-visibility-report/breakdowns-tab";
 import { AnswersTab } from "@/components/sections/ai-visibility-report/answers-tab";
@@ -590,6 +590,7 @@ function FirstRunHero({ hasPrompts, canManage, onGoSetup }: { hasPrompts: boolea
 function SourcesTab({ report, projectId, canManage, sourceGap, outreach }: {
   report: AiVisibilityReport; projectId: string; canManage: boolean; sourceGap: SourceGapReport; outreach: OutreachRow[];
 }) {
+  const { openList } = useEvidence();
   // Nothing was cited in the latest run → an informative empty state (which
   // engines return source links + what to do) instead of bare "no sources" lines.
   if (report.sources.length === 0) return <CitationSourcesEmpty />;
@@ -606,7 +607,19 @@ function SourcesTab({ report, projectId, canManage, sourceGap, outreach }: {
         </div>
         <div className="space-y-0.5">
           {report.sources.map((s) => (
-            <div key={s.domain} className={cn("flex items-center gap-3 rounded-lg px-2 py-2 -mx-2", s.isProject && "bg-warning-500/[0.07]")}>
+            <button
+              key={s.domain}
+              type="button"
+              onClick={() => openList(
+                { sourceDomain: s.domain },
+                s.domain,
+                `Every question in the latest run whose AI answer cited ${s.domain}.`,
+              )}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg px-2 py-2 -mx-2 text-left transition-colors hover:bg-muted/50 cursor-pointer",
+                s.isProject && "bg-warning-500/[0.07] hover:bg-warning-500/[0.12]",
+              )}
+            >
               <span className={cn(
                 "flex size-[26px] flex-none items-center justify-center rounded-lg text-[11px] font-bold",
                 s.isProject ? "bg-warning-500/15 text-warning-strong" : "bg-muted text-muted-foreground",
@@ -616,7 +629,7 @@ function SourcesTab({ report, projectId, canManage, sourceGap, outreach }: {
                 <div className={cn("h-full rounded-full", s.isProject ? "bg-warning-500" : "bg-ember-500")} style={{ width: `${Math.max(3, Math.round((s.count / (report.sources[0]?.count || 1)) * 100))}%` }} />
               </div>
               <span className="w-8 text-right font-mono text-[13.5px] font-medium tabular-nums text-foreground">{s.count}</span>
-            </div>
+            </button>
           ))}
           {!report.sources.length && <p className="text-xs text-muted-foreground">No cited sources yet.</p>}
         </div>

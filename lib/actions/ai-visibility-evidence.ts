@@ -54,6 +54,7 @@ const FilterSchema = z.object({
   mentioned: z.boolean().optional(),
   cited: z.boolean().optional(),
   sentiment: z.enum(["recommended", "with_caveats", "dismissed"]).optional(),
+  sourceDomain: z.string().max(255).optional(),
 });
 
 const EvidenceInput = z.object({
