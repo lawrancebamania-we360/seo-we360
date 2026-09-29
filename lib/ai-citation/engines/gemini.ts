@@ -37,6 +37,29 @@ interface GenerateContentResponse {
   }>;
 }
 
+// Gemini's grounding API hands back a Google-hosted redirect link
+// (vertexaisearch.cloud.google.com/grounding-api-redirect/...), not the real
+// source URL - storing that as-is corrupts "which domain cited us" (every
+// Gemini citation would show as Google's own redirect domain instead of the
+// real site). Resolve it once via a HEAD request that follows redirects; on
+// any failure, keep the original link so a citation still leads somewhere
+// real when clicked, even though the stored domain stays wrong in that rare
+// case. Only Google's grounding-redirect host pays this extra round trip -
+// anything else (a future API version returning direct URLs) passes through.
+const GROUNDING_REDIRECT_HOST = "vertexaisearch.cloud.google.com";
+
+async function resolveCitationUrl(citation: EngineCitation): Promise<EngineCitation> {
+  if (!citation.url) return citation;
+  let host: string;
+  try { host = new URL(citation.url).hostname; } catch { return citation; }
+  if (host !== GROUNDING_REDIRECT_HOST) return citation;
+  try {
+    const res = await fetch(citation.url, { method: "HEAD", redirect: "follow", signal: AbortSignal.timeout(5000) });
+    if (res.url) return { ...citation, url: res.url };
+  } catch { /* keep the original redirect link */ }
+  return citation;
+}
+
 export const geminiAdapter: EngineAdapter = {
   engine: ENGINE,
   isConfigured: () => !!key(),
@@ -64,12 +87,13 @@ export const geminiAdapter: EngineAdapter = {
       const data = (await res.json()) as GenerateContentResponse;
       const candidate = data.candidates?.[0];
       const answerText = (candidate?.content?.parts ?? []).map((p) => p.text ?? "").join("");
-      const citations: EngineCitation[] = [];
+      const rawCitations: EngineCitation[] = [];
       const seen = new Set<string>();
       for (const chunk of candidate?.groundingMetadata?.groundingChunks ?? []) {
         const uri = chunk.web?.uri;
-        if (uri && !seen.has(uri)) { seen.add(uri); citations.push({ url: uri, title: chunk.web?.title }); }
+        if (uri && !seen.has(uri)) { seen.add(uri); rawCitations.push({ url: uri, title: chunk.web?.title }); }
       }
+      const citations = await Promise.all(rawCitations.map(resolveCitationUrl));
       return { engine: ENGINE, ok: true, answerText, citations };
     } catch (e) {
       return engineError(ENGINE, e instanceof Error ? e.message : String(e));
