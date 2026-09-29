@@ -11,9 +11,19 @@
 -- the periods it already finished.
 
 alter table public.url_metrics_runs
-  add column if not exists run_date date not null default current_date,
+  add column if not exists run_date date,
   add column if not exists url_list jsonb,
   add column if not exists next_index int not null default 0;
+
+-- Backfill each existing row's run_date from when it actually ran
+-- (started_at), NOT "today" — a plain `default current_date` on ADD COLUMN
+-- would stamp every historical row with today's date instead (Postgres
+-- evaluates the default once and writes it to all existing rows), which is
+-- exactly what collided on the unique index below.
+update public.url_metrics_runs set run_date = started_at::date where run_date is null;
+
+alter table public.url_metrics_runs alter column run_date set default current_date;
+alter table public.url_metrics_runs alter column run_date set not null;
 
 -- One row per project per day — lets a batch find (or safely race-create)
 -- "today's" run with a simple upsert-style lookup instead of date-math on
