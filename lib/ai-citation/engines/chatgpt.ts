@@ -28,15 +28,37 @@ const WEB_SEARCH_MAX_MS = 22000;
 const FALLBACK_MAX_MS = 9000;
 const MIN_CALL_MS = 3000;
 
-// Pull the answer text + url_citation annotations out of a Responses API payload.
-// Shape: output[] -> message items -> content[] (output_text) -> { text, annotations[] }.
+// Pull the answer text + citations out of a Responses API payload. Two
+// citation sources, merged and deduped:
+//   1. web_search_call.action.sources - the COMPLETE list of URLs the model
+//      actually consulted. Only present when the request opts in via
+//      `include: ["web_search_call.action.sources"]` (see below).
+//   2. message content's url_citation annotations - the "most relevant"
+//      SUBSET the model chose to inline-cite. OpenAI's own docs note "the
+//      number of sources is often greater than the number of citations", so
+//      (1) alone already covers (2) in practice, but both are merged in case
+//      a citation URL isn't echoed back in action.sources for some reason.
+// Shape: output[] -> web_search_call items (action.sources[]) AND message
+// items -> content[] (output_text) -> { text, annotations[] }.
 function parseResponses(data: unknown): { answerText: string; citations: EngineCitation[] } {
   const d = data as { output_text?: unknown; output?: unknown[] };
   const textParts: string[] = [];
   const citations: EngineCitation[] = [];
   const seen = new Set<string>();
+  const addCitation = (url: string | undefined, title: string | undefined) => {
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    citations.push({ url, title: title || undefined });
+  };
   for (const item of Array.isArray(d.output) ? d.output : []) {
-    const it = item as { type?: string; content?: unknown[] };
+    const it = item as { type?: string; content?: unknown[]; action?: { sources?: unknown[] } };
+    if (it?.type === "web_search_call") {
+      for (const s of Array.isArray(it.action?.sources) ? it.action!.sources! : []) {
+        const src = s as { url?: string; title?: string };
+        addCitation(src.url, src.title);
+      }
+      continue;
+    }
     if (it?.type !== "message" || !Array.isArray(it.content)) continue;
     for (const c of it.content) {
       const cc = c as { type?: string; text?: string; annotations?: unknown[] };
@@ -44,10 +66,7 @@ function parseResponses(data: unknown): { answerText: string; citations: EngineC
       if (typeof cc.text === "string") textParts.push(cc.text);
       for (const a of Array.isArray(cc.annotations) ? cc.annotations : []) {
         const an = a as { type?: string; url?: string; title?: string };
-        if (an?.type === "url_citation" && an.url && !seen.has(an.url)) {
-          seen.add(an.url);
-          citations.push({ url: an.url, title: an.title || undefined });
-        }
+        if (an?.type === "url_citation") addCitation(an.url, an.title);
       }
     }
   }
@@ -88,7 +107,12 @@ export const chatgptAdapter: EngineAdapter = {
         const res = await fetch("https://api.openai.com/v1/responses", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-          body: JSON.stringify({ model, tools: [{ type: "web_search" }], input, max_output_tokens: ANSWER_MAX_TOKENS }),
+          body: JSON.stringify({
+            model, tools: [{ type: "web_search" }], input, max_output_tokens: ANSWER_MAX_TOKENS,
+            // Opts into the full web_search_call.action.sources list - see
+            // parseResponses' header comment for why this matters.
+            include: ["web_search_call.action.sources"],
+          }),
           signal: AbortSignal.timeout(Math.min(WEB_SEARCH_MAX_MS, Math.max(MIN_CALL_MS, remaining()))),
         });
         if (res.ok) {
