@@ -262,17 +262,24 @@ const PromptAdd = z.object({
   project_id: z.string().uuid(),
   text: z.string().trim().min(5).max(300),
   category: z.enum(["employee_monitoring", "workforce_analytics"]).optional(),
+  persona: z.string().trim().max(160).optional(),
+  topic: z.string().trim().max(60).optional(),
 });
 
 // A hand-typed question, e.g. one the buyer wants tested exactly as worded
 // instead of waiting on the AI-generated set. source='manual' so a regenerate
-// (which only replaces the ai_suggested rows) never wipes it.
+// (which only replaces the ai_suggested rows) never wipes it. persona/topic
+// are optional - left blank, the prompt just groups under "Other" and carries
+// no topic pill, same as before persona/topic tagging existed on manual adds.
 export async function addAiVisibilityPrompt(input: z.infer<typeof PromptAdd>): Promise<{ ok: boolean; error?: string; id?: string }> {
-  const { project_id, text, category } = PromptAdd.parse(input);
+  const { project_id, text, category, persona, topic } = PromptAdd.parse(input);
   const a = await authProject(project_id);
   if ("error" in a) return { ok: false, error: a.error };
   const admin = createAdminClient();
-  const row = { project_id, text, source: "manual", active: true, category: category ?? DEFAULT_CATEGORY, created_by: a.user.id };
+  const row = {
+    project_id, text, source: "manual", active: true, category: category ?? DEFAULT_CATEGORY, created_by: a.user.id,
+    persona: persona || null, topic: topic || null,
+  };
   let { data, error } = await admin.from("ai_citation_prompts").insert(row).select("id").single();
   if (error && isMissingColumn(error.message)) {
     const { category: _category, ...rowNoCategory } = row;
@@ -281,6 +288,30 @@ export async function addAiVisibilityPrompt(input: z.infer<typeof PromptAdd>): P
   if (error) return { ok: false, error: error.message };
   revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
   return { ok: true, id: (data as { id: string }).id };
+}
+
+const PromptEdit = z.object({
+  project_id: z.string().uuid(),
+  prompt_id: z.string().uuid(),
+  text: z.string().trim().min(5).max(300),
+  persona: z.string().trim().max(160).optional(),
+  topic: z.string().trim().max(60).optional(),
+});
+
+// Edit an existing prompt's text/persona/topic in place. Flips source to
+// 'manual' - purely forensic (regeneration never deletes existing prompts
+// regardless of source, see generateAiVisibilityPrompts' "grow" mode above),
+// but it's an honest record that a human touched this row.
+export async function updateAiVisibilityPrompt(input: z.infer<typeof PromptEdit>): Promise<{ ok: boolean; error?: string }> {
+  const { project_id, prompt_id, text, persona, topic } = PromptEdit.parse(input);
+  const a = await authProject(project_id);
+  if ("error" in a) return { ok: false, error: a.error };
+  const admin = createAdminClient();
+  const patch: Record<string, unknown> = { text, source: "manual", persona: persona || null, topic: topic || null };
+  const { error } = await admin.from("ai_citation_prompts").update(patch).eq("id", prompt_id).eq("project_id", project_id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  return { ok: true };
 }
 
 // A short, honest, LLM-written read of what the AI-visibility score actually

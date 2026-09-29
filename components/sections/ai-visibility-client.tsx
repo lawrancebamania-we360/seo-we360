@@ -20,7 +20,8 @@ import { cn } from "@/lib/utils";
 import { AI_ENGINES, ENGINE_LABEL, type AiEngine, type AiVisibilityCategory } from "@/lib/ai-citation/types";
 import type { AiVisibilityReport } from "@/lib/ai-citation/report";
 import type { Ga4AiReferral } from "@/lib/google/ga4";
-import { generateAiVisibilityPrompts, runAiVisibilityNow, resumeAiVisibilityRun, upsertOutreach, scoreOutreachDomains, draftOutreach, addAiVisibilityPrompt } from "@/lib/actions/ai-visibility";
+import { generateAiVisibilityPrompts, runAiVisibilityNow, resumeAiVisibilityRun, upsertOutreach, scoreOutreachDomains, draftOutreach, addAiVisibilityPrompt, updateAiVisibilityPrompt } from "@/lib/actions/ai-visibility";
+import { BuyerPromptsCard } from "@/components/sections/buyer-prompts-card";
 import type { SourceGapReport, SourceGapRow } from "@/lib/ai-citation/source-gap";
 
 type OutreachAction = "pitch" | "guest_post" | "get_listed" | "comment" | "other";
@@ -61,12 +62,6 @@ type RunBatchState = {
   completedAt: string | null;
   createdAt: string;
 } | null;
-
-const DEMAND_TONE: Record<string, string> = {
-  high: "border-success-300 text-success-700",
-  medium: "border-warning-300 text-warning-700",
-  low: "border-muted-foreground/30 text-muted-foreground",
-};
 
 
 export function AiVisibilityClient({
@@ -226,8 +221,13 @@ export function AiVisibilityClient({
       else toast.error(r.error ?? "Generation failed");
     });
   };
-  const addPrompt = async (text: string): Promise<{ ok: boolean; error?: string }> => {
-    const r = await addAiVisibilityPrompt({ project_id: projectId, text, category });
+  const addPrompt = async (fields: { text: string; persona: string; topic: string }): Promise<{ ok: boolean; error?: string }> => {
+    const r = await addAiVisibilityPrompt({ project_id: projectId, category, ...fields });
+    if (r.ok) router.refresh();
+    return r.ok ? { ok: true } : { ok: false, error: r.error };
+  };
+  const editPrompt = async (promptId: string, fields: { text: string; persona: string; topic: string }): Promise<{ ok: boolean; error?: string }> => {
+    const r = await updateAiVisibilityPrompt({ project_id: projectId, prompt_id: promptId, ...fields });
     if (r.ok) router.refresh();
     return r.ok ? { ok: true } : { ok: false, error: r.error };
   };
@@ -317,6 +317,7 @@ export function AiVisibilityClient({
         pending={pending}
         onGenPrompts={genPrompts}
         onAddPrompt={addPrompt}
+        onEditPrompt={editPrompt}
         onConfirm={(engines, nByEngine, promptCapByEngine) => {
           setRunModalOpen(false);
           runNow({ engines, nByEngine, promptCapByEngine });
@@ -343,7 +344,7 @@ export function AiVisibilityClient({
             <SheetDescription>Generate your buyer prompts, then run your first check. Takes about a minute.</SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-6">
-            <SetupTab projectId={projectId} personas={personas} googleConnected={googleConnected} prompts={prompts} engines={configuredEngines} canManage={canManage} busy={busy} pending={pending} onGen={genPrompts} onRun={() => setRunModalOpen(true)} />
+            <SetupTab projectId={projectId} personas={personas} googleConnected={googleConnected} prompts={prompts} engines={configuredEngines} canManage={canManage} busy={busy} pending={pending} onGen={genPrompts} onRun={() => setRunModalOpen(true)} onAddPrompt={addPrompt} onEditPrompt={editPrompt} />
           </div>
         </SheetContent>
       </Sheet>
@@ -942,66 +943,28 @@ function OutreachTargetRow({ target, da, canManage, projectId, draft, tracked, b
   );
 }
 
-function SetupTab({ projectId, personas, googleConnected, prompts, engines, canManage, busy, pending, onGen, onRun }: {
+function SetupTab({ projectId, personas, googleConnected, prompts, engines, canManage, busy, pending, onGen, onRun, onAddPrompt, onEditPrompt }: {
   projectId: string; personas: PersonaRow[]; googleConnected: boolean; prompts: PromptRow[]; engines: { key: string; label: string }[];
   canManage: boolean; busy: "run" | "gen" | null; pending: boolean; onGen: () => void; onRun: () => void;
+  onAddPrompt: (fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string }>;
+  onEditPrompt: (promptId: string, fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string }>;
 }) {
-  const byPersona = new Map<string, PromptRow[]>();
-  for (const p of prompts) {
-    const k = p.persona || "Other";
-    byPersona.set(k, [...(byPersona.get(k) ?? []), p]);
-  }
   return (
     <div className="space-y-5">
       <PersonaReview projectId={projectId} personas={personas} googleConnected={googleConnected} canManage={canManage} />
 
-      {/* Buyer prompts (comp lines 1516-1525): white card, count pill, comp
-          Regenerate / Run buttons, then one slate box per persona with the
-          topic + demand pills beside each question. */}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(20,20,40,0.04)]">
-        <div className="mb-1.5 flex items-center gap-2.5">
-          <span className="text-[15.5px] font-bold text-foreground">Your buyer prompts</span>
-          <span className="rounded-full bg-ember-50 px-2.5 py-0.5 text-xs font-bold text-ember-600 dark:bg-ember-950/40 dark:text-ember-400">{prompts.length}</span>
-        </div>
-        <p className="mb-4 max-w-prose text-[13px] leading-relaxed text-muted-foreground">
-          Real, human-sounding questions across personas and topics. We run these across every configured AI engine, sampled for a confidence band.
-        </p>
-        {canManage && (
-          <div className="mb-4 flex flex-wrap gap-2.5">
-            <Button variant="outline" size="sm" disabled={pending} onClick={onGen} className="gap-1.5">
-              {busy === "gen" ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
-              {prompts.length ? "Regenerate" : "Generate prompts"}
-            </Button>
-            <Button variant="brand" size="sm" disabled={pending || !prompts.length} onClick={onRun} className="gap-1.5">
-              {busy === "run" ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
-              Run check now
-            </Button>
-          </div>
-        )}
-        {!prompts.length && <p className="text-sm text-muted-foreground">No prompts yet. Generate a set to get started.</p>}
-        <div className="space-y-3">
-          {[...byPersona.entries()].map(([persona, list]) => (
-            <div key={persona} className="rounded-xl border border-slate-150 bg-slate-50 p-4 dark:border-border dark:bg-muted/30">
-              <div className="mb-3 text-[13px] font-bold text-foreground">{persona}</div>
-              <ul className="space-y-3">
-                {list.map((p) => (
-                  <li key={p.id} className="flex flex-wrap items-center gap-2.5 text-sm">
-                    {p.topic && (
-                      <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2.5 py-1 text-[11.5px] font-semibold text-muted-foreground">{p.topic}</span>
-                    )}
-                    {p.demand && (
-                      <span className={cn("inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[11.5px] font-semibold capitalize", DEMAND_TONE[p.demand] ?? "border-border text-muted-foreground")} title="Estimated demand (directional)">
-                        {p.demand}
-                      </span>
-                    )}
-                    <span className="text-[13px] leading-relaxed text-foreground">{p.text}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </div>
+      <BuyerPromptsCard
+        prompts={prompts}
+        personas={personas}
+        canManage={canManage}
+        busy={busy}
+        pending={pending}
+        onGen={onGen}
+        onRun={onRun}
+        runLabel="Run check now"
+        onAdd={onAddPrompt}
+        onEdit={onEditPrompt}
+      />
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(20,20,40,0.04)]">
         <h3 className="text-[15.5px] font-bold text-foreground">Engines</h3>

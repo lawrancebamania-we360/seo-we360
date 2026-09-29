@@ -7,14 +7,14 @@
 // prompts that will run, add a question by hand, then confirm the run.
 
 import { useEffect, useRef, useState } from "react";
-import { Play, Check, Info, ArrowLeft, Loader2, RotateCw, Plus } from "lucide-react";
+import { Play, Check, Info, ArrowLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { EngineLogo } from "@/components/icons/engines/engine-logo";
 import { ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
 import { PersonaReview } from "@/components/sections/persona-review";
+import { BuyerPromptsCard } from "@/components/sections/buyer-prompts-card";
 import type { PersonaRow } from "@/lib/data/personas";
 import type { PromptRow } from "@/components/sections/ai-visibility-client";
 
@@ -27,7 +27,7 @@ const RUN_ENGINES: AiEngine[] = ["chatgpt", "claude", "gemini", "google_aio"];
 export function RunTestModal({
   open, onClose, configuredEngines, engineBudgets, onConfirm, running,
   promptCount, projectId, personas, googleConnected, canManage, prompts,
-  busy, pending, onGenPrompts, onAddPrompt,
+  busy, pending, onGenPrompts, onAddPrompt, onEditPrompt,
 }: {
   open: boolean;
   onClose: () => void;
@@ -46,18 +46,14 @@ export function RunTestModal({
   busy: "run" | "gen" | null;
   pending: boolean;
   onGenPrompts: () => void;
-  /** Adds a hand-typed question to the active set; the caller persists it and
-   *  refreshes `prompts`. */
-  onAddPrompt: (text: string) => Promise<{ ok: boolean; error?: string }>;
+  onAddPrompt: (fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string }>;
+  onEditPrompt: (promptId: string, fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const configuredSet = new Set(configuredEngines.map((e) => e.key));
   const [step, setStep] = useState<1 | 2>(1);
   const [selected, setSelected] = useState<Set<AiEngine>>(() => new Set(RUN_ENGINES.filter((e) => configuredSet.has(e))));
   const [n, setN] = useState<Record<AiEngine, number>>(() => ({ ...DEFAULT_N }));
   const [qCap, setQCap] = useState<Record<AiEngine, number>>(() => Object.fromEntries(RUN_ENGINES.map((e) => [e, promptCount])) as Record<AiEngine, number>);
-  const [manualText, setManualText] = useState("");
-  const [addingPrompt, setAddingPrompt] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
 
   // Reset to step 1 and re-seed the "questions" defaults only on the OPENING
   // edge - not on every promptCount change while already open (which would
@@ -67,8 +63,6 @@ export function RunTestModal({
     if (open && !wasOpen.current) {
       setStep(1);
       setQCap(Object.fromEntries(RUN_ENGINES.map((e) => [e, promptCount])) as Record<AiEngine, number>);
-      setManualText("");
-      setAddError(null);
     }
     wasOpen.current = open;
   }, [open, promptCount]);
@@ -84,16 +78,6 @@ export function RunTestModal({
   const setCount = (e: AiEngine, v: number) => setN((prev) => ({ ...prev, [e]: Math.min(7, Math.max(1, v)) }));
   const setQuestions = (e: AiEngine, v: number) => setQCap((prev) => ({ ...prev, [e]: Math.min(Math.max(promptCount, 1), Math.max(1, v)) }));
 
-  const addPrompt = async () => {
-    const text = manualText.trim();
-    if (!text || addingPrompt) return;
-    setAddingPrompt(true);
-    setAddError(null);
-    const r = await onAddPrompt(text);
-    setAddingPrompt(false);
-    if (r.ok) setManualText(""); else setAddError(r.error ?? "Could not add that question.");
-  };
-
   const confirm = () => {
     const engines = RUN_ENGINES.filter((e) => selected.has(e));
     if (!engines.length || !prompts.length) return;
@@ -105,12 +89,6 @@ export function RunTestModal({
     for (const e of engines) if (qCap[e] < promptCount) promptCapByEngine[e] = qCap[e];
     onConfirm(engines, n, promptCapByEngine);
   };
-
-  const byPersona = new Map<string, PromptRow[]>();
-  for (const p of prompts) {
-    const k = p.persona || "Other";
-    byPersona.set(k, [...(byPersona.get(k) ?? []), p]);
-  }
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -207,54 +185,16 @@ export function RunTestModal({
             <div className="space-y-4">
               <PersonaReview projectId={projectId} personas={personas} googleConnected={googleConnected} canManage={canManage} />
 
-              <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(20,20,40,0.04)]">
-                <div className="mb-1.5 flex items-center gap-2.5">
-                  <span className="text-[14.5px] font-bold text-foreground">Your buyer prompts</span>
-                  <span className="rounded-full bg-ember-50 px-2.5 py-0.5 text-xs font-bold text-ember-600 dark:bg-ember-950/40 dark:text-ember-400">{prompts.length}</span>
-                </div>
-                {canManage && (
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <Button variant="outline" size="sm" disabled={pending} onClick={onGenPrompts} className="gap-1.5">
-                      {busy === "gen" ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
-                      {prompts.length ? "Regenerate" : "Generate prompts"}
-                    </Button>
-                  </div>
-                )}
-                {canManage && (
-                  <div className="mb-3 space-y-1.5">
-                    <div className="flex gap-2">
-                      <Input
-                        value={manualText}
-                        onChange={(e) => setManualText(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addPrompt(); } }}
-                        placeholder="Type a question to ask exactly as worded, e.g. best employee monitoring software for remote teams"
-                        maxLength={300}
-                        className="flex-1 text-sm"
-                      />
-                      <Button type="button" variant="outline" size="sm" disabled={addingPrompt || !manualText.trim()} onClick={addPrompt} className="gap-1.5">
-                        {addingPrompt ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />} Add
-                      </Button>
-                    </div>
-                    {addError && <p className="text-xs text-error-600">{addError}</p>}
-                  </div>
-                )}
-                {!prompts.length && <p className="text-sm text-muted-foreground">No prompts yet. Generate a set or add one above.</p>}
-                <div className="max-h-[280px] space-y-3 overflow-y-auto">
-                  {[...byPersona.entries()].map(([persona, list]) => (
-                    <div key={persona} className="rounded-xl border border-slate-150 bg-slate-50 p-3.5 dark:border-border dark:bg-muted/30">
-                      <div className="mb-2 text-[12.5px] font-bold text-foreground">{persona}</div>
-                      <ul className="space-y-2">
-                        {list.map((p) => (
-                          <li key={p.id} className="flex flex-wrap items-center gap-2 text-[12.5px]">
-                            {p.topic && <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">{p.topic}</span>}
-                            <span className="leading-relaxed text-foreground">{p.text}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <BuyerPromptsCard
+                prompts={prompts}
+                personas={personas}
+                canManage={canManage}
+                busy={busy}
+                pending={pending}
+                onGen={onGenPrompts}
+                onAdd={onAddPrompt}
+                onEdit={onEditPrompt}
+              />
             </div>
 
             <DialogFooter className="gap-2 sm:justify-between">
