@@ -25,6 +25,23 @@ update public.url_metrics_runs set run_date = started_at::date where run_date is
 alter table public.url_metrics_runs alter column run_date set default current_date;
 alter table public.url_metrics_runs alter column run_date set not null;
 
+-- A handful of (project_id, run_date) pairs have leftover duplicate rows
+-- from early manual testing (a completed run plus an abandoned, never-
+-- finished 'running' row, or the same day run twice) - this table is pure
+-- forensic logging (nothing in the app reads it), so it's safe to keep just
+-- the best row per day and drop the rest before the unique index below.
+-- "Best" = completed over running/failed, then highest urls_total, then
+-- most recent.
+with ranked as (
+  select id, row_number() over (
+    partition by project_id, run_date
+    order by (status = 'completed') desc, urls_total desc nulls last, started_at desc
+  ) as rn
+  from public.url_metrics_runs
+)
+delete from public.url_metrics_runs
+where id in (select id from ranked where rn > 1);
+
 -- One row per project per day — lets a batch find (or safely race-create)
 -- "today's" run with a simple upsert-style lookup instead of date-math on
 -- started_at every time.
