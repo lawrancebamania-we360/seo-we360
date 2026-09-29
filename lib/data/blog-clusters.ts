@@ -88,13 +88,15 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
   if (!cluster) return null;
   const c = cluster as { id: string; cluster_name: string; pillar_title: string; source: string };
 
+  // tasks has three FKs into profiles (created_by, reviewed_by_id, team_member_id) -
+  // the embed is ambiguous without naming the exact constraint to join through.
   const { data: itemsData } = await supabase
     .from("topic_cluster_items")
     .select(`
       id, position, title, category, funnel_stage, content_type, target_keyword, vol_mo,
       serp_verdict, supporting_keywords, outline, faq_candidates, interlinks_to, interlinks_from,
       meta_description, url_slug, primary_cta, task_id,
-      tasks ( status, team_member_id, profiles ( name ) )
+      tasks ( status, team_member_id, profiles!tasks_team_member_id_fkey ( name ) )
     `)
     .eq("cluster_id", clusterId)
     .order("position", { ascending: true });
