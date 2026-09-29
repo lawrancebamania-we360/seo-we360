@@ -24,7 +24,7 @@ import { CSS } from "@dnd-kit/utilities";
 import Image from "next/image";
 import {
   LayoutDashboard, ListChecks, Search, Swords,
-  CalendarRange, Trophy, Users, FolderCog, GitBranch, FileSearch,
+  CalendarRange, Trophy, Users, FolderCog, GitBranch, FileSearch, Network,
   PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,7 @@ const NAV_SECTION: Record<string, string | null> = {
   "/dashboard/keywords":    "keywords",
   "/dashboard/competitors": "competitors",
   "/dashboard/sprint":      "sprint",
+  "/dashboard/blog-clusters": "sprint", // planned-content grouping - same section as Blog Sprint
   "/dashboard/blog-audit":  "seo_gaps",
   "/dashboard/reports":     null,        // always visible
   "/dashboard/analytics":   null,        // always visible
@@ -84,6 +85,7 @@ const DEFAULT_NAV: NavItem[] = [
   { href: "/dashboard/keywords",   label: "Keywords",    icon: Search,         tone: "primary" },
   { href: "/dashboard/competitors", label: "Competitors", icon: Swords,        tone: "primary" },
   { href: "/dashboard/sprint",     label: "Blog Sprint", icon: CalendarRange,  tone: "primary" },
+  { href: "/dashboard/blog-clusters", label: "Blog Clusters", icon: Network,   tone: "primary" },
   { href: "/dashboard/blog-audit", label: "Blog audit",  icon: FileSearch,     tone: "primary" },
   { href: "/dashboard/reports",    label: "Reports",     icon: BarChart3,      tone: "primary" },
   { href: "/dashboard/analytics",  label: "Analytics",   icon: LineChart,      tone: "primary" },
