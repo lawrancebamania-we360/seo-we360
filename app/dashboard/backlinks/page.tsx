@@ -30,7 +30,7 @@ export default async function BacklinksPage({
         title="Backlinks"
         description="Every website you've submitted content to, and how often - paste in submissions from your tracking sheet, then filter by date to see distribution activity for any period."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-nowrap items-center gap-2">
             <BacklinkDateFilter range={range} start={start} end={end} />
             {ctx.canManageTeam && (
               <>

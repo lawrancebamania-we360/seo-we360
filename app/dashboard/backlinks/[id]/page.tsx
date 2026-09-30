@@ -40,7 +40,7 @@ export default async function BacklinkWebsiteDetailPage({
         title={website.domain}
         description={`${website.submissions.length} submission${website.submissions.length === 1 ? "" : "s"} in the selected range.`}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-nowrap items-center gap-2">
             {/* Ticket 26: all-time total, independent of the date filter below. */}
             <span className="rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
               Total submissions: <span className="font-semibold text-foreground">{website.totalSubmissions}</span>
