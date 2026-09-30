@@ -45,7 +45,7 @@ export function BacklinkDateFilter({ range, start, end }: { range: string; start
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-medium text-muted-foreground">Date filter</span>
-      <Select value={range} onValueChange={(v) => v && update(v === "custom" ? { range: v } : { range: v, start: null, end: null })}>
+      <Select items={PRESETS.map((p) => ({ value: p.key, label: p.label }))} value={range} onValueChange={(v) => v && update(v === "custom" ? { range: v } : { range: v, start: null, end: null })}>
         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
         <SelectContent>
           {PRESETS.map((p) => <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>)}

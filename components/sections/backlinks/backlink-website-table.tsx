@@ -29,11 +29,17 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; defaultDi
   { key: "lastSubmissionUrl", label: "Submission link", align: "right", defaultDir: "asc" },
 ];
 
-function compareNullable(a: string | null, b: string | null): number {
+// `dir` only flips the ordering between two REAL values - a null is always
+// last, full stop. Bug fixed here: the previous version returned the null
+// sentinel (+1/-1) as part of the same number the caller then multiplied by
+// `dir`, so with the default sortDir="desc" (dir=-1) every null-date row got
+// flipped to the FRONT instead of staying last - exactly the "no-submission
+// rows on top, today's submission at the bottom" report.
+function compareNullable(a: string | null, b: string | null, dir: number): number {
   if (a === b) return 0;
-  if (a == null) return 1; // nulls always sort last regardless of direction
+  if (a == null) return 1;
   if (b == null) return -1;
-  return a.localeCompare(b);
+  return a.localeCompare(b) * dir;
 }
 
 export function BacklinkWebsiteTable({ websites }: { websites: BacklinkWebsiteSummary[] }) {
@@ -47,23 +53,23 @@ export function BacklinkWebsiteTable({ websites }: { websites: BacklinkWebsiteSu
       let primary: number;
       switch (sortKey) {
         case "submissionCount":
-          primary = a.submissionCount - b.submissionCount;
+          primary = (a.submissionCount - b.submissionCount) * dir;
           break;
         case "domain":
-          primary = a.domain.localeCompare(b.domain);
+          primary = a.domain.localeCompare(b.domain) * dir;
           break;
         case "lastSubmissionTopic":
-          primary = compareNullable(a.lastSubmissionTopic, b.lastSubmissionTopic);
+          primary = compareNullable(a.lastSubmissionTopic, b.lastSubmissionTopic, dir);
           break;
         case "lastSubmissionUrl":
-          primary = compareNullable(a.lastSubmissionUrl, b.lastSubmissionUrl);
+          primary = compareNullable(a.lastSubmissionUrl, b.lastSubmissionUrl, dir);
           break;
         default:
-          primary = compareNullable(a.lastSubmissionDate, b.lastSubmissionDate);
+          primary = compareNullable(a.lastSubmissionDate, b.lastSubmissionDate, dir);
       }
       // Direction only flips the primary key - the alphabetical tiebreak
       // stays A-first regardless, per spec ("same date -> a first, z last").
-      if (primary !== 0) return primary * dir;
+      if (primary !== 0) return primary;
       return a.domain.localeCompare(b.domain);
     });
     return copy;

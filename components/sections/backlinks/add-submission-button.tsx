@@ -132,13 +132,24 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
     });
   };
 
-  const applyBulkAssign = () => {
+  const applyBulkAssign = (target: string = bulkAssignTarget) => {
     if (!selected.size) return;
     setRowAssignments((prev) => {
       const next = { ...prev };
-      for (const id of selected) next[id] = bulkAssignTarget;
+      for (const id of selected) next[id] = target;
       return next;
     });
+  };
+
+  // Picking a name in the bulk-assign dropdown applies it immediately to
+  // whatever's already checked (the natural "check rows, then pick a name"
+  // order) - "Apply to selected" stays as a manual re-trigger for the
+  // reverse order (pick a name first, check rows after). Previously the
+  // dropdown only stored the choice and nothing happened until that
+  // separate button was clicked, which read as "picking a name did nothing."
+  const pickBulkTarget = (v: string) => {
+    setBulkAssignTarget(v);
+    applyBulkAssign(v);
   };
 
   const confirmImport = async () => {
@@ -166,7 +177,12 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
     router.refresh();
   };
 
-  const memberName = (id: string): string => (id === UNASSIGNED ? "Unassigned" : members.find((m) => m.id === id)?.name ?? "Unassigned");
+  // Ticket: Select.Value only resolves a label automatically when Select.Root
+  // is given an `items` map - without it, it falls back to showing the raw
+  // `value` (a UUID for a member, an id for a website), which is exactly what
+  // was showing up in the trigger instead of a name.
+  const memberItems = [{ value: UNASSIGNED, label: "Unassigned" }, ...members.map((m) => ({ value: m.id, label: m.name }))];
+  const websiteItems = [...localWebsites.map((w) => ({ value: w.id, label: w.domain })), { value: ADD_NEW, label: "+ Add new platform" }];
 
   return (
     <>
@@ -200,7 +216,7 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
                       <Button type="button" size="sm" variant="outline" onClick={() => setAddingPlatform(false)} disabled={platformBusy}>Cancel</Button>
                     </div>
                   ) : (
-                    <Select value={websiteId} onValueChange={(v) => { if (v === ADD_NEW) setAddingPlatform(true); else if (v) setWebsiteId(v); }}>
+                    <Select items={websiteItems} value={websiteId} onValueChange={(v) => { if (v === ADD_NEW) setAddingPlatform(true); else if (v) setWebsiteId(v); }}>
                       <SelectTrigger id="add-submission-website" className="h-9 w-full"><SelectValue placeholder="Pick a platform" /></SelectTrigger>
                       <SelectContent>
                         {localWebsites.map((w) => <SelectItem key={w.id} value={w.id}>{w.domain}</SelectItem>)}
@@ -227,7 +243,7 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="add-submission-assignee">Assign to (optional)</label>
-                  <Select value={assignedTo} onValueChange={(v) => v && setAssignedTo(v)}>
+                  <Select items={memberItems} value={assignedTo} onValueChange={(v) => v && setAssignedTo(v)}>
                     <SelectTrigger id="add-submission-assignee" className="h-9 w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
@@ -238,9 +254,9 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
                 {error && <p className="text-xs text-error-600">{error}</p>}
               </div>
               <DialogFooter className="sm:justify-between">
-                <button type="button" onClick={() => setView("paste")} className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+                <Button type="button" variant="outline" size="sm" onClick={() => setView("paste")}>
                   Bulk import instead
-                </button>
+                </Button>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>
                   <Button variant="brand" onClick={submitSingle} disabled={busy || !websiteId || !link.trim()} className="gap-1.5">
@@ -291,14 +307,16 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-2">
                   <span className="text-xs font-medium text-muted-foreground">{selected.size} selected</span>
-                  <Select value={bulkAssignTarget} onValueChange={(v) => v && setBulkAssignTarget(v)}>
+                  <Select items={memberItems} value={bulkAssignTarget} onValueChange={(v) => v && pickBulkTarget(v)}>
                     <SelectTrigger className="h-7"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
                       {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Button type="button" size="sm" variant="outline" disabled={!selected.size} onClick={applyBulkAssign}>Apply to selected</Button>
+                  <Button type="button" size="sm" variant="outline" disabled={!selected.size} onClick={() => applyBulkAssign()} title="Re-apply the picked name to whatever's currently checked">
+                    Apply to selected
+                  </Button>
                 </div>
                 <div className="max-h-[360px] overflow-y-auto rounded-md border border-border">
                   <table className="w-full text-sm">
@@ -324,8 +342,8 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
                           <td className="px-2 py-1.5 text-muted-foreground">{row.submission_date}</td>
                           <td className="max-w-[160px] truncate px-2 py-1.5 text-muted-foreground" title={row.submission_url}>{row.submission_url}</td>
                           <td className="px-2 py-1.5">
-                            <Select value={rowAssignments[row.tempId] ?? UNASSIGNED} onValueChange={(v) => v && setRowAssignments((prev) => ({ ...prev, [row.tempId]: v }))}>
-                              <SelectTrigger className="h-7 w-full"><SelectValue>{memberName(rowAssignments[row.tempId] ?? UNASSIGNED)}</SelectValue></SelectTrigger>
+                            <Select items={memberItems} value={rowAssignments[row.tempId] ?? UNASSIGNED} onValueChange={(v) => v && setRowAssignments((prev) => ({ ...prev, [row.tempId]: v }))}>
+                              <SelectTrigger className="h-7 w-full"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
                                 {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
