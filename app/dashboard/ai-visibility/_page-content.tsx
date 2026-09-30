@@ -30,8 +30,12 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
   const supabase = await createClient();
   const [report, promptsRes, perms, aiReferral, sourceGap, outreachRes, scope, compsRes, kwRes, personas, integrations] = await Promise.all([
     getAiVisibilityReport(supabase, project.id, category),
+    // Ticket 6: fetch BOTH active and inactive prompts - the Buyer Prompts card
+    // manages the on/off toggle in place, so a paused prompt needs to still
+    // render (dimmed) rather than disappear. Runs still only ever see active
+    // ones (run.ts's own query filters .eq("active", true) independently).
     supabase.from("ai_citation_prompts")
-      .select("id, text, persona, topic, tags, demand").eq("project_id", project.id).eq("active", true).eq("category", category)
+      .select("id, text, persona, topic, tags, demand, active").eq("project_id", project.id).eq("category", category)
       .order("created_at", { ascending: true }).limit(200),
     getProjectSectionPermissions(project.id),
     // Is being cited actually sending traffic? Best-effort GA4 AI-referral read.
@@ -91,7 +95,7 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
         personas={personas}
         googleConnected={googleConnected}
         report={report}
-        prompts={(promptsRes.data ?? []) as { id: string; text: string; persona: string | null; topic: string | null; tags: string[] | null; demand: string | null }[]}
+        prompts={(promptsRes.data ?? []) as { id: string; text: string; persona: string | null; topic: string | null; tags: string[] | null; demand: string | null; active: boolean }[]}
         configuredEngines={engines}
         canManage={perms.ai_visibility.edit}
         aiReferral={aiReferral}

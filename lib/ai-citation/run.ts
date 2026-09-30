@@ -38,12 +38,11 @@ import {
 } from "./run-state";
 
 const AIO_N = 1; // Google-AIO samples per prompt (reverted from a temp 2x bump).
-// Per-engine sampling: ChatGPT (grounded web_search, high variance across calls)
-// needs N=3 to estimate a citation rate; Claude (no browsing, just wording
-// variance) N=2 is enough; Gemini (grounded, closer to deterministic) N=1;
-// Google AIO is on-demand N=1. Same money, far better signal-per-dollar than a
-// flat N everywhere.
-const DEFAULT_N_BY_ENGINE: Record<AiEngine, number> = { chatgpt: 3, claude: 2, perplexity: 1, google_aio: AIO_N, gemini: 1 };
+// Per-engine sampling, tuned for a controlled ~$5 test run by default (see
+// run-test-modal.tsx's duplicated copy of these same numbers + COST_CENTS):
+// ChatGPT/Gemini browse the web so vary more call-to-call, Claude doesn't.
+// Google AIO is on-demand and dearest per call, so it stays at 1.
+const DEFAULT_N_BY_ENGINE: Record<AiEngine, number> = { chatgpt: 2, claude: 1, perplexity: 1, google_aio: AIO_N, gemini: 2 };
 const RUN_CONCURRENCY = 12; // parallel adapter calls in flight - turns a ~350s serial run into ~25s for a scoped run
 // Directional per-call cost in cents for metering (NOT shown to users as dollars).
 // chatgpt now browses via the OpenAI web_search tool (pricier than a plain
@@ -155,16 +154,23 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
     .map((c) => ({ id: c.id, name: c.name, domain: clean(c.url) }));
 
   const category: AiVisibilityCategory = opts.category ?? DEFAULT_CATEGORY;
+  // Ticket 8: explicit ORDER BY so promptCapByEngine's "first N" is the SAME N
+  // every run, not whatever order Postgres happens to return without one
+  // (undefined, and observed to actually shift between runs) - a fixed order
+  // is what makes a capped run a controlled, repeatable test instead of an
+  // effectively-random sample.
   let pq = admin.from("ai_citation_prompts")
     .select("id, text, persona, topic, country")
-    .eq("project_id", projectId).eq("active", true).eq("category", category);
+    .eq("project_id", projectId).eq("active", true).eq("category", category)
+    .order("created_at", { ascending: true });
   if (opts.promptIds?.length) pq = pq.in("id", opts.promptIds);
   let { data: prompts, error: promptsErr } = await pq;
   if (promptsErr && isMissingColumn(promptsErr.message)) {
     // The category migration isn't applied yet - degrade to pre-category
     // behavior (every active prompt) rather than breaking every run.
     let fallback = admin.from("ai_citation_prompts")
-      .select("id, text, persona, topic, country").eq("project_id", projectId).eq("active", true);
+      .select("id, text, persona, topic, country").eq("project_id", projectId).eq("active", true)
+      .order("created_at", { ascending: true });
     if (opts.promptIds?.length) fallback = fallback.in("id", opts.promptIds);
     ({ data: prompts } = await fallback);
   }

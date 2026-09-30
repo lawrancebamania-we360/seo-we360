@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { AI_ENGINES, ENGINE_LABEL, type AiEngine, type AiVisibilityCategory } from "@/lib/ai-citation/types";
 import type { AiVisibilityReport } from "@/lib/ai-citation/report";
 import type { Ga4AiReferral } from "@/lib/google/ga4";
-import { generateAiVisibilityPrompts, runAiVisibilityNow, resumeAiVisibilityRun, upsertOutreach, scoreOutreachDomains, draftOutreach, addAiVisibilityPrompt, updateAiVisibilityPrompt } from "@/lib/actions/ai-visibility";
+import { generateAiVisibilityPrompts, runAiVisibilityNow, resumeAiVisibilityRun, upsertOutreach, scoreOutreachDomains, draftOutreach, previewOutreachDraft, addAiVisibilityPrompt, updateAiVisibilityPrompt, deleteAiVisibilityPrompt, toggleAiVisibilityPromptActive } from "@/lib/actions/ai-visibility";
 import { BuyerPromptsCard } from "@/components/sections/buyer-prompts-card";
 import type { SourceGapReport, SourceGapRow } from "@/lib/ai-citation/source-gap";
 
@@ -42,7 +42,7 @@ import { BreakdownsTab } from "@/components/sections/ai-visibility-report/breakd
 import { AnswersTab } from "@/components/sections/ai-visibility-report/answers-tab";
 
 type Tab = "overview" | "breakdowns" | "answers" | "sources" | "setup";
-export type PromptRow = { id: string; text: string; persona: string | null; topic: string | null; tags: string[] | null; demand: string | null };
+export type PromptRow = { id: string; text: string; persona: string | null; topic: string | null; tags: string[] | null; demand: string | null; active: boolean };
 
 // Durable run-lifecycle state (P0-5), read from ai_citation_run_batches. Shape
 // matches lib/ai-citation/run-state.ts LatestRunBatch (server-serialized). null
@@ -88,6 +88,12 @@ export function AiVisibilityClient({
   /** Per-engine budget cap/spend so far, for the run-test modal (ticket 10). */
   engineBudgets: Record<AiEngine, { capUsd: number | null; spentUsd: number | null }>;
 }) {
+  // Ticket 6: `prompts` now includes inactive (toggled-off) rows too, so the
+  // Buyer Prompts card can manage them in place. Every run-related count below
+  // must use only the ones a run would actually fire (run.ts's own query
+  // independently filters .eq("active", true) either way, but the UI's counts
+  // need to match what's about to happen, not the full managed list).
+  const activePrompts = prompts.filter((p) => p.active);
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("overview");
   const [pending, start] = useTransition();
@@ -162,7 +168,7 @@ export function AiVisibilityClient({
     return () => { cancelled = true; clearInterval(interval); };
   }, [runActive, fetchRunStatus, router, projectId]);
 
-  const runNow = (override?: { engines: AiEngine[]; nByEngine: Partial<Record<AiEngine, number>>; promptCapByEngine?: Partial<Record<AiEngine, number>> }) => {
+  const runNow = (override?: { engines: AiEngine[]; nByEngine: Partial<Record<AiEngine, number>>; promptCapByEngine?: Partial<Record<AiEngine, number>>; promptIds?: string[] }) => {
     setBusy("run");
     // Remember the run that existed BEFORE this click, so we can tell whether a
     // real batch row was created for THIS attempt (a newer id) vs. the action
@@ -183,7 +189,7 @@ export function AiVisibilityClient({
     start(async () => {
       const r = await runAiVisibilityNow({
         project_id: projectId, category,
-        ...(override ? { engines: override.engines, nByEngine: override.nByEngine, promptCapByEngine: override.promptCapByEngine } : {}),
+        ...(override ? { engines: override.engines, nByEngine: override.nByEngine, promptCapByEngine: override.promptCapByEngine, promptIds: override.promptIds } : {}),
       });
       setBusy(null);
       const latest = await fetchRunStatus();
@@ -231,6 +237,16 @@ export function AiVisibilityClient({
     if (r.ok) router.refresh();
     return r.ok ? { ok: true } : { ok: false, error: r.error };
   };
+  const deletePrompt = async (promptId: string): Promise<{ ok: boolean; error?: string }> => {
+    const r = await deleteAiVisibilityPrompt({ project_id: projectId, prompt_id: promptId });
+    if (r.ok) router.refresh();
+    return r.ok ? { ok: true } : { ok: false, error: r.error };
+  };
+  const togglePrompt = async (promptId: string, active: boolean): Promise<{ ok: boolean; error?: string }> => {
+    const r = await toggleAiVisibilityPromptActive({ project_id: projectId, prompt_id: promptId, active });
+    if (r.ok) router.refresh();
+    return r.ok ? { ok: true } : { ok: false, error: r.error };
+  };
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "overview", label: "Overview" },
@@ -261,7 +277,7 @@ export function AiVisibilityClient({
                 never blind-spends across all 4. Only a genuinely first-ever run
                 (no prompts yet) falls back to the scope drawer, which is the only
                 flow that also sets up competitors/keyword + generates prompts. */}
-            <Button size="sm" variant="brand" disabled={pending || runActive} onClick={() => { if (prompts.length) setRunModalOpen(true); else setScopeOpen(true); }} className="gap-1.5">
+            <Button size="sm" variant="brand" disabled={pending || runActive} onClick={() => { if (activePrompts.length) setRunModalOpen(true); else setScopeOpen(true); }} className="gap-1.5">
               {busy === "run" || runActive ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
               {runActive ? "Running..." : "Run AI-citation test"}
             </Button>
@@ -307,7 +323,7 @@ export function AiVisibilityClient({
         configuredEngines={configuredEngines}
         engineBudgets={engineBudgets}
         running={busy === "run" || runActive}
-        promptCount={prompts.length}
+        promptCount={activePrompts.length}
         projectId={projectId}
         personas={personas}
         googleConnected={googleConnected}
@@ -318,14 +334,16 @@ export function AiVisibilityClient({
         onGenPrompts={genPrompts}
         onAddPrompt={addPrompt}
         onEditPrompt={editPrompt}
-        onConfirm={(engines, nByEngine, promptCapByEngine) => {
+        onDeletePrompt={deletePrompt}
+        onTogglePrompt={togglePrompt}
+        onConfirm={(engines, nByEngine, promptCapByEngine, promptIds) => {
           setRunModalOpen(false);
-          runNow({ engines, nByEngine, promptCapByEngine });
+          runNow({ engines, nByEngine, promptCapByEngine, promptIds });
         }}
       />
 
       {!report.hasData ? (
-        <FirstRunHero hasPrompts={prompts.length > 0} canManage={canManage} onGoSetup={() => setScopeOpen(true)} />
+        <FirstRunHero hasPrompts={activePrompts.length > 0} canManage={canManage} onGoSetup={() => setScopeOpen(true)} />
       ) : (
         <>
           {tab === "overview" && <OverviewTab report={report} aiReferral={aiReferral} configuredEngines={configuredEngines} sourceGap={sourceGap} projectId={projectId} canManage={canManage} onGoSources={() => setTab("sources")} onOpenSetup={() => setSetupOpen(true)} />}
@@ -344,7 +362,7 @@ export function AiVisibilityClient({
             <SheetDescription>Generate your buyer prompts, then run your first check. Takes about a minute.</SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-6">
-            <SetupTab projectId={projectId} personas={personas} googleConnected={googleConnected} prompts={prompts} engines={configuredEngines} canManage={canManage} busy={busy} pending={pending} onGen={genPrompts} onRun={() => setRunModalOpen(true)} onAddPrompt={addPrompt} onEditPrompt={editPrompt} />
+            <SetupTab projectId={projectId} personas={personas} googleConnected={googleConnected} prompts={prompts} engines={configuredEngines} canManage={canManage} busy={busy} pending={pending} onGen={genPrompts} onRun={() => setRunModalOpen(true)} onAddPrompt={addPrompt} onEditPrompt={editPrompt} onDeletePrompt={deletePrompt} onTogglePrompt={togglePrompt} />
           </div>
         </SheetContent>
       </Sheet>
@@ -836,31 +854,55 @@ function OutreachTargetRow({ target, da, canManage, projectId, draft, tracked, b
   busy: boolean; onAction: (a: OutreachAction) => void; onStatus: (s: OutreachStatus) => void;
   onDrafted: (d: { kind: string; subject: string | null; body: string }, action_type: OutreachAction) => void;
 }) {
-  const router = useRouter();
   const STATUS_FLOW: OutreachStatus[] = ["todo", "drafted", "posted"];
   const href = target.url || `https://${target.domain}`;
   const [open, setOpen] = useState(false);
   const [drafting, startDraft] = useTransition();
 
-  const generate = () => {
+  // Ticket 9: confirm-first. "Draft with AI" no longer spends a credit on
+  // click - it previews the exact prompt + estimated cost, lets the user copy
+  // that prompt into their own (free) LLM tool instead, or confirm to have
+  // the app draft it for real.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [preview, setPreview] = useState<{ prompt: string; estCents: number } | null>(null);
+  const [previewing, startPreview] = useTransition();
+
+  const currentActionType = (): OutreachAction => {
     // Use the tracked action type if set; else infer (forum/Q&A -> comment, else pitch).
     const isForum = /\b(reddit|quora|stackexchange|stackoverflow|news\.ycombinator|medium|substack)\b/.test(target.domain);
-    const action_type: OutreachAction = tracked?.action_type ?? (isForum ? "comment" : "pitch");
+    return tracked?.action_type ?? (isForum ? "comment" : "pitch");
+  };
+
+  const openConfirm = () => {
+    setConfirmOpen(true);
+    setPreview(null);
+    startPreview(async () => {
+      const r = await previewOutreachDraft({ project_id: projectId, source_domain: target.domain, source_url: target.url, action_type: currentActionType() });
+      if (!r.ok || !r.prompt) { toast.error(r.error ?? "Could not build a preview."); setConfirmOpen(false); return; }
+      setPreview({ prompt: r.prompt, estCents: r.estCents ?? 0 });
+    });
+  };
+
+  const generate = () => {
+    const action_type = currentActionType();
     startDraft(async () => {
       const r = await draftOutreach({ project_id: projectId, source_domain: target.domain, source_url: target.url, action_type });
       if (!r.ok || !r.draft) { toast.error(r.error ?? "Could not draft this outreach."); return; }
       onDrafted({ kind: r.draft.kind, subject: r.draft.subject, body: r.draft.body }, action_type);
+      setConfirmOpen(false);
       setOpen(true);
-      router.refresh();
+      // No router.refresh() here - it previously remounted this row and reset
+      // `open` back to false, which is why a freshly-drafted email appeared to
+      // "hide itself." onDrafted above already updates every bit of client
+      // state (drafts, tracked) this page needs to reflect the new draft.
     });
   };
 
-  const copy = async () => {
-    if (!draft) return;
-    const text = draft.subject ? `Subject: ${draft.subject}\n\n${draft.body}` : draft.body;
-    try { await navigator.clipboard.writeText(text); toast.success("Draft copied."); }
+  const copyText = async (text: string, label: string) => {
+    try { await navigator.clipboard.writeText(text); toast.success(label); }
     catch { toast.error("Couldn't copy - select the text and copy manually."); }
   };
+  const copy = () => draft && copyText(draft.subject ? `Subject: ${draft.subject}\n\n${draft.body}` : draft.body, "Draft copied.");
 
   return (
     <div className="rounded-lg border p-2.5">
@@ -908,13 +950,13 @@ function OutreachTargetRow({ target, da, canManage, projectId, draft, tracked, b
           )}
           {/* Bucket 2: draft the actual post/email for this target. */}
           <span className="mx-0.5 h-3 w-px bg-border" aria-hidden />
-          <button type="button" disabled={drafting} onClick={draft ? () => setOpen((o) => !o) : generate}
+          <button type="button" disabled={drafting} onClick={draft ? () => setOpen((o) => !o) : openConfirm}
             className="inline-flex items-center gap-1 rounded-md border border-ember-300/50 bg-ember-500/5 px-2 py-0.5 text-xs font-medium text-ember-700 transition-colors hover:bg-ember-500/10 disabled:opacity-50 dark:text-ember-300">
             {drafting ? <Loader2 className="size-3 animate-spin" /> : <Wand2 className="size-3" />}
             {draft ? (open ? "Hide draft" : "View draft") : "Draft with AI"}
           </button>
           {draft && open && (
-            <button type="button" disabled={drafting} onClick={generate}
+            <button type="button" disabled={drafting} onClick={openConfirm}
               className="rounded-md border px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50">
               Regenerate
             </button>
@@ -939,15 +981,52 @@ function OutreachTargetRow({ target, da, canManage, projectId, draft, tracked, b
           <p className="text-xs text-muted-foreground/70">Review and personalize before posting - genuine, helpful contributions get cited; spam gets removed.</p>
         </div>
       )}
+
+      {/* Ticket 9: confirm-first - see what it'll send and what it costs before
+          spending a credit, with a free-tool escape hatch. */}
+      <Dialog open={confirmOpen} onOpenChange={(v) => !v && setConfirmOpen(false)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base">Draft outreach for {target.domain}?</DialogTitle>
+          </DialogHeader>
+          {previewing || !preview ? (
+            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" /> Building a preview...
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                This asks our AI to write a {currentActionType() === "comment" ? "reply" : "pitch email"} for this domain, using your
+                brand info and competitors. Estimated cost: <strong className="text-foreground">~${(preview.estCents / 100).toFixed(2)}</strong>.
+                Prefer not to spend it? Copy the exact prompt below and paste it into ChatGPT, Claude, or any other tool you already have free access to.
+              </p>
+              <div className="max-h-40 overflow-y-auto rounded-lg border bg-muted/30 p-2.5 text-xs leading-relaxed text-foreground/80 whitespace-pre-wrap">
+                {preview.prompt}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button type="button" variant="outline" size="sm" disabled={!preview} onClick={() => copyText(preview!.prompt, "Prompt copied - paste it into any LLM.")} className="gap-1.5">
+              <Copy className="size-3.5" /> Copy prompt
+            </Button>
+            <Button type="button" variant="brand" size="sm" disabled={!preview || drafting} onClick={generate} className="gap-1.5">
+              {drafting ? <Loader2 className="size-3.5 animate-spin" /> : <Wand2 className="size-3.5" />}
+              {drafting ? "Drafting..." : "Generate with AI"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function SetupTab({ projectId, personas, googleConnected, prompts, engines, canManage, busy, pending, onGen, onRun, onAddPrompt, onEditPrompt }: {
+function SetupTab({ projectId, personas, googleConnected, prompts, engines, canManage, busy, pending, onGen, onRun, onAddPrompt, onEditPrompt, onDeletePrompt, onTogglePrompt }: {
   projectId: string; personas: PersonaRow[]; googleConnected: boolean; prompts: PromptRow[]; engines: { key: string; label: string }[];
   canManage: boolean; busy: "run" | "gen" | null; pending: boolean; onGen: () => void; onRun: () => void;
   onAddPrompt: (fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string }>;
   onEditPrompt: (promptId: string, fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string }>;
+  onDeletePrompt: (promptId: string) => Promise<{ ok: boolean; error?: string }>;
+  onTogglePrompt: (promptId: string, active: boolean) => Promise<{ ok: boolean; error?: string }>;
 }) {
   return (
     <div className="space-y-5">
@@ -964,6 +1043,8 @@ function SetupTab({ projectId, personas, googleConnected, prompts, engines, canM
         runLabel="Run check now"
         onAdd={onAddPrompt}
         onEdit={onEditPrompt}
+        onDelete={onDeletePrompt}
+        onToggle={onTogglePrompt}
       />
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(20,20,40,0.04)]">

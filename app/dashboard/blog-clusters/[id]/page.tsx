@@ -29,7 +29,7 @@ export default async function BlogClusterDetailPage({ params }: { params: Promis
         description={`${cluster.items.length} planned post${cluster.items.length === 1 ? "" : "s"}. Click a row for the full brief - keywords, SERP verdict, interlinks. Assign a writer to turn a row into a real Sprint task.`}
       />
 
-      <BlogClusterTable items={cluster.items} members={members} canManage={ctx.canManageTeam} />
+      <BlogClusterTable clusterName={cluster.clusterName} items={cluster.items} members={members} canManage={ctx.canManageTeam} />
     </div>
   );
 }

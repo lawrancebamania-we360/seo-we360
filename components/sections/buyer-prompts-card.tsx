@@ -10,7 +10,8 @@
 //   - edit an existing question's text/persona/topic inline (pencil icon)
 
 import { useState } from "react";
-import { Loader2, Play, Plus, Check, X, Pencil, RotateCw } from "lucide-react";
+import { toast } from "sonner";
+import { Loader2, Play, Plus, Check, X, Pencil, RotateCw, Trash2, Power } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -71,7 +72,7 @@ function TopicSelect({ value, onChange, id }: { value: string; onChange: (v: str
 }
 
 export function BuyerPromptsCard({
-  prompts, personas, canManage, busy, pending, onGen, onRun, runLabel, runDisabled, onAdd, onEdit,
+  prompts, personas, canManage, busy, pending, onGen, onRun, runLabel, runDisabled, onAdd, onEdit, onDelete, onToggle,
 }: {
   prompts: PromptRow[];
   personas: PersonaRow[];
@@ -86,6 +87,8 @@ export function BuyerPromptsCard({
   runDisabled?: boolean;
   onAdd: (fields: PromptFields) => Promise<ActionResult>;
   onEdit: (promptId: string, fields: PromptFields) => Promise<ActionResult>;
+  onDelete: (promptId: string) => Promise<ActionResult>;
+  onToggle: (promptId: string, active: boolean) => Promise<ActionResult>;
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [addFields, setAddFields] = useState<PromptFields>({ text: "", persona: "", topic: "" });
@@ -96,6 +99,10 @@ export function BuyerPromptsCard({
   const [editFields, setEditFields] = useState<PromptFields>({ text: "", persona: "", topic: "" });
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [toggleBusyId, setToggleBusyId] = useState<string | null>(null);
 
   const byPersona = new Map<string, PromptRow[]>();
   for (const p of prompts) {
@@ -130,6 +137,25 @@ export function BuyerPromptsCard({
     else setEditError(r.error ?? "Could not save that edit.");
   };
 
+  const confirmDelete = async (promptId: string) => {
+    if (deleteBusy) return;
+    setDeleteBusy(true);
+    const r = await onDelete(promptId);
+    setDeleteBusy(false);
+    if (r.ok) setDeletingId(null);
+    else toast.error(r.error ?? "Could not delete that prompt.");
+  };
+
+  const flipToggle = async (p: PromptRow) => {
+    if (toggleBusyId) return;
+    setToggleBusyId(p.id);
+    const r = await onToggle(p.id, !p.active);
+    setToggleBusyId(null);
+    if (!r.ok) toast.error(r.error ?? "Could not update that prompt.");
+  };
+
+  const activeCount = prompts.filter((p) => p.active).length;
+
   return (
     <div className="rounded-2xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(20,20,40,0.04)]">
       <div className="mb-1.5 flex items-center gap-2.5">
@@ -146,7 +172,7 @@ export function BuyerPromptsCard({
             {prompts.length ? "Regenerate" : "Generate prompts"}
           </Button>
           {onRun && (
-            <Button variant="brand" size="sm" disabled={pending || !prompts.length || runDisabled} onClick={onRun} className="gap-1.5">
+            <Button variant="brand" size="sm" disabled={pending || activeCount === 0 || runDisabled} onClick={onRun} className="gap-1.5">
               {busy === "run" ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
               {runLabel}
             </Button>
@@ -189,9 +215,9 @@ export function BuyerPromptsCard({
         {[...byPersona.entries()].map(([persona, list]) => (
           <div key={persona} className="rounded-xl border border-slate-150 bg-slate-50 p-4 dark:border-border dark:bg-muted/30">
             <div className="mb-3 text-[13px] font-bold text-foreground">{persona}</div>
-            <ul className="space-y-3">
+            <ul className="divide-y divide-border/60">
               {list.map((p) => (
-                <li key={p.id}>
+                <li key={p.id} className="py-3 first:pt-0 last:pb-0">
                   {editingId === p.id ? (
                     <div className="space-y-2 rounded-lg border border-primary/30 bg-background p-2.5">
                       <Input
@@ -216,27 +242,70 @@ export function BuyerPromptsCard({
                       </div>
                       {editError && <p className="text-xs text-error-600">{editError}</p>}
                     </div>
+                  ) : deletingId === p.id ? (
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-error-300/60 bg-error-500/5 p-2.5">
+                      <span className="text-[13px] text-error-700 dark:text-error-400">
+                        Delete this prompt? Any AI answers already recorded for it will be deleted too — this can&apos;t be undone. To keep the history but stop running it, use the on/off toggle instead.
+                      </span>
+                      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setDeletingId(null)} disabled={deleteBusy}>Cancel</Button>
+                        <Button type="button" variant="destructive" size="sm" onClick={() => confirmDelete(p.id)} disabled={deleteBusy} className="gap-1.5">
+                          {deleteBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />} Delete
+                        </Button>
+                      </div>
+                    </div>
                   ) : (
-                    <div className="group flex flex-wrap items-center gap-2.5 text-sm">
+                    <div className={cn("flex items-start gap-2.5 text-sm", !p.active && "opacity-50")}>
                       {canManage && (
-                        <button
-                          type="button"
-                          onClick={() => startEdit(p)}
-                          className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 cursor-pointer"
-                          title="Edit this question"
-                        >
-                          <Pencil className="size-3.5" />
-                        </button>
+                        <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => flipToggle(p)}
+                            disabled={toggleBusyId === p.id}
+                            className={cn(
+                              "rounded-md p-1 transition-colors hover:bg-muted cursor-pointer disabled:opacity-50",
+                              p.active ? "text-muted-foreground hover:text-foreground" : "text-warning-600 dark:text-warning-400",
+                            )}
+                            title={p.active ? "Turn off (won't run, keeps history)" : "Turn back on"}
+                          >
+                            {toggleBusyId === p.id ? <Loader2 className="size-3.5 animate-spin" /> : <Power className="size-3.5" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => startEdit(p)}
+                            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
+                            title="Edit this question"
+                          >
+                            <Pencil className="size-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingId(p.id)}
+                            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-error-500/10 hover:text-error-600 cursor-pointer"
+                            title="Delete this question"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
                       )}
-                      {p.topic && (
-                        <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2.5 py-1 text-[11.5px] font-semibold text-muted-foreground">{p.topic}</span>
-                      )}
-                      {p.demand && (
-                        <span className={cn("inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[11.5px] font-semibold capitalize", DEMAND_TONE[p.demand] ?? "border-border text-muted-foreground")} title="Estimated demand (directional)">
-                          {p.demand}
+                      <div className="min-w-0 space-y-1.5">
+                        <span className="block text-[13px] leading-relaxed text-foreground">
+                          {p.text}
+                          {!p.active && <span className="ml-1.5 text-[11px] font-medium text-warning-600 dark:text-warning-400">(off)</span>}
                         </span>
-                      )}
-                      <span className="text-[13px] leading-relaxed text-foreground">{p.text}</span>
+                        {(p.topic || p.demand) && (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {p.topic && (
+                              <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2.5 py-1 text-[11.5px] font-semibold text-muted-foreground">{p.topic}</span>
+                            )}
+                            {p.demand && (
+                              <span className={cn("inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[11.5px] font-semibold capitalize", DEMAND_TONE[p.demand] ?? "border-border text-muted-foreground")} title="Estimated demand (directional)">
+                                {p.demand}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </li>

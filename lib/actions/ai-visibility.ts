@@ -314,6 +314,46 @@ export async function updateAiVisibilityPrompt(input: z.infer<typeof PromptEdit>
   return { ok: true };
 }
 
+const PromptToggle = z.object({
+  project_id: z.string().uuid(),
+  prompt_id: z.string().uuid(),
+  active: z.boolean(),
+});
+
+// Soft on/off - an inactive prompt is skipped by every run (the row-fetch in
+// run.ts filters .eq("active", true)) but keeps its historical ai_citation_runs
+// answers, unlike delete below. The reversible way to pause a prompt.
+export async function toggleAiVisibilityPromptActive(input: z.infer<typeof PromptToggle>): Promise<{ ok: boolean; error?: string }> {
+  const { project_id, prompt_id, active } = PromptToggle.parse(input);
+  const a = await authProject(project_id);
+  if ("error" in a) return { ok: false, error: a.error };
+  const admin = createAdminClient();
+  const { error } = await admin.from("ai_citation_prompts").update({ active }).eq("id", prompt_id).eq("project_id", project_id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  return { ok: true };
+}
+
+const PromptDelete = z.object({
+  project_id: z.string().uuid(),
+  prompt_id: z.string().uuid(),
+});
+
+// Hard delete - ai_citation_runs.prompt_id references this row ON DELETE
+// CASCADE, so this also permanently removes every historical AI answer
+// recorded for this prompt. The client warns about that before calling this;
+// toggleAiVisibilityPromptActive above is the reversible alternative.
+export async function deleteAiVisibilityPrompt(input: z.infer<typeof PromptDelete>): Promise<{ ok: boolean; error?: string }> {
+  const { project_id, prompt_id } = PromptDelete.parse(input);
+  const a = await authProject(project_id);
+  if ("error" in a) return { ok: false, error: a.error };
+  const admin = createAdminClient();
+  const { error } = await admin.from("ai_citation_prompts").delete().eq("id", prompt_id).eq("project_id", project_id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  return { ok: true };
+}
+
 // A short, honest, LLM-written read of what the AI-visibility score actually
 // means — e.g. that the mention rate is inflated by branded/reputation questions,
 // or that the low citation rate is dragging the composite down. gpt-4o-mini via
@@ -515,6 +555,35 @@ const DraftOutreachInput = z.object({
 
 export interface DraftOutreachResult { ok: boolean; error?: string; draft?: OutreachDraft }
 
+export interface PreviewOutreachDraftResult { ok: boolean; error?: string; prompt?: string; estCents?: number }
+
+// Ticket 9: what "Draft with AI" is ABOUT to send + what it'll cost, without
+// actually calling the LLM or spending a credit - powers the confirm-first
+// modal (see it before you commit) and a "copy prompt" escape hatch to paste
+// into a free LLM tool instead of the paid in-app draft.
+export async function previewOutreachDraft(input: {
+  project_id: string; source_domain: string; source_url?: string | null;
+  action_type?: (typeof OUTREACH_ACTIONS)[number];
+}): Promise<PreviewOutreachDraftResult> {
+  const parsed = DraftOutreachInput.parse(input);
+  const a = await authProject(parsed.project_id);
+  if ("error" in a) return { ok: false, error: a.error };
+  const { project } = a;
+
+  const domain = parsed.source_domain.trim().toLowerCase().replace(/^www\./, "");
+  const admin = createAdminClient();
+  const { data: comps } = await admin.from("competitors").select("name").eq("project_id", parsed.project_id);
+  const competitors = (comps ?? []).map((c: { name: string }) => c.name).filter(Boolean).slice(0, 8);
+
+  const kind = outreachDraftKind(parsed.action_type, domain);
+  const prompt = outreachDraftPrompt({
+    kind, brandName: project.name, brandDomain: project.domain, industry: project.industry,
+    sourceDomain: domain, sourceUrl: parsed.source_url ?? null, actionType: parsed.action_type,
+    competitors, question: parsed.question,
+  });
+  return { ok: true, prompt, estCents: estimateAiCostCents("gpt-4o", 900, 700) };
+}
+
 export async function draftOutreach(input: {
   project_id: string; source_domain: string; source_url?: string | null;
   action_type?: (typeof OUTREACH_ACTIONS)[number]; question?: string;
@@ -663,8 +732,15 @@ export async function runAiVisibilityNow(input: {
   nByEngine?: Partial<Record<AiEngine, number>>;
   /** Run-test-modal "questions" override: cap how many of the active prompts
    *  (list order) an engine covers, e.g. testing one new engine against just 1
-   *  question instead of the full set. Omitted -> every active prompt. */
+   *  question instead of the full set. Omitted -> every active prompt. Ignored
+   *  when promptIds below is set - an explicit hand-picked list supersedes it. */
   promptCapByEngine?: Partial<Record<AiEngine, number>>;
+  /** Ticket 8: explicit hand-picked prompt IDs from the run-test modal's
+   *  "choose which prompts" picker - every selected engine tests exactly this
+   *  set instead of an index-based cap, so a reduced-size run is a controlled,
+   *  repeatable test rather than whichever prompts happen to sort first.
+   *  Omitted -> every active prompt (subject to promptCapByEngine above). */
+  promptIds?: string[];
   /** Which product this scan is for (the run-test modal passes the current
    *  category page's value). Omitted -> workforce_analytics. */
   category?: AiVisibilityCategory;
@@ -725,7 +801,9 @@ export async function runAiVisibilityNow(input: {
     runProjectCitations(project_id, {
       engines, nByEngine: input.nByEngine ?? { chatgpt: depth }, userId: a.user.id,
       apifyToken: apifyToken ?? undefined, aioPromptCap: AIO_ONDEMAND_CAP,
-      promptCapByEngine: input.promptCapByEngine,
+      // An explicit picker selection supersedes the numeric per-engine cap.
+      promptCapByEngine: input.promptIds?.length ? undefined : input.promptCapByEngine,
+      promptIds: input.promptIds,
       category: runCategory,
     }),
   );
