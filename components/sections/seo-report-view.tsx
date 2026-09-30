@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   ExternalLink, TrendingUp, AlertTriangle, Search, FileText,
   Trophy, CircleSlash, MousePointerClick, Loader2, ArrowUp, ArrowDown,
-  CheckCircle2, XCircle, MapPin,
+  CheckCircle2, XCircle, MapPin, RefreshCw, ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -15,6 +15,44 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import type { SeoReportRow, SeoReportRollup, ReportHealth } from "@/lib/data/seo-report";
+import { refreshSeoReport } from "@/lib/actions/seo-report";
+
+const HEALTH_RANK: Record<ReportHealth, number> = { problem: 0, watch: 1, winning: 2 };
+
+type SortKey = "health" | "daysLive" | "clicks" | "impressions" | "position" | "ctr" | "sessions" | "status" | "issues";
+type SortDir = "asc" | "desc";
+
+// null = "no data for this row" - always sorted to the bottom regardless of
+// direction, so empty rows don't cluster at the top of an ascending sort.
+function sortValue(row: SeoReportRow, key: SortKey): number | null {
+  const m = row.metrics;
+  switch (key) {
+    case "health": return HEALTH_RANK[row.health];
+    case "daysLive": return row.daysLive;
+    case "clicks": return m ? m.clicks : null;
+    case "impressions": return m ? m.impressions : null;
+    case "position": return m && m.impressions > 0 && m.position > 0 ? m.position : null;
+    case "ctr": return m && m.impressions > 0 ? m.ctr : null;
+    case "sessions": return m ? m.sessions : null;
+    case "status": {
+      if (row.pageExists === null && row.inSitemap === null) return null;
+      let score = 0;
+      if (row.pageExists === false) score -= 1;
+      if (row.inSitemap === false) score -= 1;
+      return score; // 0 = both fine, -1 = one bad, -2 = both bad
+    }
+    case "issues": return row.issues.length;
+  }
+}
+
+function compareRows(a: SeoReportRow, b: SeoReportRow, key: SortKey, dir: SortDir): number {
+  const va = sortValue(a, key);
+  const vb = sortValue(b, key);
+  if (va == null && vb == null) return 0;
+  if (va == null) return 1;
+  if (vb == null) return -1;
+  return dir === "asc" ? va - vb : vb - va;
+}
 
 const RANGE_PRESETS: { key: string; label: string }[] = [
   { key: "all", label: "All time" },
@@ -35,10 +73,12 @@ export function SeoReportView({ rows, rollup, activeRange }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [navPending, startNav] = useTransition();
+  const [refreshPending, startRefresh] = useTransition();
 
   const [healthFilter, setHealthFilter] = useState<HealthFilter>("all");
   const [kindFilter, setKindFilter] = useState<"all" | "blog_task" | "web_task">("all");
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
   // Row whose issues modal is open.
   const [issuesFor, setIssuesFor] = useState<SeoReportRow | null>(null);
 
@@ -47,6 +87,22 @@ export function SeoReportView({ rows, rollup, activeRange }: Props) {
     if (key === "all") params.delete("range");
     else params.set("range", key);
     startNav(() => router.push(`/dashboard/reports?${params.toString()}`));
+  };
+
+  const refresh = () => {
+    startRefresh(async () => {
+      await refreshSeoReport();
+      router.refresh();
+    });
+  };
+
+  // Click cycles a column through: unsorted -> ascending -> descending -> unsorted.
+  const toggleSort = (key: SortKey) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
   };
 
   const visible = useMemo(() => {
@@ -62,8 +118,9 @@ export function SeoReportView({ rows, rollup, activeRange }: Props) {
           (x.liveUrl ?? "").toLowerCase().includes(ql),
       );
     }
+    if (sort) r = [...r].sort((a, b) => compareRows(a, b, sort.key, sort.dir));
     return r;
-  }, [rows, healthFilter, kindFilter, query]);
+  }, [rows, healthFilter, kindFilter, query, sort]);
 
   const healthCounts = useMemo(() => ({
     all: rows.length,
@@ -144,6 +201,17 @@ export function SeoReportView({ rows, rollup, activeRange }: Props) {
           <option value="web_task">Web pages</option>
         </select>
 
+        <button
+          type="button"
+          onClick={refresh}
+          disabled={refreshPending}
+          title="Re-check live status, sitemap membership, and metrics"
+          className="inline-flex items-center gap-1.5 rounded-md border bg-muted/30 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
+        >
+          <RefreshCw className={cn("size-3", refreshPending && "animate-spin")} />
+          Refresh
+        </button>
+
         <div className="relative ml-auto">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
           <Input
@@ -167,15 +235,15 @@ export function SeoReportView({ rows, rollup, activeRange }: Props) {
           <div className="min-w-[1140px]">
             <div className="grid grid-cols-[1fr_96px_60px_64px_84px_122px_56px_70px_104px_88px] gap-2 px-4 py-2.5 border-b bg-muted/40 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
               <div>Page</div>
-              <div>Health</div>
-              <div className="text-right">Days live</div>
-              <div className="text-right">Clicks</div>
-              <div className="text-right">Impressions</div>
-              <div className="text-right">Position</div>
-              <div className="text-right">CTR</div>
-              <div className="text-right">Sessions</div>
-              <div>Status</div>
-              <div>Issues</div>
+              <SortHeader label="Health" sortKey="health" sort={sort} onClick={toggleSort} />
+              <SortHeader label="Days live" sortKey="daysLive" sort={sort} onClick={toggleSort} align="right" />
+              <SortHeader label="Clicks" sortKey="clicks" sort={sort} onClick={toggleSort} align="right" />
+              <SortHeader label="Impressions" sortKey="impressions" sort={sort} onClick={toggleSort} align="right" />
+              <SortHeader label="Position" sortKey="position" sort={sort} onClick={toggleSort} align="right" />
+              <SortHeader label="CTR" sortKey="ctr" sort={sort} onClick={toggleSort} align="right" />
+              <SortHeader label="Sessions" sortKey="sessions" sort={sort} onClick={toggleSort} align="right" />
+              <SortHeader label="Status" sortKey="status" sort={sort} onClick={toggleSort} />
+              <SortHeader label="Issues" sortKey="issues" sort={sort} onClick={toggleSort} />
             </div>
             <div className="divide-y">
               {visible.map((r) => (
@@ -350,6 +418,33 @@ function ReportRow({ row, onShowIssues }: { row: SeoReportRow; onShowIssues: () 
 }
 
 // ===== Small components =====
+
+function SortHeader({
+  label, sortKey, sort, onClick, align,
+}: {
+  label: string; sortKey: SortKey; sort: { key: SortKey; dir: SortDir } | null;
+  onClick: (key: SortKey) => void; align?: "right";
+}) {
+  const active = sort?.key === sortKey;
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(sortKey)}
+      className={cn(
+        "inline-flex items-center gap-0.5 uppercase tracking-wider transition-colors hover:text-foreground",
+        align === "right" && "w-full justify-end",
+        active && "text-foreground",
+      )}
+    >
+      {label}
+      {active ? (
+        sort!.dir === "asc" ? <ArrowUp className="size-2.5" /> : <ArrowDown className="size-2.5" />
+      ) : (
+        <ArrowUpDown className="size-2.5 opacity-40" />
+      )}
+    </button>
+  );
+}
 
 function StatusPill({
   ok, okLabel, badLabel, okIcon: OkIcon, badIcon: BadIcon,
