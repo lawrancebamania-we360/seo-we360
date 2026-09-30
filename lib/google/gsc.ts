@@ -131,14 +131,16 @@ export async function getGscWeeklyDelta(siteUrl: string | null): Promise<GscWeek
       .filter((d) => d.clickDelta < 0)
       .sort((a, b) => a.clickDelta - b.clickDelta)
       .slice(0, 5);
+    // Ticket 4: top 10, not 5 - "I just want to see top 10 gainers and top
+    // 10 losing pages in terms of page ranking."
     const positionImprovers = [...deltas]
       .filter((d) => d.positionDelta > 1 && d.thisWeekImpressions > 0)
       .sort((a, b) => b.positionDelta - a.positionDelta)
-      .slice(0, 5);
+      .slice(0, 10);
     const positionDropers = [...deltas]
       .filter((d) => d.positionDelta < -1 && d.lastWeekImpressions > 0)
       .sort((a, b) => a.positionDelta - b.positionDelta)
-      .slice(0, 5);
+      .slice(0, 10);
 
     const totalClicksThisWeek = thisWeek.reduce((s, r) => s + r.clicks, 0);
     const totalClicksLastWeek = lastWeek.reduce((s, r) => s + r.clicks, 0);

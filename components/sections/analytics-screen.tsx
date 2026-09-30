@@ -1,35 +1,40 @@
 // Analytics — the informational companion to Overview. Surfaces GA4 + GSC data
-// the app already collected but never rendered: the traffic-source mix, weekly
-// movers, content decay, and per-page engagement. Composition root: local
-// (Supabase) reads arrive resolved as props; the two Google round-trips stream
-// in their own <Suspense> boundaries so a slow GA4/GSC call never stalls the page.
+// the app already collected but never rendered: the traffic-source mix, and
+// (Ticket 6) five clickable category boxes - Top 10 Movers, Top 10 Page
+// Views, Pages Going Stale, Top 20 Engaged/Disengaged, Blog Clusters -
+// replacing the old always-stacked layout so only one is visible at a time.
+// Composition root: local (Supabase) reads arrive resolved as props; the
+// Google round-trips stream in their own <Suspense> boundaries so a slow
+// GA4/GSC call never stalls the page.
 
 import { Suspense } from "react";
 
-import { TimeWindow } from "@/components/ui/time-window";
 import { TrafficSourcesStreamed } from "@/components/sections/traffic-sources-section";
-import { WeeklyMoversStreamed } from "@/components/sections/weekly-movers-section";
+import { RankingMoversStreamed, PageViewMoversStreamed } from "@/components/sections/weekly-movers-section";
 import { ContentDecaySection } from "@/components/sections/content-decay-section";
-import { PageEngagementSection } from "@/components/sections/page-engagement-section";
+import { EngagementExtremesSection } from "@/components/sections/engagement-extremes-section";
+import { BlogClustersAnalyticsBox } from "@/components/sections/blog-clusters-analytics-box";
+import { AnalyticsCategoryBoxes } from "@/components/sections/analytics-category-boxes";
 import type { ContentFreshnessRow } from "@/lib/data/content-freshness";
-import type { MetricWindow, UrlMetricWindow } from "@/lib/data/url-metrics";
+import type { EngagementRateExtremes } from "@/lib/data/url-metrics";
+import type { BlogClusterSummary } from "@/lib/data/blog-clusters";
 
 export function AnalyticsScreen({
-  window,
   range,
   projectId,
   siteUrl,
   propertyId,
   freshness,
-  engagement,
+  engagementExtremes,
+  clusters,
 }: {
-  window: MetricWindow;
   range: string;
   projectId: string;
   siteUrl: string | null;
   propertyId: string | null;
   freshness: ContentFreshnessRow[];
-  engagement: UrlMetricWindow[];
+  engagementExtremes: EngagementRateExtremes;
+  clusters: BlogClusterSummary[];
 }) {
   return (
     <div className="space-y-8 px-6 pb-12 pt-6 lg:px-10">
@@ -46,26 +51,20 @@ export function AnalyticsScreen({
         <TrafficSourcesStreamed propertyId={propertyId} projectId={projectId} range={range} />
       </Suspense>
 
-      <Suspense fallback={<SectionSkeleton kind="movers" />}>
-        <WeeklyMoversStreamed siteUrl={siteUrl} propertyId={propertyId} projectId={projectId} />
-      </Suspense>
-
-      <ContentDecaySection rows={freshness} />
-
-      <PageEngagementSection
-        rows={engagement}
-        window={window}
-        headerRight={
-          <TimeWindow
-            param="window"
-            value={window}
-            options={[
-              { value: "30d", label: "30d" },
-              { value: "60d", label: "60d" },
-              { value: "90d", label: "90d" },
-            ]}
-          />
+      <AnalyticsCategoryBoxes
+        moversPanel={
+          <Suspense fallback={<SectionSkeleton kind="movers" />}>
+            <RankingMoversStreamed siteUrl={siteUrl} />
+          </Suspense>
         }
+        pageViewsPanel={
+          <Suspense fallback={<SectionSkeleton kind="movers" />}>
+            <PageViewMoversStreamed propertyId={propertyId} />
+          </Suspense>
+        }
+        stalePanel={<ContentDecaySection rows={freshness} />}
+        engagementPanel={<EngagementExtremesSection extremes={engagementExtremes} />}
+        blogClustersPanel={<BlogClustersAnalyticsBox projectId={projectId} clusters={clusters} />}
       />
     </div>
   );

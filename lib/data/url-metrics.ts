@@ -89,17 +89,12 @@ function toWindow(win: MetricWindow, r: PeriodRow): UrlMetricWindow {
 }
 
 /**
- * Project-scoped: the top pages by traffic over the window, each as a windowed
- * UrlMetricWindow (so the caller has bounce/engagement/conversions/referrers).
- * Powers the Analytics "Page engagement" table. Pages with zero sessions are
- * dropped (nothing to say about engagement), and the highest-traffic pages win
- * the `limit` cap. RLS-scoped via the table's has_project_access policy.
+ * Project-scoped: every page's latest windowed UrlMetricWindow snapshot (one
+ * row per URL, newest snapshot_date wins). Shared by anything that needs the
+ * full per-page metric set for a window - callers filter/sort/slice from here
+ * rather than each running their own near-identical query.
  */
-export async function getTopPagesByEngagement(
-  projectId: string,
-  win: MetricWindow = "30d",
-  limit = 25,
-): Promise<UrlMetricWindow[]> {
+async function getLatestUrlMetricWindows(projectId: string, win: MetricWindow): Promise<UrlMetricWindow[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("url_metrics")
@@ -111,7 +106,6 @@ export async function getTopPagesByEngagement(
     .order("snapshot_date", { ascending: false });
 
   const rows = (data ?? []) as PeriodRow[];
-  // Keep only the latest snapshot per url (rows arrive newest-first).
   const seen = new Set<string>();
   const out: UrlMetricWindow[] = [];
   for (const r of rows) {
@@ -119,8 +113,36 @@ export async function getTopPagesByEngagement(
     seen.add(r.url);
     out.push(toWindow(win, r));
   }
-  return out
-    .filter((m) => m.ga_sessions > 0)
-    .sort((a, b) => b.ga_sessions - a.ga_sessions)
-    .slice(0, limit);
+  return out;
+}
+
+// Analytics Ticket 5: a session floor before ranking by engagement rate - a
+// page with 2 sessions and a 100% engagement rate is noise, not a signal.
+// Mirrors content_freshness's own SURFACE_FLOOR reasoning at a smaller scale
+// (per-page sessions, not a 90-day baseline total).
+const ENGAGEMENT_SESSION_FLOOR = 10;
+
+export interface EngagementRateExtremes {
+  mostEngaged: UrlMetricWindow[];
+  leastEngaged: UrlMetricWindow[];
+}
+
+/**
+ * Top 20 pages by GA4 engagement rate, and the bottom 20 - both restricted to
+ * pages with at least ENGAGEMENT_SESSION_FLOOR sessions in the window so a
+ * near-zero-traffic page can't dominate either end. Powers the Analytics
+ * "Top 20 engaged/disengaged" category box.
+ */
+export async function getTopPagesByEngagementRate(
+  projectId: string,
+  win: MetricWindow = "30d",
+  limit = 20,
+): Promise<EngagementRateExtremes> {
+  const all = await getLatestUrlMetricWindows(projectId, win);
+  const eligible = all.filter((m) => m.ga_sessions >= ENGAGEMENT_SESSION_FLOOR);
+
+  return {
+    mostEngaged: [...eligible].sort((a, b) => b.ga_engagement_rate - a.ga_engagement_rate).slice(0, limit),
+    leastEngaged: [...eligible].sort((a, b) => a.ga_engagement_rate - b.ga_engagement_rate).slice(0, limit),
+  };
 }

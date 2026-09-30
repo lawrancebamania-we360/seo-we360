@@ -123,8 +123,9 @@ export async function getGa4WeeklyDelta(propertyId: string | null): Promise<Ga4W
       deltas.push({ page, thisWeek: now, lastWeek: prev, delta, deltaPct });
     }
 
-    const topGainers = [...deltas].sort((a, b) => b.delta - a.delta).filter((d) => d.delta > 0).slice(0, 5);
-    const topLosers = [...deltas].sort((a, b) => a.delta - b.delta).filter((d) => d.delta < 0).slice(0, 5);
+    // Ticket 4/6: top 10 for the "Top 10 Page Views" category box.
+    const topGainers = [...deltas].sort((a, b) => b.delta - a.delta).filter((d) => d.delta > 0).slice(0, 10);
+    const topLosers = [...deltas].sort((a, b) => a.delta - b.delta).filter((d) => d.delta < 0).slice(0, 10);
     const totalDeltaPct = totalLast === 0 ? 0 : Math.round(((totalThis - totalLast) / totalLast) * 100);
 
     return {

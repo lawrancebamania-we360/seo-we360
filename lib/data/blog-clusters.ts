@@ -2,6 +2,8 @@
 // for the cluster list page and the per-cluster detail table.
 
 import { createClient } from "@/lib/supabase/server";
+import { cleanHost } from "@/lib/url";
+import type { MetricWindow, UrlTopQuery } from "@/lib/data/url-metrics";
 
 export interface BlogClusterSummary {
   id: string;
@@ -141,5 +143,125 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
     pillarTitle: c.pillar_title,
     source: (c.source as "ai_generated" | "import") ?? "ai_generated",
     items,
+  };
+}
+
+// ============================================================================
+// Analytics Ticket 8-9: Blog Clusters' ranking view - only posts confirmed
+// LIVE, each joined against its own GSC/GA4 numbers.
+//
+// "Published" is resolved two ways, in order: (1) the item's linked Sprint
+// task has a published_url - definitive; (2) else its pasted/AI-generated
+// url_slug is matched against the project's latest sitemap snapshot
+// (url_metrics_runs.url_list) - the exact cleanHost-keyed lookup pattern
+// lib/actions/backlinks.ts already uses to verify a Backlinks submission's
+// Blog Post reference. An item that resolves neither way was planned/
+// uploaded but never actually published, and is excluded from the ranked
+// list (surfaced separately as "not yet published" so nothing silently
+// vanishes - see BlogClusterAnalytics.unpublishedCount).
+// ============================================================================
+
+export interface BlogClusterAnalyticsItem {
+  id: string;
+  title: string;
+  liveUrl: string;
+  gscPosition: number;
+  gscClicks: number;
+  gscImpressions: number;
+  gscCtr: number;
+  topQueries: UrlTopQuery[];
+}
+
+export interface BlogClusterAnalytics {
+  id: string;
+  clusterName: string;
+  totalCount: number;
+  unpublishedCount: number;
+  items: BlogClusterAnalyticsItem[];
+}
+
+export async function getBlogClusterAnalytics(
+  projectId: string, clusterId: string, window: MetricWindow = "30d",
+): Promise<BlogClusterAnalytics | null> {
+  const supabase = await createClient();
+  const { data: cluster } = await supabase
+    .from("topic_clusters")
+    .select("id, cluster_name")
+    .eq("id", clusterId)
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (!cluster) return null;
+  const c = cluster as { id: string; cluster_name: string };
+
+  const { data: itemsData } = await supabase
+    .from("topic_cluster_items")
+    .select("id, title, url_slug, task_id, tasks ( published_url )")
+    .eq("cluster_id", clusterId)
+    .order("position", { ascending: true });
+  type ItemRow = { id: string; title: string; url_slug: string | null; task_id: string | null; tasks: { published_url: string | null } | null };
+  const items = (itemsData ?? []) as unknown as ItemRow[];
+  if (!items.length) return { id: c.id, clusterName: c.cluster_name, totalCount: 0, unpublishedCount: 0, items: [] };
+
+  const { data: latestRun } = await supabase
+    .from("url_metrics_runs")
+    .select("url_list")
+    .eq("project_id", projectId)
+    .order("run_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const sitemapUrls = (latestRun as { url_list: string[] | null } | null)?.url_list ?? [];
+  const sitemapByNormalized = new Map<string, string>();
+  for (const u of sitemapUrls) sitemapByNormalized.set(cleanHost(u, { lowercase: true }), u);
+
+  const resolved = new Map<string, string>(); // item.id -> live URL
+  for (const it of items) {
+    const publishedUrl = it.tasks?.published_url?.trim();
+    if (publishedUrl) { resolved.set(it.id, publishedUrl); continue; }
+    if (it.url_slug) {
+      const match = sitemapByNormalized.get(cleanHost(it.url_slug, { lowercase: true }));
+      if (match) resolved.set(it.id, match);
+    }
+  }
+  if (!resolved.size) {
+    return { id: c.id, clusterName: c.cluster_name, totalCount: items.length, unpublishedCount: items.length, items: [] };
+  }
+
+  const liveUrls = [...new Set(resolved.values())];
+  const { data: metricsData } = await supabase
+    .from("url_metrics")
+    .select("url, gsc_position, gsc_clicks, gsc_impressions, gsc_ctr, gsc_top_queries, snapshot_date")
+    .eq("project_id", projectId)
+    .eq("period", window)
+    .in("url", liveUrls)
+    .order("snapshot_date", { ascending: false });
+  type MetricRow = { url: string; gsc_position: number | null; gsc_clicks: number | null; gsc_impressions: number | null; gsc_ctr: number | null; gsc_top_queries: UrlTopQuery[] | null };
+  const metricsByUrl = new Map<string, MetricRow>();
+  for (const m of (metricsData ?? []) as MetricRow[]) {
+    if (!metricsByUrl.has(m.url)) metricsByUrl.set(m.url, m); // first = latest snapshot_date, rows already ordered
+  }
+
+  const out: BlogClusterAnalyticsItem[] = [];
+  for (const it of items) {
+    const liveUrl = resolved.get(it.id);
+    if (!liveUrl) continue;
+    const m = metricsByUrl.get(liveUrl);
+    out.push({
+      id: it.id,
+      title: it.title,
+      liveUrl,
+      gscPosition: Number(m?.gsc_position) || 0,
+      gscClicks: Number(m?.gsc_clicks) || 0,
+      gscImpressions: Number(m?.gsc_impressions) || 0,
+      gscCtr: Number(m?.gsc_ctr) || 0,
+      topQueries: (m?.gsc_top_queries ?? []).slice(0, 10),
+    });
+  }
+
+  return {
+    id: c.id,
+    clusterName: c.cluster_name,
+    totalCount: items.length,
+    unpublishedCount: items.length - resolved.size,
+    items: out.sort((a, b) => (a.gscPosition || 999) - (b.gscPosition || 999)),
   };
 }
