@@ -206,10 +206,10 @@ export function SeoReportView({ rows, rollup, activeRange }: Props) {
           onClick={refresh}
           disabled={refreshPending}
           title="Re-check live status, sitemap membership, and metrics"
-          className="inline-flex items-center gap-1.5 rounded-md border bg-muted/30 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:opacity-60"
         >
-          <RefreshCw className={cn("size-3", refreshPending && "animate-spin")} />
-          Refresh
+          <RefreshCw className={cn("size-3.5", refreshPending && "animate-spin")} />
+          {refreshPending ? "Refreshing…" : "Refresh"}
         </button>
 
         <div className="relative ml-auto">
