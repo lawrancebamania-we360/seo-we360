@@ -159,3 +159,54 @@ export async function importBacklinksPaste(input: z.infer<typeof ImportInput>): 
   revalidatePath("/dashboard/backlinks");
   return { ok: true, itemsCreated, itemsSkipped, websitesCreated };
 }
+
+const AddWebsitesInput = z.object({
+  project_id: z.string().uuid(),
+  names: z.string().min(1),
+});
+
+export interface AddBacklinkWebsitesResult {
+  ok: boolean;
+  error?: string;
+  websitesCreated?: number;
+  websitesSkipped?: number;
+}
+
+// Ticket 14: lightweight companion to importBacklinksPaste - adds a website
+// with zero submissions (one name per line, no header/date/link required),
+// so the team can stock the list with platforms before ever logging activity
+// against them. Same find-or-create-by-domain logic as the submissions
+// importer, so a name added here and later seen in a submissions paste
+// resolve to the identical row.
+export async function addBacklinkWebsites(input: z.infer<typeof AddWebsitesInput>): Promise<AddBacklinkWebsitesResult> {
+  const { project_id, names } = AddWebsitesInput.parse(input);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const entries = names.split("\n").map((n) => n.trim()).filter(Boolean);
+  if (!entries.length) return { ok: false, error: "Enter at least one platform name." };
+
+  const admin = createAdminClient();
+  let websitesCreated = 0;
+  let websitesSkipped = 0;
+  const seen = new Set<string>();
+
+  for (const entry of entries) {
+    const domain = hostFromUrl(entry) || entry.toLowerCase();
+    if (!domain || seen.has(domain)) { websitesSkipped++; continue; }
+    seen.add(domain);
+
+    const { data: existing } = await admin
+      .from("backlink_websites").select("id").eq("project_id", project_id).eq("domain", domain).maybeSingle();
+    if (existing) { websitesSkipped++; continue; }
+
+    const { error: createErr } = await admin
+      .from("backlink_websites").insert({ project_id, domain, created_by: user.id });
+    if (createErr) { websitesSkipped++; continue; }
+    websitesCreated++;
+  }
+
+  revalidatePath("/dashboard/backlinks");
+  return { ok: true, websitesCreated, websitesSkipped };
+}

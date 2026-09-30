@@ -5,6 +5,7 @@ import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { BacklinkDateFilter } from "@/components/sections/backlinks/backlink-date-filter";
 import { BacklinkWebsiteTable } from "@/components/sections/backlinks/backlink-website-table";
 import { NewSubmissionsButton } from "@/components/sections/backlinks/new-submissions-button";
+import { AddPlatformButton } from "@/components/sections/backlinks/add-platform-button";
 
 export const metadata = { title: "Backlinks" };
 
@@ -28,7 +29,12 @@ export default async function BacklinksPage({
       <PageHeader
         title="Backlinks"
         description="Every website you've submitted content to, and how often - paste in submissions from your tracking sheet, then filter by date to see distribution activity for any period."
-        actions={ctx.canManageTeam ? <NewSubmissionsButton projectId={ctx.activeProject.id} /> : null}
+        actions={ctx.canManageTeam ? (
+          <div className="flex items-center gap-2">
+            <AddPlatformButton projectId={ctx.activeProject.id} />
+            <NewSubmissionsButton projectId={ctx.activeProject.id} />
+          </div>
+        ) : null}
       />
 
       <BacklinkDateFilter range={range} start={start} end={end} />

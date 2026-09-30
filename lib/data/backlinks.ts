@@ -101,6 +101,9 @@ export async function getBacklinkWebsites(projectId: string, range: BacklinkRang
     byWebsite.set(s.website_id, entry);
   }
 
+  // Ticket 15: alphabetical, not "most submissions first" - the list is a
+  // fixed platform checklist now (Ticket 14/16 add rows with 0 submissions),
+  // so a leaderboard sort would bury the very rows a checklist exists to show.
   return websites
     .map((w) => ({
       id: w.id,
@@ -108,7 +111,7 @@ export async function getBacklinkWebsites(projectId: string, range: BacklinkRang
       submissionCount: byWebsite.get(w.id)?.count ?? 0,
       lastSubmissionDate: byWebsite.get(w.id)?.lastDate ?? null,
     }))
-    .sort((a, b) => b.submissionCount - a.submissionCount);
+    .sort((a, b) => a.domain.localeCompare(b.domain));
 }
 
 export interface BacklinkSubmissionRow {
