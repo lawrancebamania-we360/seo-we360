@@ -34,15 +34,22 @@ export function BacklinkSubmissionList({ submissions }: { submissions: BacklinkS
           <ul className="divide-y divide-border/60">
             {g.rows.map((s) => (
               <li key={s.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
-                <span className="min-w-0 truncate text-foreground" title={s.blogPostLabel}>
-                  {s.blogPostUrl ? (
-                    <a href={s.blogPostUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                      {s.blogPostLabel}
-                    </a>
-                  ) : (
-                    s.blogPostLabel
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-foreground" title={s.blogPostLabel}>
+                    {s.blogPostUrl ? (
+                      <a href={s.blogPostUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                        {s.blogPostLabel}
+                      </a>
+                    ) : (
+                      s.blogPostLabel
+                    )}
+                  </div>
+                  {s.topicName && (
+                    <div className="truncate text-xs text-muted-foreground" title={s.topicName}>
+                      Topic: {s.topicName}
+                    </div>
                   )}
-                </span>
+                </div>
                 <a
                   href={s.submissionUrl}
                   target="_blank"

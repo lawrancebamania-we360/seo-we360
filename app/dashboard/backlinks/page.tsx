@@ -29,15 +29,18 @@ export default async function BacklinksPage({
       <PageHeader
         title="Backlinks"
         description="Every website you've submitted content to, and how often - paste in submissions from your tracking sheet, then filter by date to see distribution activity for any period."
-        actions={ctx.canManageTeam ? (
-          <div className="flex items-center gap-2">
-            <AddPlatformButton projectId={ctx.activeProject.id} />
-            <NewSubmissionsButton projectId={ctx.activeProject.id} />
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <BacklinkDateFilter range={range} start={start} end={end} />
+            {ctx.canManageTeam && (
+              <>
+                <AddPlatformButton projectId={ctx.activeProject.id} />
+                <NewSubmissionsButton projectId={ctx.activeProject.id} />
+              </>
+            )}
           </div>
-        ) : null}
+        }
       />
-
-      <BacklinkDateFilter range={range} start={start} end={end} />
 
       <BacklinkWebsiteTable websites={websites} />
     </div>

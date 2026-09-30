@@ -74,6 +74,7 @@ export interface BacklinkWebsiteSummary {
   submissionCount: number;
   lastSubmissionDate: string | null;
   lastSubmissionUrl: string | null;
+  lastSubmissionTopic: string | null;
 }
 
 export async function getBacklinkWebsites(projectId: string, range: BacklinkRange): Promise<BacklinkWebsiteSummary[]> {
@@ -87,24 +88,29 @@ export async function getBacklinkWebsites(projectId: string, range: BacklinkRang
 
   let q = supabase
     .from("backlink_submissions")
-    .select("website_id, submission_date, submission_url")
+    .select("website_id, submission_date, submission_url, topic_name")
     .eq("project_id", projectId);
   if (range.start) q = q.gte("submission_date", range.start);
   if (range.end) q = q.lte("submission_date", range.end);
   const { data: subsData } = await q;
-  const subs = (subsData ?? []) as { website_id: string; submission_date: string; submission_url: string }[];
+  const subs = (subsData ?? []) as { website_id: string; submission_date: string; submission_url: string; topic_name: string | null }[];
 
-  const byWebsite = new Map<string, { count: number; lastDate: string | null; lastUrl: string | null }>();
+  const byWebsite = new Map<string, { count: number; lastDate: string | null; lastUrl: string | null; lastTopic: string | null }>();
   for (const s of subs) {
-    const entry = byWebsite.get(s.website_id) ?? { count: 0, lastDate: null, lastUrl: null };
+    const entry = byWebsite.get(s.website_id) ?? { count: 0, lastDate: null, lastUrl: null, lastTopic: null };
     entry.count++;
-    if (!entry.lastDate || s.submission_date >= entry.lastDate) { entry.lastDate = s.submission_date; entry.lastUrl = s.submission_url; }
+    if (!entry.lastDate || s.submission_date >= entry.lastDate) {
+      entry.lastDate = s.submission_date;
+      entry.lastUrl = s.submission_url;
+      entry.lastTopic = s.topic_name;
+    }
     byWebsite.set(s.website_id, entry);
   }
 
-  // Ticket 15: alphabetical, not "most submissions first" - the list is a
-  // fixed platform checklist now (Ticket 14/16 add rows with 0 submissions),
-  // so a leaderboard sort would bury the very rows a checklist exists to show.
+  // Ticket 20: default order is most-recent-activity first (nulls - no
+  // submissions yet - sort last), tie-broken alphabetically. Ticket 19's
+  // sortable table lets the team override this per column; this is just the
+  // order shown before anyone clicks a header.
   return websites
     .map((w) => ({
       id: w.id,
@@ -112,8 +118,16 @@ export async function getBacklinkWebsites(projectId: string, range: BacklinkRang
       submissionCount: byWebsite.get(w.id)?.count ?? 0,
       lastSubmissionDate: byWebsite.get(w.id)?.lastDate ?? null,
       lastSubmissionUrl: byWebsite.get(w.id)?.lastUrl ?? null,
+      lastSubmissionTopic: byWebsite.get(w.id)?.lastTopic ?? null,
     }))
-    .sort((a, b) => a.domain.localeCompare(b.domain));
+    .sort((a, b) => {
+      if (a.lastSubmissionDate !== b.lastSubmissionDate) {
+        if (!a.lastSubmissionDate) return 1;
+        if (!b.lastSubmissionDate) return -1;
+        return b.lastSubmissionDate.localeCompare(a.lastSubmissionDate);
+      }
+      return a.domain.localeCompare(b.domain);
+    });
 }
 
 export interface BacklinkSubmissionRow {
@@ -122,6 +136,7 @@ export interface BacklinkSubmissionRow {
   submissionUrl: string;
   blogPostLabel: string;
   blogPostUrl: string | null;
+  topicName: string | null;
 }
 
 export interface BacklinkWebsiteDetail {
@@ -145,20 +160,21 @@ export async function getBacklinkWebsiteDetail(
 
   let q = supabase
     .from("backlink_submissions")
-    .select("id, submission_date, submission_url, blog_post_label, blog_post_url")
+    .select("id, submission_date, submission_url, blog_post_label, blog_post_url, topic_name")
     .eq("website_id", websiteId)
     .eq("project_id", projectId)
     .order("submission_date", { ascending: false });
   if (range.start) q = q.gte("submission_date", range.start);
   if (range.end) q = q.lte("submission_date", range.end);
   const { data: subsData } = await q;
-  type Row = { id: string; submission_date: string; submission_url: string; blog_post_label: string; blog_post_url: string | null };
+  type Row = { id: string; submission_date: string; submission_url: string; blog_post_label: string; blog_post_url: string | null; topic_name: string | null };
   const submissions = ((subsData ?? []) as Row[]).map((s) => ({
     id: s.id,
     submissionDate: s.submission_date,
     submissionUrl: s.submission_url,
     blogPostLabel: s.blog_post_label,
     blogPostUrl: s.blog_post_url,
+    topicName: s.topic_name,
   }));
 
   return { id: w.id, domain: w.domain, submissions };

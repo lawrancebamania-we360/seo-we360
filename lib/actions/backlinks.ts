@@ -37,6 +37,8 @@ const HEADER_MAP: Record<string, string> = {
   "submission date": "submission_date",
   "submission link": "submission_url",
   "blog post": "blog_post",
+  "topic": "topic_name",
+  "topic name": "topic_name",
 };
 
 function normalizeHeader(h: string): string {
@@ -48,6 +50,7 @@ interface ParsedRow {
   submission_date: string;
   submission_url: string;
   blog_post: string;
+  topic_name: string;
 }
 
 function parsePastedRows(pastedText: string): { rows: ParsedRow[]; skipped: number } {
@@ -67,7 +70,7 @@ function parsePastedRows(pastedText: string): { rows: ParsedRow[]; skipped: numb
     const submission_date = get("submission_date");
     const submission_url = get("submission_url");
     if (!website || !submission_date || !submission_url) { skipped++; continue; }
-    rows.push({ website, submission_date, submission_url, blog_post: get("blog_post") || "" });
+    rows.push({ website, submission_date, submission_url, blog_post: get("blog_post") || "", topic_name: get("topic_name") || "" });
   }
   return { rows, skipped };
 }
@@ -107,7 +110,7 @@ export async function importBacklinksPaste(input: z.infer<typeof ImportInput>): 
   if (!rows.length) {
     return {
       ok: false,
-      error: "No rows found. Make sure the first line is the header row (Website, Submission Date, Submission Link, Blog Post) and there's at least one data row.",
+      error: "No rows found. Make sure the first line is the header row (Website, Submission Date, Submission Link, Blog Post, Topic) and there's at least one data row.",
     };
   }
 
@@ -178,6 +181,7 @@ export async function importBacklinksPaste(input: z.infer<typeof ImportInput>): 
       submission_url: row.submission_url,
       blog_post_url: blogPostUrl,
       blog_post_label: blogPostLabel,
+      topic_name: row.topic_name.trim() || null,
       created_by: user.id,
     });
     if (insertErr) { itemsSkipped++; continue; }

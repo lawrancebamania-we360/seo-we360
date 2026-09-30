@@ -35,10 +35,13 @@ export default async function BacklinkWebsiteDetailPage({
       <PageHeader
         title={website.domain}
         description={`${website.submissions.length} submission${website.submissions.length === 1 ? "" : "s"} in the selected range.`}
-        actions={ctx.canManageTeam ? <NewSubmissionsButton projectId={ctx.activeProject.id} /> : null}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <BacklinkDateFilter range={range} start={start} end={end} />
+            {ctx.canManageTeam && <NewSubmissionsButton projectId={ctx.activeProject.id} />}
+          </div>
+        }
       />
-
-      <BacklinkDateFilter range={range} start={start} end={end} />
 
       <BacklinkSubmissionList submissions={website.submissions} />
     </div>

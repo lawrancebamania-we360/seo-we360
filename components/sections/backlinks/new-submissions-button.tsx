@@ -45,14 +45,14 @@ export function NewSubmissionsButton({ projectId }: { projectId: string }) {
           <DialogHeader>
             <DialogTitle>Paste submissions from your tracking sheet</DialogTitle>
             <DialogDescription>
-              Select the header row + every data row in your sheet, copy, and paste below. Columns are matched by name, so order doesn&apos;t matter. Expected columns: Website, Submission Date, Submission Link, Blog Post.
+              Select the header row + every data row in your sheet, copy, and paste below. Columns are matched by name, so order doesn&apos;t matter. Expected columns: Website, Submission Date, Submission Link, Blog Post, Topic.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <textarea
               value={pasted}
               onChange={(e) => setPasted(e.target.value)}
-              placeholder={"Website\tSubmission Date\tSubmission Link\tBlog Post"}
+              placeholder={"Website\tSubmission Date\tSubmission Link\tBlog Post\tTopic"}
               className="h-64 w-full resize-y rounded-md border border-border bg-background px-3 py-2 font-mono text-[11px] leading-relaxed outline-none focus:border-primary/40"
             />
             {error && <p className="text-xs text-error-600">{error}</p>}
