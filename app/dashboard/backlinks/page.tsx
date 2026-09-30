@@ -6,6 +6,7 @@ import { BacklinkDateFilter } from "@/components/sections/backlinks/backlink-dat
 import { BacklinkWebsiteTable } from "@/components/sections/backlinks/backlink-website-table";
 import { NewSubmissionsButton } from "@/components/sections/backlinks/new-submissions-button";
 import { AddPlatformButton } from "@/components/sections/backlinks/add-platform-button";
+import { AddSubmissionButton } from "@/components/sections/backlinks/add-submission-button";
 
 export const metadata = { title: "Backlinks" };
 
@@ -35,6 +36,7 @@ export default async function BacklinksPage({
             {ctx.canManageTeam && (
               <>
                 <AddPlatformButton projectId={ctx.activeProject.id} />
+                <AddSubmissionButton projectId={ctx.activeProject.id} websites={websites.map((w) => ({ id: w.id, domain: w.domain }))} />
                 <NewSubmissionsButton projectId={ctx.activeProject.id} />
               </>
             )}

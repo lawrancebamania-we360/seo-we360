@@ -53,13 +53,69 @@ interface ParsedRow {
   topic_name: string;
 }
 
-function parsePastedRows(pastedText: string): { rows: ParsedRow[]; skipped: number } {
+// Ticket 29: if the first line doesn't name any recognized column, it isn't a
+// header - it's data, and the team pastes without one often enough that
+// erroring out ("No rows found") isn't the right default anymore. Classify
+// every cell in every line instead: a cell matching an EXISTING website on
+// this project's list wins the Website slot (this is what makes headerless
+// paste reliable - a bare "1" or "2" can't be confused for a platform name
+// when we already know what the real platform names are); a date-shaped cell
+// is the date; a dotted, space-free cell is the link; whatever's left becomes
+// Blog Post then Topic, in that order.
+function classifyHeaderlessRow(cells: string[], knownDomains: Set<string>): ParsedRow | null {
+  const trimmed = cells.map((c) => c.trim());
+  let dateIdx = -1;
+  let websiteIdx = -1;
+  let linkIdx = -1;
+
+  for (let i = 0; i < trimmed.length; i++) {
+    if (dateIdx === -1 && normalizeDate(trimmed[i])) dateIdx = i;
+  }
+  for (let i = 0; i < trimmed.length; i++) {
+    if (i === dateIdx) continue;
+    const dom = hostFromUrl(trimmed[i]) || trimmed[i].toLowerCase();
+    if (knownDomains.has(dom)) { websiteIdx = i; break; }
+  }
+  for (let i = 0; i < trimmed.length; i++) {
+    if (i === dateIdx || i === websiteIdx) continue;
+    if (/\./.test(trimmed[i]) && !/\s/.test(trimmed[i])) { linkIdx = i; break; }
+  }
+  if (websiteIdx === -1) {
+    for (let i = 0; i < trimmed.length; i++) {
+      if (i !== dateIdx && i !== linkIdx && trimmed[i]) { websiteIdx = i; break; }
+    }
+  }
+  if (dateIdx === -1 || websiteIdx === -1 || linkIdx === -1) return null;
+
+  const rest = trimmed.filter((_, i) => i !== dateIdx && i !== websiteIdx && i !== linkIdx);
+  return {
+    website: trimmed[websiteIdx],
+    submission_date: trimmed[dateIdx],
+    submission_url: trimmed[linkIdx],
+    blog_post: rest[0] ?? "",
+    topic_name: rest[1] ?? "",
+  };
+}
+
+function parsePastedRows(pastedText: string, knownDomains: Set<string>): { rows: ParsedRow[]; skipped: number } {
   const lines = pastedText.replace(/\r\n/g, "\n").split("\n").filter((l) => l.trim().length > 0);
-  if (lines.length < 2) return { rows: [], skipped: 0 };
+  if (!lines.length) return { rows: [], skipped: 0 };
 
   const headerCells = lines[0].split("\t").map((h) => normalizeHeader(h));
   const colIndex: Record<string, number> = {};
   headerCells.forEach((h, i) => { if (HEADER_MAP[h] != null) colIndex[HEADER_MAP[h]] = i; });
+
+  if (Object.keys(colIndex).length === 0) {
+    // No recognized header - every line, including the first, is data.
+    const rows: ParsedRow[] = [];
+    let skipped = 0;
+    for (const line of lines) {
+      const row = classifyHeaderlessRow(line.split("\t"), knownDomains);
+      if (!row) { skipped++; continue; }
+      rows.push(row);
+    }
+    return { rows, skipped };
+  }
 
   const rows: ParsedRow[] = [];
   let skipped = 0;
@@ -106,15 +162,22 @@ export async function importBacklinksPaste(input: z.infer<typeof ImportInput>): 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not authenticated." };
 
-  const { rows, skipped: headerSkipped } = parsePastedRows(pasted_text);
+  const admin = createAdminClient();
+
+  // Feeds headerless-paste detection (Ticket 29) - a cell matching one of
+  // these existing platforms is confidently the Website column even with no
+  // header row to say so.
+  const { data: knownWebsites } = await admin
+    .from("backlink_websites").select("domain").eq("project_id", project_id);
+  const knownDomains = new Set(((knownWebsites ?? []) as { domain: string }[]).map((w) => w.domain));
+
+  const { rows, skipped: headerSkipped } = parsePastedRows(pasted_text, knownDomains);
   if (!rows.length) {
     return {
       ok: false,
-      error: "No rows found. Make sure the first line is the header row (Website, Submission Date, Submission Link, Blog Post, Topic) and there's at least one data row.",
+      error: "No rows found. Make sure the first line is the header row (Website, Submission Date, Submission Link, Blog Post, Topic) and there's at least one data row - or, without a header, that each row's platform name matches one already on your list.",
     };
   }
-
-  const admin = createAdminClient();
 
   // Ticket 1's revision: match against the latest sitemap snapshot, not tasks.
   const { data: latestRun } = await admin
@@ -372,4 +435,83 @@ export async function verifyBacklinkSubmission(input: z.infer<typeof VerifySubmi
 
   revalidatePath("/dashboard/backlinks");
   return { ok: true, status, note };
+}
+
+const AddSubmissionInput = z.object({
+  project_id: z.string().uuid(),
+  website_id: z.string().uuid(),
+  submission_date: z.string().min(1),
+  submission_url: z.string().min(1),
+  blog_post: z.string().optional(),
+  topic_name: z.string().optional(),
+});
+
+export interface AddBacklinkSubmissionResult {
+  ok: boolean;
+  error?: string;
+  duplicate?: boolean;
+}
+
+// Ticket 30: the no-paste alternative - pick an existing platform, a date
+// (calendar defaults to today), paste one link. One submit = one submission,
+// same as a single row of the paste-import - deliberately NOT a "log N at
+// once" batch entry, since a count multiplier would either need several
+// distinct links or collide with the exact-duplicate check below.
+export async function addBacklinkSubmission(input: z.infer<typeof AddSubmissionInput>): Promise<AddBacklinkSubmissionResult> {
+  const { project_id, website_id, submission_date, submission_url, blog_post, topic_name } = AddSubmissionInput.parse(input);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const date = normalizeDate(submission_date);
+  if (!date) return { ok: false, error: "Invalid submission date." };
+
+  const admin = createAdminClient();
+
+  const { data: website } = await admin
+    .from("backlink_websites").select("id").eq("id", website_id).eq("project_id", project_id).maybeSingle();
+  if (!website) return { ok: false, error: "That platform wasn't found on this project." };
+
+  const { data: dup } = await admin
+    .from("backlink_submissions")
+    .select("id")
+    .eq("website_id", website_id)
+    .eq("submission_date", date)
+    .eq("submission_url", submission_url)
+    .maybeSingle();
+  if (dup) return { ok: false, error: "This exact submission (same platform, date, and link) is already logged.", duplicate: true };
+
+  const { data: latestRun } = await admin
+    .from("url_metrics_runs")
+    .select("url_list")
+    .eq("project_id", project_id)
+    .order("run_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const sitemapUrls = (latestRun as { url_list: string[] | null } | null)?.url_list ?? [];
+  const sitemapByNormalized = new Map<string, string>();
+  for (const u of sitemapUrls) sitemapByNormalized.set(cleanHost(u, { lowercase: true }), u);
+
+  const blogPostRaw = (blog_post ?? "").trim();
+  let blogPostUrl: string | null = null;
+  let blogPostLabel = blogPostRaw || "—";
+  if (blogPostRaw) {
+    const matched = sitemapByNormalized.get(cleanHost(blogPostRaw, { lowercase: true }));
+    if (matched) { blogPostUrl = matched; blogPostLabel = matched; }
+  }
+
+  const { error: insertErr } = await admin.from("backlink_submissions").insert({
+    website_id,
+    project_id,
+    submission_date: date,
+    submission_url,
+    blog_post_url: blogPostUrl,
+    blog_post_label: blogPostLabel,
+    topic_name: (topic_name ?? "").trim() || null,
+    created_by: user.id,
+  });
+  if (insertErr) return { ok: false, error: "Could not save that submission." };
+
+  revalidatePath("/dashboard/backlinks");
+  return { ok: true };
 }
