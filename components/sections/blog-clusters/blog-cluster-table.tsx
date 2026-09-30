@@ -120,7 +120,17 @@ export function BlogClusterTable({ clusterName, items, members, canManage }: {
                 className="cursor-pointer border-b border-border/60 last:border-0 transition-colors hover:bg-muted/30"
               >
                 <td className="max-w-[320px] px-3 py-2.5 font-medium text-foreground">
-                  <div className="truncate" title={it.title}>{it.title}</div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="min-w-0 flex-1 truncate" title={it.title}>{it.title}</div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); copyText(formatItemForCopy(it), "Copied this brief - paste into any LLM to draft it."); }}
+                      className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title="Copy this row's details"
+                    >
+                      <Copy className="size-3.5" />
+                    </button>
+                  </div>
                 </td>
                 <td className="max-w-[140px] px-3 py-2.5 text-muted-foreground">
                   <div className="truncate" title={it.category ?? undefined}>{it.category ?? "—"}</div>

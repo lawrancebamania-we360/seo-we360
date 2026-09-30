@@ -25,7 +25,7 @@ import Image from "next/image";
 import {
   LayoutDashboard, ListChecks, Search, Swords,
   CalendarRange, Trophy, Users, FolderCog, GitBranch, FileSearch, Network,
-  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, ChevronDown,
+  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, ChevronDown, Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/dashboard/user-menu";
@@ -61,6 +61,7 @@ const NAV_SECTION: Record<string, string | null> = {
   "/dashboard/blog-clusters": "sprint", // planned-content grouping - same section as Blog Sprint
   "/dashboard/blog-audit":  "seo_gaps",
   "/dashboard/reports":     null,        // always visible
+  "/dashboard/backlinks":   null,        // always visible - standalone link-building log
   "/dashboard/analytics":   null,        // always visible
   // AI Visibility split into 2 independent category pages - same permission
   // section ("ai_visibility") gates both, matching the old single-route behavior.
@@ -88,6 +89,7 @@ const DEFAULT_NAV: NavItem[] = [
   { href: "/dashboard/blog-clusters", label: "Blog Clusters", icon: Network,   tone: "primary" },
   { href: "/dashboard/blog-audit", label: "Blog audit",  icon: FileSearch,     tone: "primary" },
   { href: "/dashboard/reports",    label: "Reports",     icon: BarChart3,      tone: "primary" },
+  { href: "/dashboard/backlinks",  label: "Backlinks",   icon: Link2,          tone: "primary" },
   { href: "/dashboard/analytics",  label: "Analytics",   icon: LineChart,      tone: "primary" },
   // AI Visibility: one collapsible parent, 2 independent products underneath
   // (own report + score each) - room for more children later. The parent's own
@@ -241,7 +243,12 @@ function SidebarInner({ profile, activeProject, canManageTeam, canManageProjects
       </div>
 
       <nav className={cn("flex-1 overflow-y-auto min-h-0 we360-scroll", collapsed ? "px-2" : "px-3", "pb-3")}>
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        {/* Explicit id - dnd-kit auto-generates one otherwise, which drifts
+            between the SSR pass and client hydration (and increments further
+            on every client-side navigation that remounts this component),
+            producing a permanent "aria-describedby mismatch, tree regenerated
+            on the client" hydration error. A fixed id makes it deterministic. */}
+        <DndContext id="dashboard-sidebar-nav" sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={order} strategy={verticalListSortingStrategy}>
             <div className="space-y-0.5">
               {orderedNav.map((item) => {

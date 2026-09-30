@@ -11,9 +11,10 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Play, Plus, Check, X, Pencil, RotateCw, Trash2, Power } from "lucide-react";
+import { Loader2, Play, Plus, Check, X, Pencil, RotateCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { PersonaRow } from "@/lib/data/personas";
 import type { PromptRow } from "@/components/sections/ai-visibility-client";
@@ -255,39 +256,7 @@ export function BuyerPromptsCard({
                       </div>
                     </div>
                   ) : (
-                    <div className={cn("flex items-start gap-2.5 text-sm", !p.active && "opacity-50")}>
-                      {canManage && (
-                        <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
-                          <button
-                            type="button"
-                            onClick={() => flipToggle(p)}
-                            disabled={toggleBusyId === p.id}
-                            className={cn(
-                              "rounded-md p-1 transition-colors hover:bg-muted cursor-pointer disabled:opacity-50",
-                              p.active ? "text-muted-foreground hover:text-foreground" : "text-warning-600 dark:text-warning-400",
-                            )}
-                            title={p.active ? "Turn off (won't run, keeps history)" : "Turn back on"}
-                          >
-                            {toggleBusyId === p.id ? <Loader2 className="size-3.5 animate-spin" /> : <Power className="size-3.5" />}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => startEdit(p)}
-                            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
-                            title="Edit this question"
-                          >
-                            <Pencil className="size-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeletingId(p.id)}
-                            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-error-500/10 hover:text-error-600 cursor-pointer"
-                            title="Delete this question"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </div>
-                      )}
+                    <div className={cn("flex items-start justify-between gap-2.5 text-sm", !p.active && "opacity-50")}>
                       <div className="min-w-0 space-y-1.5">
                         <span className="block text-[13px] leading-relaxed text-foreground">
                           {p.text}
@@ -306,6 +275,33 @@ export function BuyerPromptsCard({
                           </div>
                         )}
                       </div>
+                      {canManage && (
+                        <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+                          <Switch
+                            checked={p.active}
+                            onCheckedChange={() => flipToggle(p)}
+                            disabled={toggleBusyId === p.id}
+                            size="sm"
+                            title={p.active ? "Turn off (won't run, keeps history)" : "Turn back on"}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => startEdit(p)}
+                            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
+                            title="Edit this question"
+                          >
+                            <Pencil className="size-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingId(p.id)}
+                            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-error-500/10 hover:text-error-600 cursor-pointer"
+                            title="Delete this question"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </li>
