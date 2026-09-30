@@ -14,7 +14,7 @@
 -- re-running this is a no-op.
 
 insert into public.backlink_websites (project_id, domain)
-select p.id, lower(trim(name))
+select p.id, lower(trim(platforms.name))
 from public.projects p
 cross join (values
   ('Substack'), ('Medium'), ('Quora'), ('G2'), ('Issuu'), ('WordPress.com'),
