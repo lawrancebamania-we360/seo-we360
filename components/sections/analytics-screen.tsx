@@ -16,6 +16,7 @@ import type { MetricWindow, UrlMetricWindow } from "@/lib/data/url-metrics";
 
 export function AnalyticsScreen({
   window,
+  range,
   projectId,
   siteUrl,
   propertyId,
@@ -23,6 +24,7 @@ export function AnalyticsScreen({
   engagement,
 }: {
   window: MetricWindow;
+  range: string;
   projectId: string;
   siteUrl: string | null;
   propertyId: string | null;
@@ -41,7 +43,7 @@ export function AnalyticsScreen({
       </div>
 
       <Suspense fallback={<SectionSkeleton kind="donut" />}>
-        <TrafficSourcesStreamed propertyId={propertyId} projectId={projectId} />
+        <TrafficSourcesStreamed propertyId={propertyId} projectId={projectId} range={range} />
       </Suspense>
 
       <Suspense fallback={<SectionSkeleton kind="movers" />}>

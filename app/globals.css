@@ -35,6 +35,8 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-chart-7: var(--chart-7);
+  --color-chart-6: var(--chart-6);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -97,6 +99,8 @@
   --chart-3: #FEB800;
   --chart-4: #7E8492;
   --chart-5: #231D4F;
+  --chart-6: #10B981;
+  --chart-7: #F43F5E;
   /* Sidebar */
   --sidebar: #F8FAFC;
   --sidebar-foreground: #231D4F;
@@ -132,6 +136,8 @@
   --chart-3: #FEB800;
   --chart-4: #7E8492;
   --chart-5: #F0ECFF;
+  --chart-6: #34D399;
+  --chart-7: #FB7185;
   --sidebar: #070127;
   --sidebar-foreground: #F8FAFC;
   --sidebar-primary: #7B62FF;

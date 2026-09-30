@@ -474,12 +474,22 @@ export async function getGa4AiReferralTraffic(propertyId: string | null, _projec
 // those are included on purpose. 28-day window = a true "monthly" figure.
 // ============================================================================
 
+// Ticket 1: the team's own list - Organic Search + free tools (label only;
+// GA4 has no distinguishable "free tools" channel), Direct / Brand, Organic
+// Social, Referral, Organic Video, Email, AI Assistant. "Unassigned" is
+// deliberately OUT of the counted set now (a change from before) - it drops
+// to the "shown for context" footer with the paid channels. Known tradeoff:
+// GA4 sometimes buckets AI-referral sessions into Unassigned when it can't
+// classify them, so this slightly undercounts AI traffic - flagged, not
+// silently absorbed.
 const ORGANIC_EARNED_CHANNELS = new Set([
   "Organic Search",
+  "Direct",
   "Organic Social",
-  "AI Assistant",
+  "Organic Video",
   "Referral",
-  "Unassigned",
+  "Email",
+  "AI Assistant",
 ]);
 
 export interface Ga4ChannelRow {
@@ -500,7 +510,16 @@ export interface Ga4OrganicTraffic {
   byChannel: Ga4ChannelRow[];
 }
 
-export async function getGa4OrganicMonthly(propertyId: string | null, _projectId?: string): Promise<Ga4OrganicTraffic> {
+// Ticket 3: compareRange comes from resolveTrafficCompareRange - the caller
+// picks the preset (Last 7/30 days, This month, Last 3/6 months, This year),
+// and the current/previous windows (already day-count-normalized for "This
+// month"/"This year") are passed in as absolute dates rather than GA4's
+// relative "NdaysAgo" shorthand, since only absolute dates can express those
+// asymmetric comparison windows.
+export async function getGa4OrganicMonthly(
+  propertyId: string | null,
+  compareRange: { current: { start: string; end: string }; previous: { start: string; end: string } },
+): Promise<Ga4OrganicTraffic> {
   const empty: Ga4OrganicTraffic = { connected: false, monthlySessions: 0, priorSessions: 0, trendPct: null, byChannel: [] };
   if (!propertyId) return { ...empty, reason: "No GA4 property ID on this project." };
   if (!(await isGoogleServiceAccountConfigured())) return { ...empty, reason: "GA4 not connected." };
@@ -533,8 +552,8 @@ export async function getGa4OrganicMonthly(propertyId: string | null, _projectId
 
   try {
     const [rows, priorRows] = await Promise.all([
-      byChannel("28daysAgo", "today"),
-      byChannel("56daysAgo", "28daysAgo").catch(() => [] as RunReportRow[]),
+      byChannel(compareRange.current.start, compareRange.current.end),
+      byChannel(compareRange.previous.start, compareRange.previous.end).catch(() => [] as RunReportRow[]),
     ]);
 
     const priorByChannel = new Map<string, number>();

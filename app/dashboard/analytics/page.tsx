@@ -6,13 +6,14 @@ import { getTopPagesByEngagement, type MetricWindow } from "@/lib/data/url-metri
 
 export const metadata = { title: "Analytics" };
 
-export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<{ window?: string }> }) {
+export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<{ window?: string; range?: string }> }) {
   const ctx = await getUserContext();
   if (!ctx.activeProject) return <EmptyProjectState canCreate={ctx.canManageProjects} />;
   const project = ctx.activeProject;
 
-  const winParam = (await searchParams).window;
-  const window: MetricWindow = winParam === "60d" ? "60d" : winParam === "90d" ? "90d" : "30d";
+  const sp = await searchParams;
+  const window: MetricWindow = sp.window === "60d" ? "60d" : sp.window === "90d" ? "90d" : "30d";
+  const range = sp.range ?? "last_30_days";
 
   // Local Supabase reads — fast, block the shell. The GA4/GSC round-trips stream
   // in their own Suspense boundaries inside the screen.
@@ -24,6 +25,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   return (
     <AnalyticsScreen
       window={window}
+      range={range}
       projectId={project.id}
       siteUrl={project.gsc_property_url ?? null}
       propertyId={project.ga4_property_id ?? null}

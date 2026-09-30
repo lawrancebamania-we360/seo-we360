@@ -16,27 +16,39 @@ import {
   type Ga4OrganicTraffic,
   type Ga4AiReferral,
 } from "@/lib/google/ga4";
+import { resolveTrafficCompareRange, TRAFFIC_RANGE_PRESETS } from "@/lib/data/analytics-range";
 import { ChannelDonut } from "@/components/ui/channel-donut";
+import { TimeWindow } from "@/components/ui/time-window";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { cn } from "@/lib/utils";
 
-// Fixed channel → chart-token colors (the sanctioned chart order). AI gets the
-// violet chart slot so it stands apart from search/social/referral.
+// Ticket 1: the team's own 7-category list. "Organic Search + free tools" and
+// "Direct / Brand" are DISPLAY labels only - GA4's real channel-group values
+// are "Organic Search" and "Direct" (see ORGANIC_EARNED_CHANNELS in
+// lib/google/ga4.ts for why "free tools" can't be split out as real data).
 const CHANNEL_COLOR: Record<string, string> = {
   "Organic Search": "var(--color-chart-1)",
+  Direct: "var(--color-chart-6)",
   "Organic Social": "var(--color-chart-3)",
-  "AI Assistant": "var(--color-chart-4)",
+  "Organic Video": "var(--color-chart-7)",
   Referral: "var(--color-chart-2)",
-  Unassigned: "var(--color-chart-5)",
+  Email: "var(--color-chart-5)",
+  "AI Assistant": "var(--color-chart-4)",
+};
+const CHANNEL_LABEL: Record<string, string> = {
+  "Organic Search": "Organic Search + free tools",
+  Direct: "Direct / Brand",
 };
 const colorFor = (channel: string) => CHANNEL_COLOR[channel] ?? "var(--color-slate-300)";
+const labelFor = (channel: string) => CHANNEL_LABEL[channel] ?? channel;
 
-export async function TrafficSourcesStreamed({ propertyId, projectId }: { propertyId: string | null; projectId: string }) {
+export async function TrafficSourcesStreamed({ propertyId, projectId, range }: { propertyId: string | null; projectId: string; range: string }) {
+  const compareRange = resolveTrafficCompareRange(range);
   const [organic, ai] = await Promise.all([
-    getGa4OrganicMonthly(propertyId, projectId),
+    getGa4OrganicMonthly(propertyId, compareRange),
     getGa4AiReferralTraffic(propertyId, projectId).catch(() => null),
   ]);
-  return <TrafficSourcesCard organic={organic} ai={ai} />;
+  return <TrafficSourcesCard organic={organic} ai={ai} range={range} />;
 }
 
 function TrendChip({ pct }: { pct: number | null }) {
@@ -56,17 +68,21 @@ function TrendChip({ pct }: { pct: number | null }) {
   );
 }
 
-function TrafficSourcesCard({ organic, ai }: { organic: Ga4OrganicTraffic; ai: Ga4AiReferral | null }) {
+function TrafficSourcesCard({ organic, ai, range }: { organic: Ga4OrganicTraffic; ai: Ga4AiReferral | null; range: string }) {
   const included = organic.byChannel.filter((c) => c.included && c.sessions > 0);
   const excluded = organic.byChannel.filter((c) => !c.included && c.sessions > 0);
   const total = organic.monthlySessions;
   const max = included.reduce((m, c) => Math.max(m, c.sessions), 0) || 1;
+  const rangeLabel = (TRAFFIC_RANGE_PRESETS.find((p) => p.key === range) ?? TRAFFIC_RANGE_PRESETS[1]).label;
 
   return (
     <section className="space-y-4">
-      <div>
-        <h2 className="font-heading text-[19px] font-semibold tracking-[-0.01em] text-foreground">Traffic sources</h2>
-        <p className="mt-1 text-[13px] text-slate-500">Where your visitors came from · last 28 days</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="font-heading text-[19px] font-semibold tracking-[-0.01em] text-foreground">Traffic sources</h2>
+          <p className="mt-1 text-[13px] text-slate-500">Where your visitors came from · {rangeLabel.toLowerCase()}, vs the equivalent prior period</p>
+        </div>
+        <TimeWindow param="range" value={range} options={TRAFFIC_RANGE_PRESETS.map((p) => ({ value: p.key, label: p.label }))} />
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-lift">
@@ -88,7 +104,7 @@ function TrafficSourcesCard({ organic, ai }: { organic: Ga4OrganicTraffic; ai: G
         ) : total === 0 ? (
           <EmptyState
             icon={TrendingUp}
-            title="No organic sessions in the last 28 days yet"
+            title={`No organic sessions ${rangeLabel.toLowerCase()} yet`}
             why="Once your site starts earning search, social, referral or AI-assistant visits, the mix appears here."
             hint="Refreshes with the weekly Google sync."
           />
@@ -109,8 +125,8 @@ function TrafficSourcesCard({ organic, ai }: { organic: Ga4OrganicTraffic; ai: G
                 return (
                   <div key={c.channel} className="flex items-center gap-3">
                     <span className="size-2.5 shrink-0 rounded-full" style={{ background: colorFor(c.channel) }} />
-                    <span className="w-[124px] shrink-0 truncate text-[13.5px] font-medium text-slate-700 dark:text-foreground">
-                      {c.channel}
+                    <span className="w-[150px] shrink-0 truncate text-[13.5px] font-medium text-slate-700 dark:text-foreground">
+                      {labelFor(c.channel)}
                     </span>
                     <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
                       <div
@@ -123,6 +139,9 @@ function TrafficSourcesCard({ organic, ai }: { organic: Ga4OrganicTraffic; ai: G
                     </span>
                     <span className="w-9 shrink-0 text-right font-mono text-[12.5px] font-semibold tabular-nums text-slate-700 dark:text-foreground/90">
                       {pct}%
+                    </span>
+                    <span className="w-[52px] shrink-0 text-right">
+                      <TrendChip pct={c.deltaPct} />
                     </span>
                   </div>
                 );
