@@ -242,3 +242,134 @@ export async function addBacklinkWebsites(input: z.infer<typeof AddWebsitesInput
   revalidatePath("/dashboard/backlinks");
   return { ok: true, websitesCreated, websitesSkipped };
 }
+
+const DeleteSubmissionInput = z.object({
+  project_id: z.string().uuid(),
+  submission_id: z.string().uuid(),
+});
+
+// Ticket 24: delete a single submission row (e.g. a miskeyed paste). Scoped
+// by project_id in the WHERE clause, not just the id, so this can't be used
+// to delete another project's row even with a guessed/leaked id.
+export async function deleteBacklinkSubmission(input: z.infer<typeof DeleteSubmissionInput>): Promise<{ ok: boolean; error?: string }> {
+  const { project_id, submission_id } = DeleteSubmissionInput.parse(input);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { error } = await supabase
+    .from("backlink_submissions").delete().eq("id", submission_id).eq("project_id", project_id);
+  if (error) return { ok: false, error: "Could not delete that submission." };
+
+  revalidatePath("/dashboard/backlinks");
+  return { ok: true };
+}
+
+const AssignSubmissionInput = z.object({
+  project_id: z.string().uuid(),
+  submission_id: z.string().uuid(),
+  team_member_id: z.string().uuid().nullable(),
+});
+
+// Ticket 25: who's responsible for this submission - same "assign a person to
+// a row" shape as ClusterItemAssignee, minus the Sprint-task-linking part
+// (a backlink submission has no task to create/attach).
+export async function assignBacklinkSubmission(input: z.infer<typeof AssignSubmissionInput>): Promise<{ ok: boolean; error?: string }> {
+  const { project_id, submission_id, team_member_id } = AssignSubmissionInput.parse(input);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { error } = await supabase
+    .from("backlink_submissions").update({ assigned_to: team_member_id }).eq("id", submission_id).eq("project_id", project_id);
+  if (error) return { ok: false, error: "Could not assign that submission." };
+
+  revalidatePath("/dashboard/backlinks");
+  return { ok: true };
+}
+
+const VerifySubmissionInput = z.object({
+  project_id: z.string().uuid(),
+  submission_id: z.string().uuid(),
+});
+
+export interface VerifyBacklinkSubmissionResult {
+  ok: boolean;
+  error?: string;
+  status?: string;
+  note?: string;
+}
+
+// Ticket 23: "AI verified" - fetches the live submission link and asks the
+// platform LLM whether the page exists and actually discusses the logged
+// topic. Manual, per-row (a fetch + LLM call has a real cost) - same
+// confirm-first pattern as AI Visibility's run-test flow, not something that
+// fires automatically on import.
+//
+// Several of these platforms (G2, Quora, LinkedIn-adjacent sites) block plain
+// HTTP scraping or sit behind a login wall - a failed/near-empty fetch is
+// reported as 'inconclusive', NOT 'not_found', so the team is never told a
+// live link is dead just because our bot got blocked.
+export async function verifyBacklinkSubmission(input: z.infer<typeof VerifySubmissionInput>): Promise<VerifyBacklinkSubmissionResult> {
+  const { project_id, submission_id } = VerifySubmissionInput.parse(input);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { data: row } = await supabase
+    .from("backlink_submissions")
+    .select("id, submission_url, topic_name, blog_post_label")
+    .eq("id", submission_id)
+    .eq("project_id", project_id)
+    .maybeSingle();
+  if (!row) return { ok: false, error: "Submission not found." };
+  const submission = row as { id: string; submission_url: string; topic_name: string | null; blog_post_label: string | null };
+
+  const topic = submission.topic_name?.trim() || submission.blog_post_label?.trim();
+  if (!topic || topic === "—") {
+    return { ok: false, error: "No topic logged for this submission - add a Topic before verifying." };
+  }
+
+  const admin = createAdminClient();
+  let status: string;
+  let note: string;
+
+  try {
+    const { fetchPage } = await import("@/lib/seo-skills/fetch");
+    const page = await fetchPage(submission.submission_url, 12000);
+    if (page.statusCode >= 400) {
+      status = "not_found";
+      note = `Page returned HTTP ${page.statusCode}.`;
+    } else {
+      const bodyText = page.$("body").text().replace(/\s+/g, " ").trim().slice(0, 6000);
+      if (bodyText.length < 200) {
+        status = "inconclusive";
+        note = "Page loaded but returned almost no readable text - likely blocked scraping or needs JavaScript. Check manually.";
+      } else {
+        const { callPlatformLLM } = await import("@/lib/ai/platform-llm");
+        const result = await callPlatformLLM({
+          model: "sonnet",
+          jsonMode: true,
+          maxTokens: 300,
+          prompt: `A team submitted a link claiming it discusses the topic "${topic}". Below is the visible text scraped from that live page. Decide whether the page substantively discusses that topic (not just mentions it in passing/navigation).\n\nRespond with ONLY this JSON shape: {"discussesTopic": boolean, "note": "one short sentence explaining why"}\n\nPage text:\n"""\n${bodyText}\n"""`,
+        });
+        const parsed = JSON.parse(result.text) as { discussesTopic?: boolean; note?: string };
+        status = parsed.discussesTopic ? "verified" : "topic_mismatch";
+        note = parsed.note?.trim() || (parsed.discussesTopic ? "Confirmed by AI." : "AI could not confirm the page discusses this topic.");
+      }
+    }
+  } catch (e) {
+    status = "inconclusive";
+    note = `Could not fetch this link (${e instanceof Error ? e.message : "unknown error"}). Check manually.`;
+  }
+
+  const { error: updateErr } = await admin
+    .from("backlink_submissions")
+    .update({ verification_status: status, verification_note: note, verified_at: new Date().toISOString() })
+    .eq("id", submission_id)
+    .eq("project_id", project_id);
+  if (updateErr) return { ok: false, error: "Verified, but could not save the result." };
+
+  revalidatePath("/dashboard/backlinks");
+  return { ok: true, status, note };
+}

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getUserContext } from "@/lib/auth/get-user";
 import { getBacklinkWebsiteDetail, resolveBacklinkRange } from "@/lib/data/backlinks";
+import { getTeamMembers } from "@/lib/data/tasks";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { BacklinkDateFilter } from "@/components/sections/backlinks/backlink-date-filter";
@@ -24,7 +25,10 @@ export default async function BacklinkWebsiteDetailPage({
   const start = sp.start ?? "";
   const end = sp.end ?? "";
 
-  const website = await getBacklinkWebsiteDetail(ctx.activeProject.id, id, resolveBacklinkRange(range, start, end));
+  const [website, members] = await Promise.all([
+    getBacklinkWebsiteDetail(ctx.activeProject.id, id, resolveBacklinkRange(range, start, end)),
+    getTeamMembers(),
+  ]);
   if (!website) notFound();
 
   return (
@@ -37,13 +41,17 @@ export default async function BacklinkWebsiteDetailPage({
         description={`${website.submissions.length} submission${website.submissions.length === 1 ? "" : "s"} in the selected range.`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {/* Ticket 26: all-time total, independent of the date filter below. */}
+            <span className="rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
+              Total submissions: <span className="font-semibold text-foreground">{website.totalSubmissions}</span>
+            </span>
             <BacklinkDateFilter range={range} start={start} end={end} />
             {ctx.canManageTeam && <NewSubmissionsButton projectId={ctx.activeProject.id} />}
           </div>
         }
       />
 
-      <BacklinkSubmissionList submissions={website.submissions} />
+      <BacklinkSubmissionList submissions={website.submissions} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} />
     </div>
   );
 }

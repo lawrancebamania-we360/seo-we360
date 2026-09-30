@@ -137,12 +137,16 @@ export interface BacklinkSubmissionRow {
   blogPostLabel: string;
   blogPostUrl: string | null;
   topicName: string | null;
+  assignedTo: string | null;
+  verificationStatus: string;
+  verificationNote: string | null;
 }
 
 export interface BacklinkWebsiteDetail {
   id: string;
   domain: string;
   submissions: BacklinkSubmissionRow[];
+  totalSubmissions: number;
 }
 
 export async function getBacklinkWebsiteDetail(
@@ -158,16 +162,28 @@ export async function getBacklinkWebsiteDetail(
   if (!website) return null;
   const w = website as { id: string; domain: string };
 
+  // Ticket 26: total is ALL-TIME (ignores the date filter) - the range-scoped
+  // list below answers "what happened in this window", the header stat
+  // answers "how many ever, on this platform".
+  const { count: totalSubmissions } = await supabase
+    .from("backlink_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("website_id", websiteId)
+    .eq("project_id", projectId);
+
   let q = supabase
     .from("backlink_submissions")
-    .select("id, submission_date, submission_url, blog_post_label, blog_post_url, topic_name")
+    .select("id, submission_date, submission_url, blog_post_label, blog_post_url, topic_name, assigned_to, verification_status, verification_note")
     .eq("website_id", websiteId)
     .eq("project_id", projectId)
     .order("submission_date", { ascending: false });
   if (range.start) q = q.gte("submission_date", range.start);
   if (range.end) q = q.lte("submission_date", range.end);
   const { data: subsData } = await q;
-  type Row = { id: string; submission_date: string; submission_url: string; blog_post_label: string; blog_post_url: string | null; topic_name: string | null };
+  type Row = {
+    id: string; submission_date: string; submission_url: string; blog_post_label: string; blog_post_url: string | null;
+    topic_name: string | null; assigned_to: string | null; verification_status: string; verification_note: string | null;
+  };
   const submissions = ((subsData ?? []) as Row[]).map((s) => ({
     id: s.id,
     submissionDate: s.submission_date,
@@ -175,7 +191,10 @@ export async function getBacklinkWebsiteDetail(
     blogPostLabel: s.blog_post_label,
     blogPostUrl: s.blog_post_url,
     topicName: s.topic_name,
+    assignedTo: s.assigned_to,
+    verificationStatus: s.verification_status,
+    verificationNote: s.verification_note,
   }));
 
-  return { id: w.id, domain: w.domain, submissions };
+  return { id: w.id, domain: w.domain, submissions, totalSubmissions: totalSubmissions ?? 0 };
 }
