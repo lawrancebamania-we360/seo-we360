@@ -72,11 +72,27 @@ function parsePastedRows(pastedText: string): { rows: ParsedRow[]; skipped: numb
   return { rows, skipped };
 }
 
-// Accepts either an ISO date ("2026-09-29") or a common spreadsheet date
-// ("9/29/2026") - anything Date can parse. Unparseable dates skip the row
-// rather than crash the whole batch.
+// Accepts DD-MM-YYYY / DD/MM/YYYY (this team's sheets use day-first dates,
+// e.g. "30-09-2026"), an ISO date ("2026-09-29"), or anything else Date can
+// parse. DD-MM-YYYY is checked explicitly first because JS's native Date
+// parser assumes MM-DD-YYYY for dash/slash strings - it silently returns
+// Invalid Date for "30-09-2026" (no month 30), which used to skip every row
+// without any visible error. Unparseable dates still skip the row rather
+// than crash the whole batch.
 function normalizeDate(v: string): string | null {
-  const d = new Date(v);
+  const trimmed = v.trim();
+  const dayFirst = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dayFirst) {
+    const day = Number(dayFirst[1]);
+    const month = Number(dayFirst[2]);
+    const year = Number(dayFirst[3]);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      const d = new Date(Date.UTC(year, month - 1, day));
+      if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+    }
+    return null;
+  }
+  const d = new Date(trimmed);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString().slice(0, 10);
 }
@@ -134,6 +150,18 @@ export async function importBacklinksPaste(input: z.infer<typeof ImportInput>): 
       }
       websiteIdCache.set(domain, websiteId);
     }
+
+    // Re-pasting the same sheet (or an overlapping range of it) shouldn't
+    // double the count - same website + same date + same link is treated as
+    // the same submission and skipped rather than inserted again.
+    const { data: dup } = await admin
+      .from("backlink_submissions")
+      .select("id")
+      .eq("website_id", websiteId)
+      .eq("submission_date", date)
+      .eq("submission_url", row.submission_url)
+      .maybeSingle();
+    if (dup) { itemsSkipped++; continue; }
 
     const blogPostRaw = row.blog_post.trim();
     let blogPostUrl: string | null = null;
