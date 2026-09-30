@@ -8,12 +8,20 @@
 // user-visible engine list (AI_ENGINES) - see engines/perplexity.ts's header.
 export type AiEngine = "chatgpt" | "claude" | "perplexity" | "google_aio" | "gemini";
 
-// We360 sells 2 products; AI Visibility scans + reports on each independently
-// (own prompts, own runs, own composite score), with room for more later. Every
-// prompt/run/batch/score row carries this (see the category migration).
-export type AiVisibilityCategory = "employee_monitoring" | "workforce_analytics";
+// AI Visibility scans + reports on each product/category independently (own
+// prompts, own runs, own composite score). Originally a 2-value union
+// (employee_monitoring / workforce_analytics) matching a DB CHECK constraint -
+// widened to `string` once self-serve categories shipped (a real
+// ai_visibility_categories table per project, see lib/data/ai-visibility-
+// categories.ts) so a team member's own category key type-checks everywhere
+// this was already threaded through, with no call-site changes needed.
+// AI_VISIBILITY_CATEGORIES/CATEGORY_LABEL keep just the 2 legacy keys as a
+// hardcoded fallback for the few spots that degrade before the categories
+// table/migration is in place - anything showing the FULL live list reads
+// lib/data/ai-visibility-categories.ts's getCategories() instead.
+export type AiVisibilityCategory = string;
 export const AI_VISIBILITY_CATEGORIES: AiVisibilityCategory[] = ["employee_monitoring", "workforce_analytics"];
-export const CATEGORY_LABEL: Record<AiVisibilityCategory, string> = {
+export const CATEGORY_LABEL: Record<string, string> = {
   employee_monitoring: "Employee Monitoring",
   workforce_analytics: "Workforce Analytics",
 };

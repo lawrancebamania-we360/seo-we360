@@ -27,12 +27,26 @@ import { getOpportunityPools } from "@/lib/google/gsc-opportunities";
 import { profileForIndustry } from "@/lib/ai-citation/industry-profiles";
 import { configuredEngines } from "@/lib/ai-citation/engines";
 import { DEFAULT_CATEGORY, type AiEngine, type AiVisibilityCategory } from "@/lib/ai-citation/types";
+import { getCategoryDescription } from "@/lib/data/ai-visibility-categories";
 import { explainWhyCompetitorCited, type WhyCitedResult } from "@/lib/ai-citation/why-cited";
 import { runDomainAuthority } from "@/lib/apify/intelligence";
 import { getApifyCreds } from "@/lib/integrations/secrets";
 import { outreachDraftPrompt, normalizeOutreachDraft, outreachDraftKind, type OutreachDraft } from "@/lib/ai-citation/outreach-draft";
 
 const ProjectInput = z.object({ project_id: z.string().uuid() });
+
+// Ticket 2: consolidates ~15 previously-duplicated call-site pairs. The two
+// literal calls cover the legacy static route files (employee-monitoring /
+// workforce-analytics, kept as-is per product decision); the third call uses
+// revalidatePath's dynamic-route form (path pattern + 'page' type - see
+// node_modules/next/dist/docs/.../revalidatePath.md) to cover the new
+// app/dashboard/ai-visibility/[categoryKey]/page.tsx route for every
+// self-serve category, without needing a call per category key.
+function revalidateAiVisibility(): void {
+  revalidatePath("/dashboard/ai-visibility/employee-monitoring");
+  revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidatePath("/dashboard/ai-visibility/[categoryKey]", "page");
+}
 
 // How many prompts Google AI Overviews covers on the ON-DEMAND run (Apify-metered +
 // slow). Bounds cost/time of a manual run; the weekly cron does full AIO coverage.
@@ -59,11 +73,12 @@ async function authProject(project_id: string): Promise<AuthedProject | { error:
 
 export interface GenPromptsResult { ok: boolean; error?: string; count?: number }
 
-// Category -> a distinct, concrete analysis-focus string that steers generation
-// toward genuinely different buyer language per product (monitoring/tracking vs
-// analytics/insights), overriding the project's general analysis_focus so the
-// two categories don't collapse into the same questions.
-const CATEGORY_FOCUS: Record<AiVisibilityCategory, string> = {
+// Hardcoded fallback for the 2 legacy categories ONLY - a self-serve category
+// (Ticket 2) gets its analysis-focus framing from its own `description`
+// column on ai_visibility_categories (set when the user creates it) instead.
+// Kept here so generation still diverges correctly for Employee Monitoring /
+// Workforce Analytics if the categories table/migration isn't in place yet.
+const LEGACY_CATEGORY_FOCUS: Record<string, string> = {
   employee_monitoring: "Employee Monitoring - cloud software that tracks employee attendance, computer/app/website activity, screenshots, and productive-vs-idle time for remote and hybrid teams.",
   workforce_analytics: "Workforce Analytics - workforce productivity analytics and capacity-planning software that turns activity data into insights: department productivity trends, overstaffing/understaffing, AI-tool adoption ROI, and attrition/burnout risk signals.",
 };
@@ -151,9 +166,11 @@ export async function generateAiVisibilityPrompts(input: { project_id: string; c
       topics: scope?.topics?.length ? scope.topics : undefined, // undefined = full default set
       localPin: profile.localPin,
       targetKeyword,
-      // Category framing wins over the project's general analysis_focus, so the
-      // two categories genuinely diverge instead of asking the same questions.
-      analysisFocus: CATEGORY_FOCUS[category],
+      // Category framing wins over the project's general analysis_focus, so
+      // categories genuinely diverge instead of asking the same questions.
+      // A self-serve category's own saved description wins; the 2 legacy
+      // categories fall back to their hardcoded framing if it's ever unset.
+      analysisFocus: (await getCategoryDescription(project_id, category)) ?? LEGACY_CATEGORY_FOCUS[category] ?? project.analysis_focus ?? undefined,
       brandSummary: project.brand_summary ?? undefined,
       compact, // ~half the prompts on the signup auto-run
       lockedPersonas: lockedPersonas.length ? lockedPersonas : undefined,
@@ -181,7 +198,7 @@ export async function generateAiVisibilityPrompts(input: { project_id: string; c
       }
     }
     if (gate) await gate.record({ kind: "ai_call", feature: "ai_citation_prompts", cost_cents: estCents, user_id: user.id });
-    revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+    revalidateAiVisibility();
     return { ok: true, count: inserted };
   } catch (e) {
     if (gate) { try { await gate.release(); } catch { /* best-effort refund */ } }
@@ -212,7 +229,7 @@ export async function updatePersona(input: z.infer<typeof PersonaEdit>): Promise
   const { error } = await createAdminClient()
     .from("ai_citation_personas").update(patch).eq("id", persona_id).eq("project_id", project_id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidateAiVisibility();
   return { ok: true };
 }
 
@@ -225,7 +242,7 @@ export async function togglePersona(input: z.infer<typeof PersonaToggle>): Promi
   const { error } = await createAdminClient()
     .from("ai_citation_personas").update({ active }).eq("id", persona_id).eq("project_id", project_id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidateAiVisibility();
   return { ok: true };
 }
 
@@ -246,7 +263,7 @@ export async function addPersona(input: z.infer<typeof PersonaAdd>): Promise<{ o
     .insert({ project_id, label: label.trim(), description: description?.trim() || null, source: "user", active: true, position })
     .select("id").single();
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidateAiVisibility();
   return { ok: true, id: (data as { id: string }).id };
 }
 
@@ -261,7 +278,9 @@ export async function regeneratePersonas(input: { project_id: string }): Promise
 const PromptAdd = z.object({
   project_id: z.string().uuid(),
   text: z.string().trim().min(5).max(300),
-  category: z.enum(["employee_monitoring", "workforce_analytics"]).optional(),
+  // Ticket 2: widened from a 2-value enum to free text (any live category
+  // key) now that categories are a real per-project table, not a hardcoded pair.
+  category: z.string().trim().min(1).max(60).optional(),
   persona: z.string().trim().max(160).optional(),
   topic: z.string().trim().max(60).optional(),
 });
@@ -286,7 +305,7 @@ export async function addAiVisibilityPrompt(input: z.infer<typeof PromptAdd>): P
     ({ data, error } = await admin.from("ai_citation_prompts").insert(rowNoCategory).select("id").single());
   }
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidateAiVisibility();
   return { ok: true, id: (data as { id: string }).id };
 }
 
@@ -310,7 +329,7 @@ export async function updateAiVisibilityPrompt(input: z.infer<typeof PromptEdit>
   const patch: Record<string, unknown> = { text, source: "manual", persona: persona || null, topic: topic || null };
   const { error } = await admin.from("ai_citation_prompts").update(patch).eq("id", prompt_id).eq("project_id", project_id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidateAiVisibility();
   return { ok: true };
 }
 
@@ -330,7 +349,7 @@ export async function toggleAiVisibilityPromptActive(input: z.infer<typeof Promp
   const admin = createAdminClient();
   const { error } = await admin.from("ai_citation_prompts").update({ active }).eq("id", prompt_id).eq("project_id", project_id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidateAiVisibility();
   return { ok: true };
 }
 
@@ -350,7 +369,7 @@ export async function deleteAiVisibilityPrompt(input: z.infer<typeof PromptDelet
   const admin = createAdminClient();
   const { error } = await admin.from("ai_citation_prompts").delete().eq("id", prompt_id).eq("project_id", project_id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidateAiVisibility();
   return { ok: true };
 }
 
@@ -536,7 +555,7 @@ export async function upsertOutreach(input: {
   const { error } = await admin.from("ai_citation_outreach")
     .upsert(row as never, { onConflict: "project_id,source_domain" });
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidateAiVisibility();
   return { ok: true };
 }
 
@@ -629,7 +648,7 @@ export async function draftOutreach(input: {
       drafted_at: new Date().toISOString(), created_by: user.id, updated_at: new Date().toISOString(),
     } as never, { onConflict: "project_id,source_domain" });
 
-    revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+    revalidateAiVisibility();
     return { ok: true, draft };
   } catch (e) {
     try { await gate.release(); } catch { /* best-effort refund */ }
@@ -710,7 +729,7 @@ export async function scoreOutreachDomains(input: { project_id: string; domains:
     const scoreByDomain = new Map(results.map((r) => [clean(r.domain), r.da_score]));
     const scores: Record<string, number | null> = {};
     for (const d of domains) scores[d] = scoreByDomain.get(d) ?? null;
-    revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+    revalidateAiVisibility();
     return { ok: true, scores };
   } catch (e) {
     try { await gate.release(); } catch { /* best-effort refund */ }
@@ -817,7 +836,7 @@ export async function runAiVisibilityNow(input: {
     { project_id, runs_confirmed: (scope?.runs_confirmed ?? 0) + 1, updated_at: new Date().toISOString() },
     { onConflict: "project_id" },
   );
-  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidateAiVisibility();
   return {
     ok: true, cited: sum.cited, mentioned: sum.mentioned, totalRuns: sum.totalRuns,
     truncated: sum.truncated, batchId: sum.batchId, remainingTasks: sum.remainingTasks,
@@ -844,7 +863,7 @@ export async function resumeAiVisibilityRun(input: {
     return { ok: false, error: res.summary?.error ?? res.skipped ?? res.closed ?? "Could not continue the run." };
   }
   const remainingTasks = res.summary?.remainingTasks ?? 0;
-  if (remainingTasks === 0) { revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics"); }
+  if (remainingTasks === 0) { revalidateAiVisibility(); }
   return { ok: true, remainingTasks, done: remainingTasks === 0 };
 }
 
@@ -892,7 +911,7 @@ export async function saveAiVisibilityScope(input: z.infer<typeof ScopeInput>): 
     updated_at: new Date().toISOString(),
   }, { onConflict: "project_id" });
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidateAiVisibility();
   return { ok: true };
 }
 
@@ -939,7 +958,7 @@ export async function addScopeCompetitor(input: { project_id: string; url: strin
   const { data: ins, error } = await admin.from("competitors")
     .insert({ project_id: input.project_id, name, url: `https://${host}` }).select("id, name").single();
   if (error || !ins) return { ok: false, error: error?.message ?? "Could not add competitor." };
-  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidateAiVisibility();
   return { ok: true, id: ins.id, name: ins.name };
 }
 
@@ -950,7 +969,7 @@ export async function removeScopeCompetitor(input: { project_id: string; competi
   const admin = createAdminClient();
   const { error } = await admin.from("competitors").delete().eq("id", input.competitor_id).eq("project_id", input.project_id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/ai-visibility/employee-monitoring"); revalidatePath("/dashboard/ai-visibility/workforce-analytics");
+  revalidateAiVisibility();
   return { ok: true };
 }
 

@@ -46,6 +46,10 @@ interface Props {
   health: HealthSnapshot;
   /** Per-section permission map for the current user (empty for admins). */
   permissions: Record<string, { can_view: boolean }>;
+  /** Ticket 3: live AI Visibility categories for the active project (key +
+   *  label), replacing the 2 hardcoded children with whatever actually
+   *  exists - including anything a team member self-serve created. */
+  aiVisibilityCategories?: { key: string; label: string }[];
 }
 
 // Map nav routes to permission section keys. Routes set to `null` are
@@ -141,9 +145,28 @@ export function Sidebar(props: Props) {
   );
 }
 
-function SidebarInner({ profile, activeProject, canManageTeam, canManageProjects, health, permissions }: Props) {
+function SidebarInner({ profile, activeProject, canManageTeam, canManageProjects, health, permissions, aiVisibilityCategories }: Props) {
   const { collapsed, toggle } = useSidebar();
   const pathname = usePathname();
+
+  // Ticket 3: AI Visibility's children become the live category list (plus a
+  // trailing "+ Add category" link) whenever the caller supplies one, instead
+  // of the 2 hardcoded entries - order/reorder logic below is untouched since
+  // it only ever operates on top-level hrefs, and AI Visibility's own href
+  // doesn't change.
+  const navSource: NavItem[] = aiVisibilityCategories
+    ? DEFAULT_NAV.map((item) =>
+        item.href === "/dashboard/ai-visibility"
+          ? {
+              ...item,
+              children: [
+                ...aiVisibilityCategories.map((c) => ({ href: `/dashboard/ai-visibility/${c.key}`, label: c.label })),
+                { href: "/dashboard/ai-visibility/new", label: "+ Add category" },
+              ],
+            }
+          : item,
+      )
+    : DEFAULT_NAV;
 
   const [order, setOrder] = useState<string[]>(() => DEFAULT_NAV.map((n) => n.href));
   useEffect(() => {
@@ -177,7 +200,7 @@ function SidebarInner({ profile, activeProject, canManageTeam, canManageProjects
     return perm?.can_view ?? true;
   };
 
-  const navMap = new Map(DEFAULT_NAV.map((n) => [n.href, n]));
+  const navMap = new Map(navSource.map((n) => [n.href, n]));
   const orderedNav = order
     .map((h) => navMap.get(h))
     .filter((item): item is NavItem => Boolean(item) && isAllowed(item!.href));
