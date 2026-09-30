@@ -310,6 +310,53 @@ export async function getGscUrlSnapshot(siteUrl: string, pageUrl: string, daysAg
   };
 }
 
+/**
+ * Same shape as getGscUrlSnapshot, but takes explicit absolute dates instead
+ * of a fixed 30/60/90-day window - for Analytics' Blog Clusters box, where
+ * the ranking numbers need to match whichever date-range preset (Last 7
+ * days, This month, etc.) is picked in Traffic Sources above, not the cached
+ * url_metrics snapshot's fixed windows. One live GSC call per published post
+ * per period (current + previous) - real-time, not cached.
+ */
+export async function getGscUrlSnapshotForRange(siteUrl: string, pageUrl: string, range: { start: string; end: string }): Promise<GscUrlSnapshot> {
+  const token = await getGoogleAccessToken(SCOPE);
+  const res = await fetch(
+    `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        startDate: range.start,
+        endDate: range.end,
+        dimensions: ["query"],
+        dimensionFilterGroups: [{ filters: [{ dimension: "page", operator: "equals", expression: pageUrl }] }],
+        rowLimit: 25,
+      }),
+      signal: AbortSignal.timeout(15000),
+    },
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`GSC URL-range-snapshot query failed (${res.status}): ${body.slice(0, 300)}`);
+  }
+  const data = (await res.json()) as { rows?: GscQueryRow[] };
+  const rows = data.rows ?? [];
+  const clicks = rows.reduce((s, r) => s + (r.clicks || 0), 0);
+  const impressions = rows.reduce((s, r) => s + (r.impressions || 0), 0);
+  const position = clicks > 0
+    ? rows.reduce((s, r) => s + (r.position || 0) * (r.clicks || 0), 0) / clicks
+    : rows.length > 0
+      ? rows.reduce((s, r) => s + (r.position || 0), 0) / rows.length
+      : 0;
+  return {
+    clicks,
+    impressions,
+    ctr: impressions > 0 ? clicks / impressions : 0,
+    position,
+    topQueries: rows.slice(0, 10).map((r) => ({ query: r.keys[0] ?? "", clicks: r.clicks, impressions: r.impressions, position: r.position })),
+  };
+}
+
 export async function getGscCannibalization(
   siteUrl: string | null,
   options: { minImpressionsPerUrl?: number } = {}

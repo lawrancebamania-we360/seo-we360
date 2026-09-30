@@ -15,6 +15,7 @@ import { ContentDecaySection } from "@/components/sections/content-decay-section
 import { EngagementExtremesSection } from "@/components/sections/engagement-extremes-section";
 import { BlogClustersAnalyticsBox } from "@/components/sections/blog-clusters-analytics-box";
 import { AnalyticsCategoryBoxes } from "@/components/sections/analytics-category-boxes";
+import { resolveTrafficCompareRange } from "@/lib/data/analytics-range";
 import type { ContentFreshnessRow } from "@/lib/data/content-freshness";
 import type { EngagementRateExtremes } from "@/lib/data/url-metrics";
 import type { BlogClusterSummary } from "@/lib/data/blog-clusters";
@@ -36,6 +37,8 @@ export function AnalyticsScreen({
   engagementExtremes: EngagementRateExtremes;
   clusters: BlogClusterSummary[];
 }) {
+  const compareRange = resolveTrafficCompareRange(range);
+
   return (
     <div className="space-y-8 px-6 pb-12 pt-6 lg:px-10">
       <div>
@@ -64,7 +67,7 @@ export function AnalyticsScreen({
         }
         stalePanel={<ContentDecaySection rows={freshness} />}
         engagementPanel={<EngagementExtremesSection extremes={engagementExtremes} />}
-        blogClustersPanel={<BlogClustersAnalyticsBox projectId={projectId} clusters={clusters} />}
+        blogClustersPanel={<BlogClustersAnalyticsBox projectId={projectId} clusters={clusters} siteUrl={siteUrl} compareRange={compareRange} />}
       />
     </div>
   );

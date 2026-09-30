@@ -1,22 +1,41 @@
 "use client";
 
-// Analytics Ticket 10: the "Blog Clusters" category box - a real, dynamic
-// list of the project's clusters (not hardcoded). Click a cluster and it
-// lazy-loads (Ticket 8-9's resolve-then-join work) via a server action:
-// only posts confirmed live against the sitemap are shown, each with overall
-// GSC position/clicks/CTR and an expandable per-keyword table sourced from
-// url_metrics.gsc_top_queries. Planned-but-not-yet-published items are noted
-// as a count, not silently dropped.
+// Analytics Ticket 10 (+ delta follow-up): the "Blog Clusters" category box -
+// a real, dynamic list of the project's clusters (not hardcoded). Click a
+// cluster and it lazy-loads (Ticket 8-9's resolve-then-join work) via a
+// server action: only posts confirmed live against the sitemap are shown,
+// each with its Avg position, clicks and CTR - plus a delta for each vs the
+// PREVIOUS period of whichever date-range preset is picked in Traffic
+// Sources above (live GSC calls, not the cached snapshot table - see
+// lib/data/blog-clusters.ts for why). Planned-but-not-yet-published items
+// are noted as a count, not silently dropped.
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ExternalLink, Layers, Loader2 } from "lucide-react";
+import { ChevronDown, ExternalLink, Layers, Loader2, Plug, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { pathFromUrl } from "@/lib/url";
 import { fetchBlogClusterAnalytics } from "@/lib/actions/analytics";
 import type { BlogClusterSummary, BlogClusterAnalytics } from "@/lib/data/blog-clusters";
+import type { AnalyticsCompareRange } from "@/lib/data/analytics-range";
 
-export function BlogClustersAnalyticsBox({ projectId, clusters }: { projectId: string; clusters: BlogClusterSummary[] }) {
+function DeltaChip({ value, suffix = "%" }: { value: number | null; suffix?: string }) {
+  if (value == null || value === 0) return null;
+  const up = value > 0;
+  return (
+    <span className={cn("inline-flex items-center gap-0.5 text-[11px] font-bold tabular-nums", up ? "text-success-strong" : "text-error-strong")}>
+      {up ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
+      {up ? "+" : ""}{value}{suffix}
+    </span>
+  );
+}
+
+export function BlogClustersAnalyticsBox({ projectId, clusters, siteUrl, compareRange }: {
+  projectId: string;
+  clusters: BlogClusterSummary[];
+  siteUrl: string | null;
+  compareRange: AnalyticsCompareRange;
+}) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<BlogClusterAnalytics | null>(null);
@@ -27,7 +46,7 @@ export function BlogClustersAnalyticsBox({ projectId, clusters }: { projectId: s
     setActiveId(clusterId);
     setData(null);
     setLoading(true);
-    const r = await fetchBlogClusterAnalytics(projectId, clusterId);
+    const r = await fetchBlogClusterAnalytics(projectId, clusterId, siteUrl, compareRange);
     setLoading(false);
     setData(r);
   };
@@ -73,10 +92,16 @@ export function BlogClustersAnalyticsBox({ projectId, clusters }: { projectId: s
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-lift">
           {loading ? (
             <div className="flex items-center justify-center gap-2 px-6 py-11 text-[13px] text-slate-400">
-              <Loader2 className="size-4 animate-spin" /> Checking the sitemap and pulling rankings…
+              <Loader2 className="size-4 animate-spin" /> Checking the sitemap and pulling live rankings…
             </div>
           ) : !data ? (
             <div className="px-6 py-11 text-center text-[13px] text-slate-400">Could not load this cluster.</div>
+          ) : !data.connected ? (
+            <div className="flex flex-col items-center gap-2 px-6 py-11 text-center">
+              <Plug className="size-5 text-slate-400" />
+              <div className="text-sm font-semibold text-slate-700 dark:text-foreground">Connect Search Console to see rankings</div>
+              <div className="text-[13px] text-slate-400">{data.reason ?? "No GSC property connected for this project yet."}</div>
+            </div>
           ) : data.items.length === 0 ? (
             <div className="px-6 py-11 text-center">
               <div className="text-sm font-semibold text-slate-700 dark:text-foreground">Nothing published yet</div>
@@ -102,11 +127,21 @@ export function BlogClustersAnalyticsBox({ projectId, clusters }: { projectId: s
                           {pathFromUrl(it.liveUrl, it.liveUrl)} <ExternalLink className="size-2.5 shrink-0" />
                         </a>
                       </div>
-                      <span className="shrink-0 text-right font-mono text-[13px] font-semibold tabular-nums text-slate-700 dark:text-foreground/90">
-                        {it.gscPosition > 0 ? `#${it.gscPosition.toFixed(1)}` : "—"}
-                      </span>
-                      <span className="w-16 shrink-0 text-right font-mono text-[12.5px] tabular-nums text-slate-500">{it.gscClicks.toLocaleString()} clicks</span>
-                      <span className="w-16 shrink-0 text-right font-mono text-[12.5px] tabular-nums text-slate-500">{Math.round(it.gscCtr * 1000) / 10}% CTR</span>
+                      <div className="w-20 shrink-0 text-right">
+                        <div className="font-mono text-[13px] font-semibold tabular-nums text-slate-700 dark:text-foreground/90">
+                          {it.position > 0 ? `#${it.position.toFixed(1)}` : "—"}
+                        </div>
+                        <div className="text-[10px] uppercase tracking-wide text-slate-400">Avg position</div>
+                        <DeltaChip value={it.positionDelta} suffix="" />
+                      </div>
+                      <div className="w-20 shrink-0 text-right">
+                        <div className="font-mono text-[12.5px] tabular-nums text-slate-500">{it.clicks.toLocaleString()} clicks</div>
+                        <DeltaChip value={it.clicksDeltaPct} />
+                      </div>
+                      <div className="w-20 shrink-0 text-right">
+                        <div className="font-mono text-[12.5px] tabular-nums text-slate-500">{Math.round(it.ctr * 1000) / 10}% CTR</div>
+                        <DeltaChip value={it.ctrDeltaPct} />
+                      </div>
                       <button
                         type="button"
                         onClick={() => toggle(it.id)}
@@ -154,7 +189,7 @@ function BoxHeader() {
       <div>
         <h2 className="font-heading text-[19px] font-semibold tracking-[-0.01em] text-foreground">Blog Clusters</h2>
         <p className="mt-1 text-[13px] text-slate-500">
-          Only posts confirmed live on the sitemap, with ranking · <Link href="/dashboard/blog-clusters" className="text-primary hover:underline">manage clusters</Link>
+          Only posts confirmed live on the sitemap, with ranking (live GSC, matches the date filter above) · <Link href="/dashboard/blog-clusters" className="text-primary hover:underline">manage clusters</Link>
         </p>
       </div>
     </div>

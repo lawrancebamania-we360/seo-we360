@@ -3,7 +3,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { cleanHost } from "@/lib/url";
-import type { MetricWindow, UrlTopQuery } from "@/lib/data/url-metrics";
+import type { UrlTopQuery } from "@/lib/data/url-metrics";
+import type { AnalyticsCompareRange } from "@/lib/data/analytics-range";
 
 export interface BlogClusterSummary {
   id: string;
@@ -148,7 +149,13 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
 
 // ============================================================================
 // Analytics Ticket 8-9: Blog Clusters' ranking view - only posts confirmed
-// LIVE, each joined against its own GSC/GA4 numbers.
+// LIVE, each joined against its own GSC numbers, LIVE (not the cached
+// url_metrics snapshot table - that only stores fixed 30/60/90-day windows,
+// which can't reproduce "This month" or "Last 7 days"). One current-period +
+// one previous-period GSC call per published post, run in parallel, using
+// the exact same compareRange Traffic Sources' date filter already computed
+// (lib/data/analytics-range.ts) - so "This month" here really means this
+// month, at the cost of a live API call per post every time a cluster opens.
 //
 // "Published" is resolved two ways, in order: (1) the item's linked Sprint
 // task has a published_url - definitive; (2) else its pasted/AI-generated
@@ -165,10 +172,14 @@ export interface BlogClusterAnalyticsItem {
   id: string;
   title: string;
   liveUrl: string;
-  gscPosition: number;
-  gscClicks: number;
-  gscImpressions: number;
-  gscCtr: number;
+  position: number;
+  /** Raw position change, positive = improved (moved up the results); null if no prior data. */
+  positionDelta: number | null;
+  clicks: number;
+  clicksDeltaPct: number | null;
+  impressions: number;
+  ctr: number;
+  ctrDeltaPct: number | null;
   topQueries: UrlTopQuery[];
 }
 
@@ -177,11 +188,18 @@ export interface BlogClusterAnalytics {
   clusterName: string;
   totalCount: number;
   unpublishedCount: number;
+  connected: boolean;
+  reason?: string;
   items: BlogClusterAnalyticsItem[];
 }
 
+function pctDelta(curr: number, prev: number): number | null {
+  if (prev === 0) return curr > 0 ? 100 : null;
+  return Math.round(((curr - prev) / prev) * 100);
+}
+
 export async function getBlogClusterAnalytics(
-  projectId: string, clusterId: string, window: MetricWindow = "30d",
+  projectId: string, clusterId: string, siteUrl: string | null, compareRange: AnalyticsCompareRange,
 ): Promise<BlogClusterAnalytics | null> {
   const supabase = await createClient();
   const { data: cluster } = await supabase
@@ -200,7 +218,8 @@ export async function getBlogClusterAnalytics(
     .order("position", { ascending: true });
   type ItemRow = { id: string; title: string; url_slug: string | null; task_id: string | null; tasks: { published_url: string | null } | null };
   const items = (itemsData ?? []) as unknown as ItemRow[];
-  if (!items.length) return { id: c.id, clusterName: c.cluster_name, totalCount: 0, unpublishedCount: 0, items: [] };
+  const empty = { id: c.id, clusterName: c.cluster_name, totalCount: items.length, unpublishedCount: items.length, connected: true, items: [] };
+  if (!items.length) return empty;
 
   const { data: latestRun } = await supabase
     .from("url_metrics_runs")
@@ -222,46 +241,49 @@ export async function getBlogClusterAnalytics(
       if (match) resolved.set(it.id, match);
     }
   }
-  if (!resolved.size) {
-    return { id: c.id, clusterName: c.cluster_name, totalCount: items.length, unpublishedCount: items.length, items: [] };
+  if (!resolved.size) return empty;
+
+  if (!siteUrl) {
+    return { id: c.id, clusterName: c.cluster_name, totalCount: items.length, unpublishedCount: items.length - resolved.size, connected: false, reason: "No GSC property URL on this project.", items: [] };
   }
 
-  const liveUrls = [...new Set(resolved.values())];
-  const { data: metricsData } = await supabase
-    .from("url_metrics")
-    .select("url, gsc_position, gsc_clicks, gsc_impressions, gsc_ctr, gsc_top_queries, snapshot_date")
-    .eq("project_id", projectId)
-    .eq("period", window)
-    .in("url", liveUrls)
-    .order("snapshot_date", { ascending: false });
-  type MetricRow = { url: string; gsc_position: number | null; gsc_clicks: number | null; gsc_impressions: number | null; gsc_ctr: number | null; gsc_top_queries: UrlTopQuery[] | null };
-  const metricsByUrl = new Map<string, MetricRow>();
-  for (const m of (metricsData ?? []) as MetricRow[]) {
-    if (!metricsByUrl.has(m.url)) metricsByUrl.set(m.url, m); // first = latest snapshot_date, rows already ordered
-  }
+  const { getGscUrlSnapshotForRange } = await import("@/lib/google/gsc");
+  const resolvedItems = items.filter((it) => resolved.has(it.id));
+  const snapshots = await Promise.all(resolvedItems.map(async (it) => {
+    const liveUrl = resolved.get(it.id)!;
+    try {
+      const [current, previous] = await Promise.all([
+        getGscUrlSnapshotForRange(siteUrl, liveUrl, compareRange.current),
+        getGscUrlSnapshotForRange(siteUrl, liveUrl, compareRange.previous).catch(() => null),
+      ]);
+      return { it, liveUrl, current, previous };
+    } catch {
+      return { it, liveUrl, current: null, previous: null };
+    }
+  }));
 
-  const out: BlogClusterAnalyticsItem[] = [];
-  for (const it of items) {
-    const liveUrl = resolved.get(it.id);
-    if (!liveUrl) continue;
-    const m = metricsByUrl.get(liveUrl);
-    out.push({
+  const out: BlogClusterAnalyticsItem[] = snapshots
+    .filter((s) => s.current)
+    .map(({ it, liveUrl, current, previous }) => ({
       id: it.id,
       title: it.title,
       liveUrl,
-      gscPosition: Number(m?.gsc_position) || 0,
-      gscClicks: Number(m?.gsc_clicks) || 0,
-      gscImpressions: Number(m?.gsc_impressions) || 0,
-      gscCtr: Number(m?.gsc_ctr) || 0,
-      topQueries: (m?.gsc_top_queries ?? []).slice(0, 10),
-    });
-  }
+      position: current!.position,
+      positionDelta: previous && previous.position > 0 && current!.position > 0 ? Math.round((previous.position - current!.position) * 10) / 10 : null,
+      clicks: current!.clicks,
+      clicksDeltaPct: previous ? pctDelta(current!.clicks, previous.clicks) : null,
+      impressions: current!.impressions,
+      ctr: current!.ctr,
+      ctrDeltaPct: previous ? pctDelta(current!.ctr, previous.ctr) : null,
+      topQueries: current!.topQueries,
+    }));
 
   return {
     id: c.id,
     clusterName: c.cluster_name,
     totalCount: items.length,
     unpublishedCount: items.length - resolved.size,
-    items: out.sort((a, b) => (a.gscPosition || 999) - (b.gscPosition || 999)),
+    connected: true,
+    items: out.sort((a, b) => (a.position || 999) - (b.position || 999)),
   };
 }
