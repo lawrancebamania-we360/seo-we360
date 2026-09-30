@@ -46,6 +46,22 @@ interface Props {
   projectId: string;
 }
 
+// Select.Value only auto-resolves a label when Select.Root gets an `items`
+// map - without it, the trigger shows the raw value (e.g. "in_progress"
+// instead of "⚡ In progress").
+const PRIORITY_ITEMS = [
+  { value: "critical", label: "Critical" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+];
+const STATUS_ITEMS = [
+  { value: "todo", label: "💡 Idea" },
+  { value: "in_progress", label: "⚡ In progress" },
+  { value: "review", label: "✓ Done" },
+  { value: "done", label: "✨ Published" },
+];
+
 function emptyBrief(task: TaskWithAssignee): BlogBrief {
   const kw = task.target_keyword ?? task.title.replace(/^Write article:\s*/i, "");
   return {
@@ -682,7 +698,7 @@ function BlogTaskContent({
               <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
                 Priority
               </Label>
-              <Select value={priority} onValueChange={(v) => v && setPriority(v as typeof priority)}>
+              <Select items={PRIORITY_ITEMS} value={priority} onValueChange={(v) => v && setPriority(v as typeof priority)}>
                 <SelectTrigger className="w-full h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="critical">Critical</SelectItem>
@@ -755,6 +771,7 @@ function BlogTaskContent({
                 Move to
               </Label>
               <Select
+                items={STATUS_ITEMS}
                 value={task.status}
                 onValueChange={(v) => v && moveStage(v as "todo" | "in_progress" | "done")}
               >

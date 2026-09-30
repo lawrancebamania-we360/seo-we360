@@ -24,6 +24,14 @@ type Provider = "claude" | "openai";
 const STORAGE_KEY = "we360.topic_cluster.key";
 const STORAGE_PROVIDER_KEY = "we360.topic_cluster.provider";
 
+// Select.Value only auto-resolves a label when Select.Root gets an `items`
+// map - without it, the trigger shows the raw value ("claude" instead of
+// "Anthropic Claude (claude-opus-4-7)").
+const PROVIDER_ITEMS = [
+  { value: "claude", label: "Anthropic Claude (claude-opus-4-7)" },
+  { value: "openai", label: "OpenAI (gpt-4o)" },
+];
+
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -207,7 +215,7 @@ export function TopicClusterDialog({ open, onOpenChange, projectId, projectName 
 
             <div className="space-y-1.5">
               <Label>Provider</Label>
-              <Select value={provider} onValueChange={(v) => v && setProvider(v as Provider)}>
+              <Select items={PROVIDER_ITEMS} value={provider} onValueChange={(v) => v && setProvider(v as Provider)}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="claude">Anthropic Claude (claude-opus-4-7)</SelectItem>

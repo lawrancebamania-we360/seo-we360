@@ -14,6 +14,16 @@ import type { Profile } from "@/lib/types/database";
 
 type TeamMember = Pick<Profile, "id" | "name" | "email" | "avatar_url">;
 
+// Select.Value only auto-resolves a label when Select.Root gets an `items`
+// map - without it, the trigger shows the raw value (a member's UUID,
+// "critical" instead of "Critical", etc).
+const PRIORITY_ITEMS = [
+  { value: "critical", label: "Critical" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+];
+
 export function NewTaskDialog({ projectId, members }: { projectId: string; members: TeamMember[] }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -76,7 +86,7 @@ export function NewTaskDialog({ projectId, members }: { projectId: string; membe
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Priority</Label>
-              <Select value={priority} onValueChange={(v) => v && setPriority(v as typeof priority)}>
+              <Select items={PRIORITY_ITEMS} value={priority} onValueChange={(v) => v && setPriority(v as typeof priority)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="critical">Critical</SelectItem>
@@ -88,7 +98,11 @@ export function NewTaskDialog({ projectId, members }: { projectId: string; membe
             </div>
             <div className="space-y-1.5">
               <Label>Assign to</Label>
-              <Select value={assignee || "__unassigned"} onValueChange={(v) => setAssignee(v === "__unassigned" ? "" : (v ?? ""))}>
+              <Select
+                items={[{ value: "__unassigned", label: "Unassigned" }, ...members.map((m) => ({ value: m.id, label: m.name }))]}
+                value={assignee || "__unassigned"}
+                onValueChange={(v) => setAssignee(v === "__unassigned" ? "" : (v ?? ""))}
+              >
                 <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__unassigned">Unassigned</SelectItem>

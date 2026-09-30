@@ -11,6 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type Provider = "claude" | "openai";
 
+// Select.Value only auto-resolves a label when Select.Root gets an `items`
+// map - without it, the trigger shows the raw value ("claude" instead of
+// "Anthropic Claude (claude-opus-4-7)").
+const PROVIDER_ITEMS = [
+  { value: "claude", label: "Anthropic Claude (claude-opus-4-7)" },
+  { value: "openai", label: "OpenAI (gpt-4o)" },
+];
+
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -122,7 +130,7 @@ export function KeywordSuggestDialog({
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Provider</Label>
-            <Select value={provider} onValueChange={(v) => v && setProvider(v as Provider)}>
+            <Select items={PROVIDER_ITEMS} value={provider} onValueChange={(v) => v && setProvider(v as Provider)}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="claude">Anthropic Claude (claude-opus-4-7)</SelectItem>

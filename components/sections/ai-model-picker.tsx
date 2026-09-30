@@ -35,6 +35,10 @@ export function AiModelPicker({ value, onChange, allowedModels, label = "AI mode
   const models = allowedModels && allowedModels.length > 0
     ? ALL_MODELS.filter((m) => allowedModels.includes(m.value))
     : ALL_MODELS;
+  // Select.Value only auto-resolves a label when Select.Root gets an `items`
+  // map - without it, the trigger shows the raw value (e.g. "gpt-4o-mini")
+  // instead of getModelLabel's friendly name.
+  const items = models.map((m) => ({ value: m.value, label: getModelLabel(m.value) }));
 
   return (
     <div className={cn("space-y-1.5", compact && "space-y-1")}>
@@ -44,7 +48,7 @@ export function AiModelPicker({ value, onChange, allowedModels, label = "AI mode
           {label}
         </span>
       </Label>
-      <Select value={value} onValueChange={(v) => v && onChange(v as AiModel)}>
+      <Select items={items} value={value} onValueChange={(v) => v && onChange(v as AiModel)}>
         <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
         <SelectContent>
           {models.map((m) => {

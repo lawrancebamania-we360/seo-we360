@@ -18,6 +18,32 @@ interface SidebarProps {
   members: Pick<Profile, "id" | "name" | "avatar_url">[];
 }
 
+// Select.Value only auto-resolves a label when Select.Root gets an `items`
+// map - without it, the trigger shows the raw value (e.g. "all" instead of
+// "All pillars").
+const PILLAR_ITEMS = [
+  { value: "all", label: "All pillars" },
+  { value: "SEO", label: "SEO" },
+  { value: "AEO", label: "AEO" },
+  { value: "GEO", label: "GEO" },
+  { value: "SXO", label: "SXO" },
+  { value: "AIO", label: "AIO" },
+];
+const PRIORITY_ITEMS = [
+  { value: "all", label: "All priorities" },
+  { value: "critical", label: "Critical" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+];
+const RANGE_ITEMS = [
+  { value: "all", label: "All time" },
+  { value: "today", label: "Today" },
+  { value: "upcoming", label: "Upcoming 7d" },
+  { value: "overdue", label: "Overdue" },
+  { value: "custom", label: "Custom" },
+];
+
 function useFilterState() {
   const router = useRouter();
   const params = useSearchParams();
@@ -49,7 +75,7 @@ function FilterFields({ members, state }: { members: HeaderProps["members"]; sta
   return (
     <>
       <Field label="Pillar">
-        <Select value={state.pillar} onValueChange={(v) => v && state.update("pillar", v)}>
+        <Select items={PILLAR_ITEMS} value={state.pillar} onValueChange={(v) => v && state.update("pillar", v)}>
           <SelectTrigger className="w-full h-8"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All pillars</SelectItem>
@@ -63,7 +89,7 @@ function FilterFields({ members, state }: { members: HeaderProps["members"]; sta
       </Field>
 
       <Field label="Priority">
-        <Select value={state.priority} onValueChange={(v) => v && state.update("priority", v)}>
+        <Select items={PRIORITY_ITEMS} value={state.priority} onValueChange={(v) => v && state.update("priority", v)}>
           <SelectTrigger className="w-full h-8"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All priorities</SelectItem>
@@ -107,7 +133,7 @@ function FilterFields({ members, state }: { members: HeaderProps["members"]; sta
       </Field>
 
       <Field label="Date range">
-        <Select value={state.range} onValueChange={(v) => v && state.update("range", v)}>
+        <Select items={RANGE_ITEMS} value={state.range} onValueChange={(v) => v && state.update("range", v)}>
           <SelectTrigger className="w-full h-8"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All time</SelectItem>

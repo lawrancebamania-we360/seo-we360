@@ -24,6 +24,29 @@ import type { Profile } from "@/lib/types/database";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
 import { formatDistanceToNow, format } from "date-fns";
 
+// Select.Value only auto-resolves a label when Select.Root gets an `items`
+// map - without it, the trigger shows the raw value (e.g. "none" instead of
+// "Unassigned", or "in_progress" instead of "⚡ In progress").
+const PILLAR_ITEMS = [
+  { value: "none", label: "Unassigned" },
+  { value: "SEO", label: "SEO" },
+  { value: "AEO", label: "AEO" },
+  { value: "GEO", label: "GEO" },
+  { value: "SXO", label: "SXO" },
+  { value: "AIO", label: "AIO" },
+];
+const PRIORITY_ITEMS = [
+  { value: "critical", label: "Critical" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+];
+const STATUS_ITEMS = [
+  { value: "todo", label: "📌 Open" },
+  { value: "in_progress", label: "⚡ In progress" },
+  { value: "done", label: "✅ Done" },
+];
+
 interface Props {
   task: TaskWithAssignee | null;
   open: boolean;
@@ -257,7 +280,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, members, canEdit, o
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Pillar</Label>
-                  <Select value={draft.pillar} onValueChange={(v) => v && setDraft({ ...draft, pillar: v as typeof draft.pillar })}>
+                  <Select items={PILLAR_ITEMS} value={draft.pillar} onValueChange={(v) => v && setDraft({ ...draft, pillar: v as typeof draft.pillar })}>
                     <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Unassigned</SelectItem>
@@ -271,7 +294,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, members, canEdit, o
                 </div>
                 <div className="space-y-1.5">
                   <Label>Priority</Label>
-                  <Select value={draft.priority} onValueChange={(v) => v && setDraft({ ...draft, priority: v as typeof draft.priority })}>
+                  <Select items={PRIORITY_ITEMS} value={draft.priority} onValueChange={(v) => v && setDraft({ ...draft, priority: v as typeof draft.priority })}>
                     <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="critical">Critical</SelectItem>
@@ -335,6 +358,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, members, canEdit, o
                       Move to
                     </Label>
                     <Select
+                      items={STATUS_ITEMS}
                       value={task.status}
                       onValueChange={(v) => v && moveStage(v as "todo" | "in_progress" | "done")}
                     >
