@@ -73,6 +73,7 @@ export interface BacklinkWebsiteSummary {
   domain: string;
   submissionCount: number;
   lastSubmissionDate: string | null;
+  lastSubmissionUrl: string | null;
 }
 
 export async function getBacklinkWebsites(projectId: string, range: BacklinkRange): Promise<BacklinkWebsiteSummary[]> {
@@ -86,18 +87,18 @@ export async function getBacklinkWebsites(projectId: string, range: BacklinkRang
 
   let q = supabase
     .from("backlink_submissions")
-    .select("website_id, submission_date")
+    .select("website_id, submission_date, submission_url")
     .eq("project_id", projectId);
   if (range.start) q = q.gte("submission_date", range.start);
   if (range.end) q = q.lte("submission_date", range.end);
   const { data: subsData } = await q;
-  const subs = (subsData ?? []) as { website_id: string; submission_date: string }[];
+  const subs = (subsData ?? []) as { website_id: string; submission_date: string; submission_url: string }[];
 
-  const byWebsite = new Map<string, { count: number; lastDate: string | null }>();
+  const byWebsite = new Map<string, { count: number; lastDate: string | null; lastUrl: string | null }>();
   for (const s of subs) {
-    const entry = byWebsite.get(s.website_id) ?? { count: 0, lastDate: null };
+    const entry = byWebsite.get(s.website_id) ?? { count: 0, lastDate: null, lastUrl: null };
     entry.count++;
-    if (!entry.lastDate || s.submission_date > entry.lastDate) entry.lastDate = s.submission_date;
+    if (!entry.lastDate || s.submission_date >= entry.lastDate) { entry.lastDate = s.submission_date; entry.lastUrl = s.submission_url; }
     byWebsite.set(s.website_id, entry);
   }
 
@@ -110,6 +111,7 @@ export async function getBacklinkWebsites(projectId: string, range: BacklinkRang
       domain: w.domain,
       submissionCount: byWebsite.get(w.id)?.count ?? 0,
       lastSubmissionDate: byWebsite.get(w.id)?.lastDate ?? null,
+      lastSubmissionUrl: byWebsite.get(w.id)?.lastUrl ?? null,
     }))
     .sort((a, b) => a.domain.localeCompare(b.domain));
 }

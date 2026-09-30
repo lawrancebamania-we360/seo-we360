@@ -41,7 +41,24 @@ export function BacklinkWebsiteTable({ websites }: { websites: BacklinkWebsiteSu
                 {w.submissionCount.toLocaleString()}
               </td>
               <td className="px-3 py-2.5 text-right text-muted-foreground">
-                {w.lastSubmissionDate ?? "—"}
+                {w.lastSubmissionDate ? (
+                  w.lastSubmissionUrl ? (
+                    <a
+                      href={w.lastSubmissionUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="hover:underline hover:text-foreground"
+                      title="Open this submission"
+                    >
+                      {w.lastSubmissionDate}
+                    </a>
+                  ) : (
+                    w.lastSubmissionDate
+                  )
+                ) : (
+                  "—"
+                )}
               </td>
             </tr>
           ))}
