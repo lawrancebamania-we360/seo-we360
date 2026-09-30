@@ -12,25 +12,20 @@
 // match reflects what's actually live on the site rather than what merely
 // exists as an internal task. A row whose pasted text doesn't match anything
 // still imports fine - it just carries no verified link.
+//
+// Ticket 31-36: the whole entry point is one "+ Add submission" form now,
+// not three separate buttons. Bulk paste lives behind that form's "Bulk
+// import" link, and paste is a two-step flow - previewBacklinksImport parses
+// ONLY (no DB write), the team assigns each parsed row to someone in a review
+// screen, then commitBacklinksImport does the actual find-or-create/dedupe/
+// sitemap-match/insert work the old one-shot importBacklinksPaste used to do
+// in a single call.
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hostFromUrl, cleanHost } from "@/lib/url";
-
-const ImportInput = z.object({
-  project_id: z.string().uuid(),
-  pasted_text: z.string().min(1),
-});
-
-export interface ImportBacklinksResult {
-  ok: boolean;
-  error?: string;
-  itemsCreated?: number;
-  itemsSkipped?: number;
-  websitesCreated?: number;
-}
 
 const HEADER_MAP: Record<string, string> = {
   "website": "website",
@@ -156,22 +151,33 @@ function normalizeDate(v: string): string | null {
   return d.toISOString().slice(0, 10);
 }
 
-export async function importBacklinksPaste(input: z.infer<typeof ImportInput>): Promise<ImportBacklinksResult> {
-  const { project_id, pasted_text } = ImportInput.parse(input);
+const PreviewInput = z.object({
+  project_id: z.string().uuid(),
+  pasted_text: z.string().min(1),
+});
+
+export interface PreviewBacklinksImportResult {
+  ok: boolean;
+  error?: string;
+  rows?: (ParsedRow & { tempId: string })[];
+  skipped?: number;
+}
+
+// Ticket 35 (step 1 of 2): parse ONLY - no website find-or-create, no
+// dedupe check, no insert. Those all need a resolved website_id / exact
+// duplicate match that's cheap to redo at commit time, so there's no reason
+// to write anything before the team has assigned each row to someone.
+export async function previewBacklinksImport(input: z.infer<typeof PreviewInput>): Promise<PreviewBacklinksImportResult> {
+  const { project_id, pasted_text } = PreviewInput.parse(input);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not authenticated." };
 
-  const admin = createAdminClient();
-
-  // Feeds headerless-paste detection (Ticket 29) - a cell matching one of
-  // these existing platforms is confidently the Website column even with no
-  // header row to say so.
-  const { data: knownWebsites } = await admin
+  const { data: knownWebsites } = await supabase
     .from("backlink_websites").select("domain").eq("project_id", project_id);
   const knownDomains = new Set(((knownWebsites ?? []) as { domain: string }[]).map((w) => w.domain));
 
-  const { rows, skipped: headerSkipped } = parsePastedRows(pasted_text, knownDomains);
+  const { rows, skipped } = parsePastedRows(pasted_text, knownDomains);
   if (!rows.length) {
     return {
       ok: false,
@@ -179,7 +185,42 @@ export async function importBacklinksPaste(input: z.infer<typeof ImportInput>): 
     };
   }
 
-  // Ticket 1's revision: match against the latest sitemap snapshot, not tasks.
+  return { ok: true, rows: rows.map((r, i) => ({ ...r, tempId: `row-${i}` })), skipped };
+}
+
+const CommitRow = z.object({
+  website: z.string().min(1),
+  submission_date: z.string().min(1),
+  submission_url: z.string().min(1),
+  blog_post: z.string(),
+  topic_name: z.string(),
+  assigned_to: z.string().uuid().nullable(),
+});
+
+const CommitInput = z.object({
+  project_id: z.string().uuid(),
+  rows: z.array(CommitRow).min(1),
+});
+
+export interface CommitBacklinksImportResult {
+  ok: boolean;
+  error?: string;
+  itemsCreated?: number;
+  itemsSkipped?: number;
+  websitesCreated?: number;
+}
+
+// Ticket 35 (step 2 of 2): the actual write - same find-or-create/dedupe/
+// sitemap-match logic the old one-shot importBacklinksPaste used to run
+// inline, now fed the rows the team already reviewed and assigned.
+export async function commitBacklinksImport(input: z.infer<typeof CommitInput>): Promise<CommitBacklinksImportResult> {
+  const { project_id, rows } = CommitInput.parse(input);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const admin = createAdminClient();
+
   const { data: latestRun } = await admin
     .from("url_metrics_runs")
     .select("url_list")
@@ -191,7 +232,7 @@ export async function importBacklinksPaste(input: z.infer<typeof ImportInput>): 
   const sitemapByNormalized = new Map<string, string>();
   for (const u of sitemapUrls) sitemapByNormalized.set(cleanHost(u, { lowercase: true }), u);
 
-  let itemsSkipped = headerSkipped;
+  let itemsSkipped = 0;
   let itemsCreated = 0;
   let websitesCreated = 0;
   const websiteIdCache = new Map<string, string>();
@@ -245,6 +286,7 @@ export async function importBacklinksPaste(input: z.infer<typeof ImportInput>): 
       blog_post_url: blogPostUrl,
       blog_post_label: blogPostLabel,
       topic_name: row.topic_name.trim() || null,
+      assigned_to: row.assigned_to,
       created_by: user.id,
     });
     if (insertErr) { itemsSkipped++; continue; }
@@ -255,55 +297,50 @@ export async function importBacklinksPaste(input: z.infer<typeof ImportInput>): 
   return { ok: true, itemsCreated, itemsSkipped, websitesCreated };
 }
 
-const AddWebsitesInput = z.object({
+const AddWebsiteInput = z.object({
   project_id: z.string().uuid(),
-  names: z.string().min(1),
+  name: z.string().min(1),
 });
 
-export interface AddBacklinkWebsitesResult {
+export interface AddBacklinkWebsiteResult {
   ok: boolean;
   error?: string;
-  websitesCreated?: number;
-  websitesSkipped?: number;
+  id?: string;
+  domain?: string;
 }
 
-// Ticket 14: lightweight companion to importBacklinksPaste - adds a website
-// with zero submissions (one name per line, no header/date/link required),
-// so the team can stock the list with platforms before ever logging activity
-// against them. Same find-or-create-by-domain logic as the submissions
-// importer, so a name added here and later seen in a submissions paste
-// resolve to the identical row.
-export async function addBacklinkWebsites(input: z.infer<typeof AddWebsitesInput>): Promise<AddBacklinkWebsitesResult> {
-  const { project_id, names } = AddWebsitesInput.parse(input);
+// Ticket 32: inline "+ Add new platform" inside the Add-submission form's
+// Website dropdown - same find-or-create-by-domain as the paste importer, so
+// a platform created here and later seen in a paste resolve to the same row.
+// Singular (one name), unlike the old bulk multi-name AddPlatformButton it
+// replaces - that button no longer has a header slot to live in, and one new
+// platform at a time is the common case right before logging a submission to
+// it.
+export async function addBacklinkWebsite(input: z.infer<typeof AddWebsiteInput>): Promise<AddBacklinkWebsiteResult> {
+  const { project_id, name } = AddWebsiteInput.parse(input);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not authenticated." };
 
-  const entries = names.split("\n").map((n) => n.trim()).filter(Boolean);
-  if (!entries.length) return { ok: false, error: "Enter at least one platform name." };
+  const domain = hostFromUrl(name) || name.trim().toLowerCase();
+  if (!domain) return { ok: false, error: "Enter a platform name." };
 
   const admin = createAdminClient();
-  let websitesCreated = 0;
-  let websitesSkipped = 0;
-  const seen = new Set<string>();
 
-  for (const entry of entries) {
-    const domain = hostFromUrl(entry) || entry.toLowerCase();
-    if (!domain || seen.has(domain)) { websitesSkipped++; continue; }
-    seen.add(domain);
-
-    const { data: existing } = await admin
-      .from("backlink_websites").select("id").eq("project_id", project_id).eq("domain", domain).maybeSingle();
-    if (existing) { websitesSkipped++; continue; }
-
-    const { error: createErr } = await admin
-      .from("backlink_websites").insert({ project_id, domain, created_by: user.id });
-    if (createErr) { websitesSkipped++; continue; }
-    websitesCreated++;
+  const { data: existing } = await admin
+    .from("backlink_websites").select("id, domain").eq("project_id", project_id).eq("domain", domain).maybeSingle();
+  if (existing) {
+    const e = existing as { id: string; domain: string };
+    return { ok: true, id: e.id, domain: e.domain };
   }
 
+  const { data: created, error: createErr } = await admin
+    .from("backlink_websites").insert({ project_id, domain, created_by: user.id }).select("id, domain").single();
+  if (createErr || !created) return { ok: false, error: "Could not add that platform." };
+  const c = created as { id: string; domain: string };
+
   revalidatePath("/dashboard/backlinks");
-  return { ok: true, websitesCreated, websitesSkipped };
+  return { ok: true, id: c.id, domain: c.domain };
 }
 
 const DeleteSubmissionInput = z.object({
@@ -444,6 +481,7 @@ const AddSubmissionInput = z.object({
   submission_url: z.string().min(1),
   blog_post: z.string().optional(),
   topic_name: z.string().optional(),
+  assigned_to: z.string().uuid().nullable().optional(),
 });
 
 export interface AddBacklinkSubmissionResult {
@@ -452,13 +490,14 @@ export interface AddBacklinkSubmissionResult {
   duplicate?: boolean;
 }
 
-// Ticket 30: the no-paste alternative - pick an existing platform, a date
-// (calendar defaults to today), paste one link. One submit = one submission,
-// same as a single row of the paste-import - deliberately NOT a "log N at
-// once" batch entry, since a count multiplier would either need several
-// distinct links or collide with the exact-duplicate check below.
+// Ticket 30 (+ Ticket 33's assigned_to): the no-paste alternative - pick an
+// existing platform, a date (calendar defaults to today), paste one link,
+// optionally assign it. One submit = one submission, same as a single row of
+// the paste-import - deliberately NOT a "log N at once" batch entry, since a
+// count multiplier would either need several distinct links or collide with
+// the exact-duplicate check below.
 export async function addBacklinkSubmission(input: z.infer<typeof AddSubmissionInput>): Promise<AddBacklinkSubmissionResult> {
-  const { project_id, website_id, submission_date, submission_url, blog_post, topic_name } = AddSubmissionInput.parse(input);
+  const { project_id, website_id, submission_date, submission_url, blog_post, topic_name, assigned_to } = AddSubmissionInput.parse(input);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not authenticated." };
@@ -508,6 +547,7 @@ export async function addBacklinkSubmission(input: z.infer<typeof AddSubmissionI
     blog_post_url: blogPostUrl,
     blog_post_label: blogPostLabel,
     topic_name: (topic_name ?? "").trim() || null,
+    assigned_to: assigned_to ?? null,
     created_by: user.id,
   });
   if (insertErr) return { ok: false, error: "Could not save that submission." };

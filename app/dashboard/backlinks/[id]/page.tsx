@@ -2,13 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getUserContext } from "@/lib/auth/get-user";
-import { getBacklinkWebsiteDetail, resolveBacklinkRange } from "@/lib/data/backlinks";
+import { getBacklinkWebsiteDetail, getBacklinkWebsites, resolveBacklinkRange } from "@/lib/data/backlinks";
 import { getTeamMembers } from "@/lib/data/tasks";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { BacklinkDateFilter } from "@/components/sections/backlinks/backlink-date-filter";
 import { BacklinkSubmissionList } from "@/components/sections/backlinks/backlink-submission-list";
-import { NewSubmissionsButton } from "@/components/sections/backlinks/new-submissions-button";
+import { AddSubmissionButton } from "@/components/sections/backlinks/add-submission-button";
 
 export default async function BacklinkWebsiteDetailPage({
   params, searchParams,
@@ -25,9 +25,10 @@ export default async function BacklinkWebsiteDetailPage({
   const start = sp.start ?? "";
   const end = sp.end ?? "";
 
-  const [website, members] = await Promise.all([
+  const [website, members, allWebsites] = await Promise.all([
     getBacklinkWebsiteDetail(ctx.activeProject.id, id, resolveBacklinkRange(range, start, end)),
     getTeamMembers(),
+    getBacklinkWebsites(ctx.activeProject.id, {}),
   ]);
   if (!website) notFound();
 
@@ -46,7 +47,14 @@ export default async function BacklinkWebsiteDetailPage({
               Total submissions: <span className="font-semibold text-foreground">{website.totalSubmissions}</span>
             </span>
             <BacklinkDateFilter range={range} start={start} end={end} />
-            {ctx.canManageTeam && <NewSubmissionsButton projectId={ctx.activeProject.id} />}
+            {ctx.canManageTeam && (
+              <AddSubmissionButton
+                projectId={ctx.activeProject.id}
+                websites={allWebsites.map((w) => ({ id: w.id, domain: w.domain }))}
+                members={members}
+                defaultWebsiteId={website.id}
+              />
+            )}
           </div>
         }
       />
