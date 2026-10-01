@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { addInfluencerCollab, previewInfluencerCollabsImport, commitInfluencerCollabsImport } from "@/lib/actions/influencer-collabs";
 import type { Member } from "@/components/sections/assignee-picker";
 
@@ -174,12 +174,7 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-platform">Platform</label>
-                  <Select items={PLATFORM_ITEMS} value={platform} onValueChange={(v) => v && setPlatform(v)}>
-                    <SelectTrigger id="ic-platform" className="h-9 w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PLATFORM_ITEMS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox id="ic-platform" items={PLATFORM_ITEMS} value={platform} onValueChange={setPlatform} placeholder="Pick a platform" />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-profile">Profile link</label>
@@ -203,13 +198,7 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-assignee">Assign to (optional)</label>
-                  <Select items={memberItems} value={assignedTo} onValueChange={(v) => v && setAssignedTo(v)}>
-                    <SelectTrigger id="ic-assignee" className="h-9 w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                      {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox id="ic-assignee" items={memberItems} value={assignedTo} onValueChange={setAssignedTo} placeholder="Unassigned" />
                 </div>
                 {error && <p className="text-xs text-error-600">{error}</p>}
               </div>
@@ -267,13 +256,7 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-2">
                   <span className="text-xs font-medium text-muted-foreground">{selected.size} selected</span>
-                  <Select items={memberItems} value={bulkAssignTarget} onValueChange={(v) => v && pickBulkTarget(v)}>
-                    <SelectTrigger className="h-7"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                      {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox items={memberItems} value={bulkAssignTarget} onValueChange={pickBulkTarget} placeholder="Unassigned" className="h-7 w-44" />
                   <Button type="button" size="sm" variant="outline" disabled={!selected.size} onClick={() => applyBulkAssign()} title="Re-apply the picked name to whatever's currently checked">
                     Apply to selected
                   </Button>
@@ -302,13 +285,13 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
                           <td className="px-2 py-1.5 text-muted-foreground">{row.platform}</td>
                           <td className="px-2 py-1.5 text-muted-foreground">{row.post_date}</td>
                           <td className="px-2 py-1.5">
-                            <Select items={memberItems} value={rowAssignments[row.tempId] ?? UNASSIGNED} onValueChange={(v) => v && setRowAssignments((prev) => ({ ...prev, [row.tempId]: v }))}>
-                              <SelectTrigger className="h-7 w-full"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                                {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <Combobox
+                              items={memberItems}
+                              value={rowAssignments[row.tempId] ?? UNASSIGNED}
+                              onValueChange={(v) => setRowAssignments((prev) => ({ ...prev, [row.tempId]: v }))}
+                              placeholder="Unassigned"
+                              className="h-7"
+                            />
                           </td>
                         </tr>
                       ))}
