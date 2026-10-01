@@ -25,7 +25,7 @@ import Image from "next/image";
 import {
   LayoutDashboard, ListChecks, Search, Swords,
   CalendarRange, Trophy, Users, FolderCog, GitBranch, FileSearch, Network,
-  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, ChevronDown, Link2, Magnet,
+  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, ChevronDown, Link2, Magnet, Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/dashboard/user-menu";
@@ -67,6 +67,7 @@ const NAV_SECTION: Record<string, string | null> = {
   "/dashboard/reports":     null,        // always visible
   "/dashboard/backlinks":   null,        // always visible - standalone link-building log
   "/dashboard/link-building": null,      // always visible - earned backlinks (outreach/link-building results)
+  "/dashboard/influencer-collabs": null, // always visible - flat influencer collab log
   "/dashboard/analytics":   null,        // always visible
   // AI Visibility split into 2 independent category pages - same permission
   // section ("ai_visibility") gates both, matching the old single-route behavior.
@@ -96,6 +97,7 @@ const DEFAULT_NAV: NavItem[] = [
   { href: "/dashboard/reports",    label: "Reports",     icon: BarChart3,      tone: "primary" },
   { href: "/dashboard/backlinks",  label: "Backlink Submissions",   icon: Link2,          tone: "primary" },
   { href: "/dashboard/link-building", label: "Backlinks", icon: Magnet,        tone: "primary" },
+  { href: "/dashboard/influencer-collabs", label: "Influencer Collabs", icon: Handshake, tone: "primary" },
   { href: "/dashboard/analytics",  label: "Analytics",   icon: LineChart,      tone: "primary" },
   // AI Visibility: one collapsible parent, 2 independent products underneath
   // (own report + score each) - room for more children later. The parent's own
