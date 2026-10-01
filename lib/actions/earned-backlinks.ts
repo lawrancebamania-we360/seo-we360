@@ -41,6 +41,22 @@ function parseDr(v: string | undefined): number | null {
   return n;
 }
 
+function parseAmount(v: string | undefined): number | null {
+  if (!v) return null;
+  const n = parseFloat(v.replace(/[,\s]/g, ""));
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100) / 100;
+}
+
+function parseCurrency(v: string | undefined): "USD" | "INR" {
+  return v?.trim().toUpperCase() === "INR" ? "INR" : "USD";
+}
+
+function parseFreeFlag(v: string | undefined): boolean {
+  if (!v) return false;
+  return /^(y|yes|true|1|free)$/i.test(v.trim());
+}
+
 const AddInput = z.object({
   project_id: z.string().uuid(),
   website: z.string().trim().min(1),
@@ -48,6 +64,9 @@ const AddInput = z.object({
   domain_rating: z.string().optional(),
   backlink_url: z.string().trim().min(1),
   assigned_to: z.string().uuid().nullable().optional(),
+  is_free: z.boolean().optional(),
+  amount_paid: z.string().optional(),
+  currency: z.enum(["USD", "INR"]).optional(),
 });
 
 export interface AddEarnedBacklinkResult {
@@ -60,7 +79,7 @@ export interface AddEarnedBacklinkResult {
 // addBacklinkSubmission: a batch belongs in Bulk import, not a hidden
 // multiplier on the single form.
 export async function addEarnedBacklink(input: z.infer<typeof AddInput>): Promise<AddEarnedBacklinkResult> {
-  const { project_id, website, acquired_date, domain_rating, backlink_url, assigned_to } = AddInput.parse(input);
+  const { project_id, website, acquired_date, domain_rating, backlink_url, assigned_to, is_free, amount_paid, currency } = AddInput.parse(input);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not authenticated." };
@@ -87,6 +106,9 @@ export async function addEarnedBacklink(input: z.infer<typeof AddInput>): Promis
     domain_rating: parseDr(domain_rating),
     backlink_url,
     assigned_to: assigned_to ?? null,
+    is_free: is_free ?? false,
+    amount_paid: is_free ? null : parseAmount(amount_paid),
+    currency: currency ?? "USD",
     created_by: user.id,
   });
   if (error) return { ok: false, error: "Could not save that backlink." };
@@ -106,6 +128,11 @@ const HEADER_MAP: Record<string, string> = {
   "link": "backlink_url",
   "backlink link": "backlink_url",
   "backlink url": "backlink_url",
+  "amount": "amount_paid",
+  "amount paid": "amount_paid",
+  "currency": "currency",
+  "free": "is_free",
+  "is free": "is_free",
 };
 
 function normalizeHeader(h: string): string {
@@ -117,6 +144,9 @@ interface ParsedRow {
   acquired_date: string;
   domain_rating: string;
   backlink_url: string;
+  amount_paid: string;
+  currency: string;
+  is_free: string;
 }
 
 function parsePastedRows(pastedText: string): { rows: ParsedRow[]; skipped: number } {
@@ -136,7 +166,13 @@ function parsePastedRows(pastedText: string): { rows: ParsedRow[]; skipped: numb
     const acquired_date = get("acquired_date");
     const backlink_url = get("backlink_url");
     if (!website || !acquired_date || !backlink_url) { skipped++; continue; }
-    rows.push({ website, acquired_date, backlink_url, domain_rating: get("domain_rating") || "" });
+    rows.push({
+      website, acquired_date, backlink_url,
+      domain_rating: get("domain_rating") || "",
+      amount_paid: get("amount_paid") || "",
+      currency: get("currency") || "",
+      is_free: get("is_free") || "",
+    });
   }
   return { rows, skipped };
 }
@@ -167,6 +203,9 @@ const CommitRow = z.object({
   domain_rating: z.string(),
   backlink_url: z.string().min(1),
   assigned_to: z.string().uuid().nullable(),
+  amount_paid: z.string(),
+  currency: z.string(),
+  is_free: z.string(),
 });
 
 const CommitInput = z.object({
@@ -205,6 +244,7 @@ export async function commitEarnedBacklinksImport(input: z.infer<typeof CommitIn
       .maybeSingle();
     if (dup) { itemsSkipped++; continue; }
 
+    const isFree = parseFreeFlag(row.is_free);
     const { error } = await admin.from("earned_backlinks").insert({
       project_id,
       website: row.website,
@@ -212,6 +252,9 @@ export async function commitEarnedBacklinksImport(input: z.infer<typeof CommitIn
       domain_rating: parseDr(row.domain_rating),
       backlink_url: row.backlink_url,
       assigned_to: row.assigned_to,
+      is_free: isFree,
+      amount_paid: isFree ? null : parseAmount(row.amount_paid),
+      currency: parseCurrency(row.currency),
       created_by: user.id,
     });
     if (error) { itemsSkipped++; continue; }

@@ -24,6 +24,16 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; defaultDi
   { key: "assigneeName", label: "Assignee", align: "left", defaultDir: "asc" },
 ];
 
+// Not sortable - rows mix USD and INR, so a numeric sort across currencies
+// would silently misrank ("₹5,000" vs "$500" isn't a meaningful ordering
+// without a conversion rate this app doesn't have).
+const CURRENCY_SYMBOL: Record<string, string> = { USD: "$", INR: "₹" };
+function formatCost(b: Pick<EarnedBacklinkRow, "isFree" | "amountPaid" | "currency">): string {
+  if (b.isFree) return "Free";
+  if (b.amountPaid == null) return "—";
+  return `${CURRENCY_SYMBOL[b.currency] ?? ""}${b.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 // Nulls always sort last, regardless of direction - `dir` only flips the
 // ordering between two real values.
 function compareNullableStr(a: string | null, b: string | null, dir: number): number {
@@ -110,6 +120,7 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage }
                 </button>
               </th>
             ))}
+            <th className="px-3 py-2.5 text-right font-semibold">Cost</th>
           </tr>
         </thead>
         <tbody>
@@ -135,6 +146,9 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage }
               </td>
               <td className="px-3 py-2.5">
                 <EarnedBacklinkActions projectId={projectId} backlinkId={b.id} assignedTo={b.assignedTo} members={members} canManage={canManage} />
+              </td>
+              <td className={`px-3 py-2.5 text-right font-mono text-[12.5px] tabular-nums ${b.isFree ? "text-success-strong font-semibold" : "text-muted-foreground"}`}>
+                {formatCost(b)}
               </td>
             </tr>
           ))}

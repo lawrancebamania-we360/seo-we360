@@ -21,9 +21,13 @@ import { addEarnedBacklink, previewEarnedBacklinksImport, commitEarnedBacklinksI
 import type { Member } from "@/components/sections/assignee-picker";
 
 const UNASSIGNED = "__unassigned__";
+const CURRENCY_ITEMS = [{ value: "USD", label: "USD" }, { value: "INR", label: "INR" }];
 const today = (): string => new Date().toISOString().slice(0, 10);
 
-type ParsedRow = { tempId: string; website: string; acquired_date: string; domain_rating: string; backlink_url: string };
+type ParsedRow = {
+  tempId: string; website: string; acquired_date: string; domain_rating: string; backlink_url: string;
+  amount_paid: string; currency: string; is_free: string;
+};
 type View = "form" | "paste" | "review";
 
 export function AddEarnedBacklinkButton({ projectId, members }: { projectId: string; members: Member[] }) {
@@ -37,6 +41,9 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
   const [dr, setDr] = useState("");
   const [link, setLink] = useState("");
   const [assignedTo, setAssignedTo] = useState(UNASSIGNED);
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState<"USD" | "INR">("USD");
+  const [isFree, setIsFree] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +63,7 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
   const reset = () => {
     setView("form");
     setWebsite(""); setDate(today()); setDr(""); setLink(""); setAssignedTo(UNASSIGNED);
+    setAmount(""); setCurrency("USD"); setIsFree(false);
     setError(null);
     setPastedText(""); setPasteError(null);
     setRows([]); setRowAssignments({}); setSelected(new Set());
@@ -73,6 +81,9 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
       domain_rating: dr.trim() || undefined,
       backlink_url: link.trim(),
       assigned_to: assignedTo === UNASSIGNED ? null : assignedTo,
+      is_free: isFree,
+      amount_paid: isFree ? undefined : (amount.trim() || undefined),
+      currency,
     });
     setBusy(false);
     if (!r.ok) { setError(r.error ?? "Could not add that backlink."); return; }
@@ -129,6 +140,9 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
         domain_rating: row.domain_rating,
         backlink_url: row.backlink_url,
         assigned_to: rowAssignments[row.tempId] === UNASSIGNED ? null : (rowAssignments[row.tempId] ?? null),
+        amount_paid: row.amount_paid,
+        currency: row.currency,
+        is_free: row.is_free,
       })),
     });
     setCommitBusy(false);
@@ -171,6 +185,33 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
                   <Input id="eb-link" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://..." className="h-9" />
                 </div>
                 <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="eb-amount">Amount paid (optional)</label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      id="eb-amount"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="0.00"
+                      disabled={isFree}
+                      className="h-9"
+                    />
+                    <Select items={CURRENCY_ITEMS} value={currency} onValueChange={(v) => v && setCurrency(v as "USD" | "INR")}>
+                      <SelectTrigger disabled={isFree} className="h-9 w-24 shrink-0"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="INR">INR</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <label className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Checkbox checked={isFree} onCheckedChange={(v) => { setIsFree(!!v); if (v) setAmount(""); }} />
+                    This was a free backlink
+                  </label>
+                </div>
+                <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="eb-assignee">Assign to (optional)</label>
                   <Select items={memberItems} value={assignedTo} onValueChange={(v) => v && setAssignedTo(v)}>
                     <SelectTrigger id="eb-assignee" className="h-9 w-full"><SelectValue /></SelectTrigger>
@@ -201,14 +242,14 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
               <DialogHeader>
                 <DialogTitle>Paste backlinks from your tracking sheet</DialogTitle>
                 <DialogDescription>
-                  Select the header row + every data row in your sheet, copy, and paste below. Columns are matched by name, so order doesn&apos;t matter. Expected columns: Website, Date, DR, Link.
+                  Select the header row + every data row in your sheet, copy, and paste below. Columns are matched by name, so order doesn&apos;t matter. Expected columns: Website, Date, DR, Link, Amount, Currency, Free (Amount/Currency/Free are optional - leave Free blank unless the backlink didn&apos;t cost anything).
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
                 <textarea
                   value={pastedText}
                   onChange={(e) => setPastedText(e.target.value)}
-                  placeholder={"Website\tDate\tDR\tLink"}
+                  placeholder={"Website\tDate\tDR\tLink\tAmount\tCurrency\tFree"}
                   className="h-64 w-full resize-y rounded-md border border-border bg-background px-3 py-2 font-mono text-[11px] leading-relaxed outline-none focus:border-primary/40"
                 />
                 {pasteError && <p className="text-xs text-error-600">{pasteError}</p>}
