@@ -47,6 +47,15 @@ function parseAmount(v: string | undefined): number | null {
   return Math.round(n * 100) / 100;
 }
 
+function parseCurrency(v: string | undefined): "USD" | "INR" {
+  return v?.trim().toUpperCase() === "USD" ? "USD" : "INR";
+}
+
+function parseFreeFlag(v: string | undefined): boolean {
+  if (!v) return false;
+  return /^(y|yes|true|1|free)$/i.test(v.trim());
+}
+
 const AddInput = z.object({
   project_id: z.string().uuid(),
   influencer_name: z.string().trim().min(1),
@@ -54,7 +63,9 @@ const AddInput = z.object({
   platform: z.enum(PLATFORMS),
   post_date: z.string().min(1),
   closing_date: z.string().optional(),
+  is_free: z.boolean().optional(),
   amount_paid: z.string().optional(),
+  currency: z.enum(["USD", "INR"]).optional(),
   post_link: z.string().trim().optional(),
   assigned_to: z.string().uuid().nullable().optional(),
 });
@@ -68,7 +79,7 @@ export interface AddInfluencerCollabResult {
 // One submit = one row - same reasoning as addEarnedBacklink/
 // addBacklinkSubmission: a batch belongs in Bulk import.
 export async function addInfluencerCollab(input: z.infer<typeof AddInput>): Promise<AddInfluencerCollabResult> {
-  const { project_id, influencer_name, profile_link, platform, post_date, closing_date, amount_paid, post_link, assigned_to } = AddInput.parse(input);
+  const { project_id, influencer_name, profile_link, platform, post_date, closing_date, is_free, amount_paid, currency, post_link, assigned_to } = AddInput.parse(input);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not authenticated." };
@@ -97,7 +108,9 @@ export async function addInfluencerCollab(input: z.infer<typeof AddInput>): Prom
     platform,
     post_date: postDate,
     closing_date: closingDate,
-    amount_paid: parseAmount(amount_paid),
+    is_free: is_free ?? false,
+    amount_paid: is_free ? null : parseAmount(amount_paid),
+    currency: currency ?? "INR",
     post_link: post_link?.trim() || null,
     assigned_to: assigned_to ?? null,
     created_by: user.id,
@@ -120,6 +133,9 @@ const HEADER_MAP: Record<string, string> = {
   "closing date": "closing_date",
   "amount paid": "amount_paid",
   "amount": "amount_paid",
+  "currency": "currency",
+  "free": "is_free",
+  "is free": "is_free",
   "post link": "post_link",
 };
 
@@ -134,6 +150,8 @@ interface ParsedRow {
   post_date: string;
   closing_date: string;
   amount_paid: string;
+  currency: string;
+  is_free: string;
   post_link: string;
 }
 
@@ -159,6 +177,8 @@ function parsePastedRows(pastedText: string): { rows: ParsedRow[]; skipped: numb
       influencer_name, profile_link, platform, post_date,
       closing_date: get("closing_date") || "",
       amount_paid: get("amount_paid") || "",
+      currency: get("currency") || "",
+      is_free: get("is_free") || "",
       post_link: get("post_link") || "",
     });
   }
@@ -192,6 +212,8 @@ const CommitRow = z.object({
   post_date: z.string().min(1),
   closing_date: z.string(),
   amount_paid: z.string(),
+  currency: z.string(),
+  is_free: z.string(),
   post_link: z.string(),
   assigned_to: z.string().uuid().nullable(),
 });
@@ -234,6 +256,7 @@ export async function commitInfluencerCollabsImport(input: z.infer<typeof Commit
       .maybeSingle();
     if (dup) { itemsSkipped++; continue; }
 
+    const isFree = parseFreeFlag(row.is_free);
     const { error } = await admin.from("influencer_collabs").insert({
       project_id,
       influencer_name: row.influencer_name,
@@ -241,7 +264,9 @@ export async function commitInfluencerCollabsImport(input: z.infer<typeof Commit
       platform,
       post_date: postDate,
       closing_date: closingDate,
-      amount_paid: parseAmount(row.amount_paid),
+      is_free: isFree,
+      amount_paid: isFree ? null : parseAmount(row.amount_paid),
+      currency: parseCurrency(row.currency),
       post_link: row.post_link.trim() || null,
       assigned_to: row.assigned_to,
       created_by: user.id,

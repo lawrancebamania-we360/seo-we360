@@ -13,7 +13,7 @@ import { InfluencerCollabActions } from "@/components/sections/influencer-collab
 import type { InfluencerCollabRow } from "@/lib/data/influencer-collabs";
 import type { Member } from "@/components/sections/assignee-picker";
 
-type SortKey = "influencerName" | "platform" | "closingDate" | "postDate" | "amountPaid" | "assigneeName";
+type SortKey = "influencerName" | "platform" | "closingDate" | "postDate" | "assigneeName";
 type SortDir = "asc" | "desc";
 
 const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; defaultDir: SortDir }[] = [
@@ -21,9 +21,17 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; defaultDi
   { key: "platform", label: "Platform", align: "left", defaultDir: "asc" },
   { key: "closingDate", label: "Closing date", align: "right", defaultDir: "desc" },
   { key: "postDate", label: "Post date", align: "right", defaultDir: "desc" },
-  { key: "amountPaid", label: "Amount paid", align: "right", defaultDir: "desc" },
   { key: "assigneeName", label: "Assignee", align: "left", defaultDir: "asc" },
 ];
+
+// Not sortable - rows mix USD and INR, so a numeric sort across currencies
+// would silently misrank (same reasoning as Earned Backlinks' Cost column).
+const CURRENCY_SYMBOL: Record<string, string> = { USD: "$", INR: "₹" };
+function formatCost(c: Pick<InfluencerCollabRow, "isFree" | "amountPaid" | "currency">): string {
+  if (c.isFree) return "Free";
+  if (c.amountPaid == null) return "—";
+  return `${CURRENCY_SYMBOL[c.currency] ?? ""}${c.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 // Nulls always sort last, regardless of direction - `dir` only flips the
 // ordering between two real values.
@@ -33,13 +41,6 @@ function compareNullableStr(a: string | null, b: string | null, dir: number): nu
   if (b == null) return -1;
   return a.localeCompare(b) * dir;
 }
-function compareNullableNum(a: number | null, b: number | null, dir: number): number {
-  if (a === b) return 0;
-  if (a == null) return 1;
-  if (b == null) return -1;
-  return (a - b) * dir;
-}
-
 export function InfluencerCollabsTable({ collabs, projectId, members, canManage }: {
   collabs: InfluencerCollabRow[];
   projectId: string;
@@ -60,9 +61,6 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
           break;
         case "closingDate":
           primary = compareNullableStr(a.closingDate, b.closingDate, dir);
-          break;
-        case "amountPaid":
-          primary = compareNullableNum(a.amountPaid, b.amountPaid, dir);
           break;
         case "assigneeName":
           primary = compareNullableStr(a.assigneeName, b.assigneeName, dir);
@@ -114,6 +112,7 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
                 </button>
               </th>
             ))}
+            <th className="px-3 py-2.5 text-right font-semibold">Cost</th>
             <th className="px-3 py-2.5 text-left font-semibold">Links</th>
           </tr>
         </thead>
@@ -126,11 +125,11 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
               <td className="px-3 py-2.5 text-muted-foreground">{c.platform}</td>
               <td className="px-3 py-2.5 text-right text-muted-foreground">{c.closingDate ?? "—"}</td>
               <td className="px-3 py-2.5 text-right text-muted-foreground">{c.postDate}</td>
-              <td className="px-3 py-2.5 text-right font-mono text-[12.5px] tabular-nums text-foreground">
-                {c.amountPaid != null ? c.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
-              </td>
               <td className="px-3 py-2.5">
                 <InfluencerCollabActions projectId={projectId} collabId={c.id} assignedTo={c.assignedTo} members={members} canManage={canManage} />
+              </td>
+              <td className={`px-3 py-2.5 text-right font-mono text-[12.5px] tabular-nums ${c.isFree ? "text-success-strong font-semibold" : "text-foreground"}`}>
+                {formatCost(c)}
               </td>
               <td className="px-3 py-2.5">
                 <div className="flex items-center gap-2 text-muted-foreground">

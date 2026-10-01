@@ -22,11 +22,12 @@ import type { Member } from "@/components/sections/assignee-picker";
 
 const UNASSIGNED = "__unassigned__";
 const PLATFORM_ITEMS = ["YouTube", "Instagram", "Facebook", "Twitter", "LinkedIn"].map((p) => ({ value: p, label: p }));
+const CURRENCY_ITEMS = [{ value: "INR", label: "INR" }, { value: "USD", label: "USD" }];
 const today = (): string => new Date().toISOString().slice(0, 10);
 
 type ParsedRow = {
   tempId: string; influencer_name: string; profile_link: string; platform: string; post_date: string;
-  closing_date: string; amount_paid: string; post_link: string;
+  closing_date: string; amount_paid: string; currency: string; is_free: string; post_link: string;
 };
 type View = "form" | "paste" | "review";
 
@@ -42,6 +43,8 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
   const [closingDate, setClosingDate] = useState(today());
   const [postDate, setPostDate] = useState(today());
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState<"USD" | "INR">("INR");
+  const [isFree, setIsFree] = useState(false);
   const [postLink, setPostLink] = useState("");
   const [assignedTo, setAssignedTo] = useState(UNASSIGNED);
   const [busy, setBusy] = useState(false);
@@ -63,7 +66,9 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
   const reset = () => {
     setView("form");
     setInfluencerName(""); setPlatform("YouTube"); setProfileLink("");
-    setClosingDate(today()); setPostDate(today()); setAmount(""); setPostLink(""); setAssignedTo(UNASSIGNED);
+    setClosingDate(today()); setPostDate(today());
+    setAmount(""); setCurrency("INR"); setIsFree(false);
+    setPostLink(""); setAssignedTo(UNASSIGNED);
     setError(null);
     setPastedText(""); setPasteError(null);
     setRows([]); setRowAssignments({}); setSelected(new Set());
@@ -81,7 +86,9 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
       platform: platform as "YouTube" | "Instagram" | "Facebook" | "Twitter" | "LinkedIn",
       post_date: postDate,
       closing_date: closingDate || undefined,
-      amount_paid: amount.trim() || undefined,
+      is_free: isFree,
+      amount_paid: isFree ? undefined : (amount.trim() || undefined),
+      currency,
       post_link: postLink.trim() || undefined,
       assigned_to: assignedTo === UNASSIGNED ? null : assignedTo,
     });
@@ -141,6 +148,8 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
         post_date: row.post_date,
         closing_date: row.closing_date,
         amount_paid: row.amount_paid,
+        currency: row.currency,
+        is_free: row.is_free,
         post_link: row.post_link,
         assigned_to: rowAssignments[row.tempId] === UNASSIGNED ? null : (rowAssignments[row.tempId] ?? null),
       })),
@@ -190,7 +199,30 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-amount">Amount paid (optional)</label>
-                  <Input id="ic-amount" type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="h-9" />
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      id="ic-amount"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="0.00"
+                      disabled={isFree}
+                      className="h-9"
+                    />
+                    <Combobox
+                      items={CURRENCY_ITEMS}
+                      value={currency}
+                      onValueChange={(v) => setCurrency(v as "USD" | "INR")}
+                      disabled={isFree}
+                      className="h-9 w-24 shrink-0"
+                    />
+                  </div>
+                  <label className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Checkbox checked={isFree} onCheckedChange={(v) => { setIsFree(!!v); if (v) setAmount(""); }} />
+                    This was a free collab
+                  </label>
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-post-link">Post link (optional)</label>
@@ -221,14 +253,14 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
               <DialogHeader>
                 <DialogTitle>Paste collabs from your tracking sheet</DialogTitle>
                 <DialogDescription>
-                  Select the header row + every data row in your sheet, copy, and paste below. Columns are matched by name, so order doesn&apos;t matter. Expected columns: Influencer Name, Profile Link, Platform, Post Date, Date of Closing, Amount Paid, Post Link.
+                  Select the header row + every data row in your sheet, copy, and paste below. Columns are matched by name, so order doesn&apos;t matter. Expected columns: Influencer Name, Profile Link, Platform, Post Date, Date of Closing, Amount Paid, Currency, Free, Post Link (Amount/Currency/Free are optional - leave Free blank unless the collab didn&apos;t cost anything).
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
                 <textarea
                   value={pastedText}
                   onChange={(e) => setPastedText(e.target.value)}
-                  placeholder={"Influencer Name\tProfile Link\tPlatform\tPost Date\tDate of Closing\tAmount Paid\tPost Link"}
+                  placeholder={"Influencer Name\tProfile Link\tPlatform\tPost Date\tDate of Closing\tAmount Paid\tCurrency\tFree\tPost Link"}
                   className="h-64 w-full resize-y rounded-md border border-border bg-background px-3 py-2 font-mono text-[11px] leading-relaxed outline-none focus:border-primary/40"
                 />
                 {pasteError && <p className="text-xs text-error-600">{pasteError}</p>}
