@@ -75,6 +75,7 @@ export interface BacklinkWebsiteSummary {
   lastSubmissionDate: string | null;
   lastSubmissionUrl: string | null;
   lastSubmissionTopic: string | null;
+  lastSubmissionAssigneeName: string | null;
 }
 
 export async function getBacklinkWebsites(projectId: string, range: BacklinkRange): Promise<BacklinkWebsiteSummary[]> {
@@ -88,23 +89,34 @@ export async function getBacklinkWebsites(projectId: string, range: BacklinkRang
 
   let q = supabase
     .from("backlink_submissions")
-    .select("website_id, submission_date, submission_url, topic_name")
+    .select("website_id, submission_date, submission_url, topic_name, assigned_to")
     .eq("project_id", projectId);
   if (range.start) q = q.gte("submission_date", range.start);
   if (range.end) q = q.lte("submission_date", range.end);
   const { data: subsData } = await q;
-  const subs = (subsData ?? []) as { website_id: string; submission_date: string; submission_url: string; topic_name: string | null }[];
+  const subs = (subsData ?? []) as { website_id: string; submission_date: string; submission_url: string; topic_name: string | null; assigned_to: string | null }[];
 
-  const byWebsite = new Map<string, { count: number; lastDate: string | null; lastUrl: string | null; lastTopic: string | null }>();
+  const byWebsite = new Map<string, { count: number; lastDate: string | null; lastUrl: string | null; lastTopic: string | null; lastAssigneeId: string | null }>();
   for (const s of subs) {
-    const entry = byWebsite.get(s.website_id) ?? { count: 0, lastDate: null, lastUrl: null, lastTopic: null };
+    const entry = byWebsite.get(s.website_id) ?? { count: 0, lastDate: null, lastUrl: null, lastTopic: null, lastAssigneeId: null };
     entry.count++;
     if (!entry.lastDate || s.submission_date >= entry.lastDate) {
       entry.lastDate = s.submission_date;
       entry.lastUrl = s.submission_url;
       entry.lastTopic = s.topic_name;
+      entry.lastAssigneeId = s.assigned_to;
     }
     byWebsite.set(s.website_id, entry);
+  }
+
+  // One extra query to resolve names - cheaper than joining profiles into
+  // every submission row above when most rows share the same handful of
+  // assignees.
+  const assigneeIds = [...new Set([...byWebsite.values()].map((e) => e.lastAssigneeId).filter((id): id is string => !!id))];
+  const assigneeNames = new Map<string, string>();
+  if (assigneeIds.length) {
+    const { data: profilesData } = await supabase.from("profiles").select("id, name").in("id", assigneeIds);
+    for (const p of (profilesData ?? []) as { id: string; name: string }[]) assigneeNames.set(p.id, p.name);
   }
 
   // Ticket 20: default order is most-recent-activity first (nulls - no
@@ -119,6 +131,10 @@ export async function getBacklinkWebsites(projectId: string, range: BacklinkRang
       lastSubmissionDate: byWebsite.get(w.id)?.lastDate ?? null,
       lastSubmissionUrl: byWebsite.get(w.id)?.lastUrl ?? null,
       lastSubmissionTopic: byWebsite.get(w.id)?.lastTopic ?? null,
+      lastSubmissionAssigneeName: (() => {
+        const id = byWebsite.get(w.id)?.lastAssigneeId;
+        return id ? (assigneeNames.get(id) ?? null) : null;
+      })(),
     }))
     .sort((a, b) => {
       if (a.lastSubmissionDate !== b.lastSubmissionDate) {

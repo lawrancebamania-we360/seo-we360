@@ -93,7 +93,7 @@ const DEFAULT_NAV: NavItem[] = [
   { href: "/dashboard/blog-clusters", label: "Blog Clusters", icon: Network,   tone: "primary" },
   { href: "/dashboard/blog-audit", label: "Blog audit",  icon: FileSearch,     tone: "primary" },
   { href: "/dashboard/reports",    label: "Reports",     icon: BarChart3,      tone: "primary" },
-  { href: "/dashboard/backlinks",  label: "Backlinks",   icon: Link2,          tone: "primary" },
+  { href: "/dashboard/backlinks",  label: "Backlink Submissions",   icon: Link2,          tone: "primary" },
   { href: "/dashboard/analytics",  label: "Analytics",   icon: LineChart,      tone: "primary" },
   // AI Visibility: one collapsible parent, 2 independent products underneath
   // (own report + score each) - room for more children later. The parent's own

@@ -18,13 +18,14 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import type { BacklinkWebsiteSummary } from "@/lib/data/backlinks";
 
-type SortKey = "domain" | "submissionCount" | "lastSubmissionTopic" | "lastSubmissionDate" | "lastSubmissionUrl";
+type SortKey = "domain" | "submissionCount" | "lastSubmissionTopic" | "lastSubmissionDate" | "lastSubmissionUrl" | "lastSubmissionAssigneeName";
 type SortDir = "asc" | "desc";
 
 const COLUMNS: { key: SortKey; label: string; align: "left" | "right"; defaultDir: SortDir }[] = [
   { key: "domain", label: "Website", align: "left", defaultDir: "asc" },
   { key: "submissionCount", label: "Submissions", align: "right", defaultDir: "desc" },
   { key: "lastSubmissionTopic", label: "Topic", align: "left", defaultDir: "asc" },
+  { key: "lastSubmissionAssigneeName", label: "Assignee", align: "left", defaultDir: "asc" },
   { key: "lastSubmissionDate", label: "Last submission", align: "right", defaultDir: "desc" },
   { key: "lastSubmissionUrl", label: "Submission link", align: "right", defaultDir: "asc" },
 ];
@@ -63,6 +64,9 @@ export function BacklinkWebsiteTable({ websites }: { websites: BacklinkWebsiteSu
           break;
         case "lastSubmissionUrl":
           primary = compareNullable(a.lastSubmissionUrl, b.lastSubmissionUrl, dir);
+          break;
+        case "lastSubmissionAssigneeName":
+          primary = compareNullable(a.lastSubmissionAssigneeName, b.lastSubmissionAssigneeName, dir);
           break;
         default:
           primary = compareNullable(a.lastSubmissionDate, b.lastSubmissionDate, dir);
@@ -125,6 +129,9 @@ export function BacklinkWebsiteTable({ websites }: { websites: BacklinkWebsiteSu
               </td>
               <td className="max-w-[220px] truncate px-3 py-2.5 text-muted-foreground" title={w.lastSubmissionTopic ?? undefined}>
                 {w.lastSubmissionTopic ?? "—"}
+              </td>
+              <td className="max-w-[160px] truncate px-3 py-2.5 text-muted-foreground" title={w.lastSubmissionAssigneeName ?? undefined}>
+                {w.lastSubmissionAssigneeName ?? "—"}
               </td>
               <td className="px-3 py-2.5 text-right text-muted-foreground">
                 {w.lastSubmissionDate ?? "—"}
