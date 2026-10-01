@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { priorityColor, initials, stripTaskKey, stripTaskPrefix, formatVolume, taskTypeBadgeClass } from "@/lib/ui-helpers";
@@ -280,29 +280,23 @@ export function TaskDetailDialog({ task, open, onOpenChange, members, canEdit, o
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Pillar</Label>
-                  <Select items={PILLAR_ITEMS} value={draft.pillar} onValueChange={(v) => v && setDraft({ ...draft, pillar: v as typeof draft.pillar })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Unassigned</SelectItem>
-                      <SelectItem value="SEO">SEO</SelectItem>
-                      <SelectItem value="AEO">AEO</SelectItem>
-                      <SelectItem value="GEO">GEO</SelectItem>
-                      <SelectItem value="SXO">SXO</SelectItem>
-                      <SelectItem value="AIO">AIO</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    items={PILLAR_ITEMS}
+                    value={draft.pillar}
+                    onValueChange={(v) => setDraft({ ...draft, pillar: v as typeof draft.pillar })}
+                    placeholder="Unassigned"
+                    className="h-8 w-full"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Priority</Label>
-                  <Select items={PRIORITY_ITEMS} value={draft.priority} onValueChange={(v) => v && setDraft({ ...draft, priority: v as typeof draft.priority })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="critical">Critical</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    items={PRIORITY_ITEMS}
+                    value={draft.priority}
+                    onValueChange={(v) => setDraft({ ...draft, priority: v as typeof draft.priority })}
+                    placeholder="Priority"
+                    className="h-8 w-full"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Scheduled</Label>
@@ -357,20 +351,13 @@ export function TaskDetailDialog({ task, open, onOpenChange, members, canEdit, o
                     <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground shrink-0">
                       Move to
                     </Label>
-                    <Select
+                    <Combobox
                       items={STATUS_ITEMS}
                       value={task.status}
-                      onValueChange={(v) => v && moveStage(v as "todo" | "in_progress" | "done")}
-                    >
-                      <SelectTrigger className="w-44 h-8" disabled={pending}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="todo">📌 Open</SelectItem>
-                        <SelectItem value="in_progress">⚡ In progress</SelectItem>
-                        <SelectItem value="done">✅ Done</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      onValueChange={(v) => moveStage(v as "todo" | "in_progress" | "done")}
+                      disabled={pending}
+                      className="h-8 w-44"
+                    />
                   </div>
                 )}
               </div>

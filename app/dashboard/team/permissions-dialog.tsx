@@ -13,13 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import {
   getMemberPermissions,
   updateMemberPermissions,
@@ -267,18 +261,13 @@ export function PermissionsDialog({ member, projects, open, onOpenChange }: Prop
               <label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
                 Project
               </label>
-              <Select value={projectId} onValueChange={(v) => v && setProjectId(v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue>
-                    {(value: string | null) => projects.find((p) => p.id === value)?.name ?? "Select project"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id} label={p.name}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                items={projects.map((p) => ({ value: p.id, label: p.name }))}
+                value={projectId}
+                onValueChange={setProjectId}
+                placeholder="Select project"
+                className="w-full h-8"
+              />
             </div>
 
             {/* Presets */}

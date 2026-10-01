@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { addEarnedBacklink, previewEarnedBacklinksImport, commitEarnedBacklinksImport } from "@/lib/actions/earned-backlinks";
 import type { Member } from "@/components/sections/assignee-picker";
 
@@ -198,13 +198,13 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
                       disabled={isFree}
                       className="h-9"
                     />
-                    <Select items={CURRENCY_ITEMS} value={currency} onValueChange={(v) => v && setCurrency(v as "USD" | "INR")}>
-                      <SelectTrigger disabled={isFree} className="h-9 w-24 shrink-0"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="INR">INR</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      items={CURRENCY_ITEMS}
+                      value={currency}
+                      onValueChange={(v) => setCurrency(v as "USD" | "INR")}
+                      disabled={isFree}
+                      className="h-9 w-24 shrink-0"
+                    />
                   </div>
                   <label className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Checkbox checked={isFree} onCheckedChange={(v) => { setIsFree(!!v); if (v) setAmount(""); }} />
@@ -213,13 +213,14 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="eb-assignee">Assign to (optional)</label>
-                  <Select items={memberItems} value={assignedTo} onValueChange={(v) => v && setAssignedTo(v)}>
-                    <SelectTrigger id="eb-assignee" className="h-9 w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                      {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    id="eb-assignee"
+                    items={memberItems}
+                    value={assignedTo}
+                    onValueChange={setAssignedTo}
+                    placeholder="Unassigned"
+                    className="h-9 w-full"
+                  />
                 </div>
                 {error && <p className="text-xs text-error-600">{error}</p>}
               </div>
@@ -277,13 +278,13 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-2">
                   <span className="text-xs font-medium text-muted-foreground">{selected.size} selected</span>
-                  <Select items={memberItems} value={bulkAssignTarget} onValueChange={(v) => v && pickBulkTarget(v)}>
-                    <SelectTrigger className="h-7"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                      {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    items={memberItems}
+                    value={bulkAssignTarget}
+                    onValueChange={pickBulkTarget}
+                    placeholder="Unassigned"
+                    className="h-7 w-44"
+                  />
                   <Button type="button" size="sm" variant="outline" disabled={!selected.size} onClick={() => applyBulkAssign()} title="Re-apply the picked name to whatever's currently checked">
                     Apply to selected
                   </Button>
@@ -314,13 +315,13 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
                           <td className="px-2 py-1.5 text-muted-foreground">{row.domain_rating || "—"}</td>
                           <td className="max-w-[160px] truncate px-2 py-1.5 text-muted-foreground" title={row.backlink_url}>{row.backlink_url}</td>
                           <td className="px-2 py-1.5">
-                            <Select items={memberItems} value={rowAssignments[row.tempId] ?? UNASSIGNED} onValueChange={(v) => v && setRowAssignments((prev) => ({ ...prev, [row.tempId]: v }))}>
-                              <SelectTrigger className="h-7 w-full"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                                {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <Combobox
+                              items={memberItems}
+                              value={rowAssignments[row.tempId] ?? UNASSIGNED}
+                              onValueChange={(v) => setRowAssignments((prev) => ({ ...prev, [row.tempId]: v }))}
+                              placeholder="Unassigned"
+                              className="h-7"
+                            />
                           </td>
                         </tr>
                       ))}

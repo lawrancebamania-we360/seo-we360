@@ -11,7 +11,7 @@
 import { useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 
 const PRESETS: { key: string; label: string }[] = [
@@ -45,12 +45,13 @@ export function BacklinkDateFilter({ range, start, end }: { range: string; start
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-medium text-muted-foreground">Date filter</span>
-      <Select items={PRESETS.map((p) => ({ value: p.key, label: p.label }))} value={range} onValueChange={(v) => v && update(v === "custom" ? { range: v } : { range: v, start: null, end: null })}>
-        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {PRESETS.map((p) => <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
+      <Combobox
+        items={PRESETS.map((p) => ({ value: p.key, label: p.label }))}
+        value={range}
+        onValueChange={(v) => update(v === "custom" ? { range: v } : { range: v, start: null, end: null })}
+        placeholder="All time"
+        className="h-8 w-fit"
+      />
 
       {range === "custom" && (
         <>

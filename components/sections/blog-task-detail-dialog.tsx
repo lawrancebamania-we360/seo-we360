@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { competitionColor, priorityColor, initials, formatNumber, stripTaskKey, stripTaskPrefix, formatVolume, taskTypeBadgeClass, taskKindLabel, isCommunityPostBrief } from "@/lib/ui-helpers";
 import { updateTask, deleteTask } from "@/lib/actions/tasks";
 import { ByokDialog } from "@/components/sections/byok-dialog";
@@ -666,47 +666,36 @@ function BlogTaskContent({
               <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
                 Assigned to
               </Label>
-              <Select
-                value={assignee || "__unassigned"}
-                onValueChange={(v) => setAssignee(v === "__unassigned" ? "" : (v ?? ""))}
-              >
-                <SelectTrigger className="w-full h-8">
-                  {/* Render-function child resolves the UUID to a name. */}
-                  <SelectValue>
-                    {(value: string | null) => {
-                      if (!value || value === "__unassigned") return "Unassigned";
-                      return members.find((m) => m.id === value)?.name ?? value;
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__unassigned">Unassigned</SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.id} value={m.id} label={m.name}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
-                          {initials(m.name)}
-                        </span>
-                        {m.name}
+              <Combobox
+                items={[
+                  { value: "__unassigned", label: "Unassigned" },
+                  ...members.map((m) => ({
+                    value: m.id,
+                    label: m.name,
+                    icon: (
+                      <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
+                        {initials(m.name)}
                       </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    ),
+                  })),
+                ]}
+                value={assignee || "__unassigned"}
+                onValueChange={(v) => setAssignee(v === "__unassigned" ? "" : v)}
+                placeholder="Unassigned"
+                className="h-8 w-full"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
                 Priority
               </Label>
-              <Select items={PRIORITY_ITEMS} value={priority} onValueChange={(v) => v && setPriority(v as typeof priority)}>
-                <SelectTrigger className="w-full h-8"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="critical">Critical</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
+              <Combobox
+                items={PRIORITY_ITEMS}
+                value={priority}
+                onValueChange={(v) => setPriority(v as typeof priority)}
+                placeholder="Priority"
+                className="h-8 w-full"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
@@ -770,21 +759,13 @@ function BlogTaskContent({
               <Label className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground shrink-0">
                 Move to
               </Label>
-              <Select
+              <Combobox
                 items={STATUS_ITEMS}
                 value={task.status}
-                onValueChange={(v) => v && moveStage(v as "todo" | "in_progress" | "done")}
-              >
-                <SelectTrigger className="w-44 h-8" disabled={pending}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todo">💡 Idea</SelectItem>
-                  <SelectItem value="in_progress">⚡ In progress</SelectItem>
-                  <SelectItem value="review">✓ Done</SelectItem>
-                  <SelectItem value="done">✨ Published</SelectItem>
-                </SelectContent>
-              </Select>
+                onValueChange={(v) => moveStage(v as "todo" | "in_progress" | "done")}
+                disabled={pending}
+                className="h-8 w-44"
+              />
             </div>
           )}
         </div>

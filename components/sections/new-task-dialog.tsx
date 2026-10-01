@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { createTask } from "@/lib/actions/tasks";
 import type { Profile } from "@/lib/types/database";
 
@@ -86,31 +86,23 @@ export function NewTaskDialog({ projectId, members }: { projectId: string; membe
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Priority</Label>
-              <Select items={PRIORITY_ITEMS} value={priority} onValueChange={(v) => v && setPriority(v as typeof priority)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="critical">Critical</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
+              <Combobox
+                items={PRIORITY_ITEMS}
+                value={priority}
+                onValueChange={(v) => setPriority(v as typeof priority)}
+                placeholder="Priority"
+                className="h-8 w-fit"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Assign to</Label>
-              <Select
+              <Combobox
                 items={[{ value: "__unassigned", label: "Unassigned" }, ...members.map((m) => ({ value: m.id, label: m.name }))]}
                 value={assignee || "__unassigned"}
-                onValueChange={(v) => setAssignee(v === "__unassigned" ? "" : (v ?? ""))}
-              >
-                <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__unassigned">Unassigned</SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onValueChange={(v) => setAssignee(v === "__unassigned" ? "" : v)}
+                placeholder="Unassigned"
+                className="h-8 w-fit"
+              />
             </div>
           </div>
           <div className="space-y-1.5">

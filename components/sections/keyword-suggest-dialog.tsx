@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 
 type Provider = "claude" | "openai";
 
@@ -130,13 +130,13 @@ export function KeywordSuggestDialog({
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Provider</Label>
-            <Select items={PROVIDER_ITEMS} value={provider} onValueChange={(v) => v && setProvider(v as Provider)}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="claude">Anthropic Claude (claude-opus-4-7)</SelectItem>
-                <SelectItem value="openai">OpenAI (gpt-4o)</SelectItem>
-              </SelectContent>
-            </Select>
+            <Combobox
+              items={PROVIDER_ITEMS}
+              value={provider}
+              onValueChange={(v) => setProvider(v as Provider)}
+              placeholder="Provider"
+              className="h-8 w-full"
+            />
           </div>
 
           <div className="space-y-1.5">

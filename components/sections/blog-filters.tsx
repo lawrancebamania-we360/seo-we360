@@ -5,7 +5,7 @@ import { useEffect, useRef, useTransition } from "react";
 import { ShieldCheck, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { FilterShell, FilterSidebar } from "@/components/sections/filter-shell";
 import { useGlobalLoading } from "@/components/dashboard/global-loading";
@@ -25,8 +25,8 @@ interface SidebarProps {
   reviewers: Member[];
 }
 
-// Due-window value → human label. Base UI's <SelectValue> renders the raw
-// value otherwise (so picking "This week" showed "upcoming" on the trigger).
+// Due-window value → human label, also doubling as the Combobox items list
+// (order here is the order shown in the dropdown).
 const RANGE_LABELS: Record<string, string> = {
   all: "All",
   today: "Today",
@@ -37,6 +37,7 @@ const RANGE_LABELS: Record<string, string> = {
   overdue: "Overdue",
   custom: "Custom range",
 };
+const RANGE_ITEMS = Object.entries(RANGE_LABELS).map(([value, label]) => ({ value, label }));
 
 function useFilterState() {
   const router = useRouter();
@@ -121,52 +122,35 @@ function FilterFields({
       </Field>
 
       <Field label="Assigned to">
-        <Select value={state.assignee} onValueChange={(v) => v && state.update("assignee", v)}>
-          <SelectTrigger className="w-full h-8">
-            <SelectValue>
-              {(value: string | null) => {
-                if (!value || value === "all") return "Everyone";
-                if (value === "unassigned") return "Unassigned";
-                return members.find((m) => m.id === value)?.name ?? value;
-              }}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Everyone</SelectItem>
-            <SelectItem value="unassigned">Unassigned</SelectItem>
-            {members.map((m) => (
-              <SelectItem key={m.id} value={m.id} label={m.name}>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
-                    {initials(m.name)}
-                  </span>
-                  {m.name}
+        <Combobox
+          items={[
+            { value: "all", label: "Everyone" },
+            { value: "unassigned", label: "Unassigned" },
+            ...members.map((m) => ({
+              value: m.id,
+              label: m.name,
+              icon: (
+                <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
+                  {initials(m.name)}
                 </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+              ),
+            })),
+          ]}
+          value={state.assignee}
+          onValueChange={(v) => state.update("assignee", v)}
+          placeholder="Everyone"
+          className="w-full h-8"
+        />
       </Field>
 
       <Field label="Due window">
-        <Select value={state.range} onValueChange={(v) => v && state.update("range", v)}>
-          <SelectTrigger className="w-full h-8">
-            {/* Render-function maps the raw value to its human label. */}
-            <SelectValue>
-              {(value: string | null) => RANGE_LABELS[value ?? "all"] ?? "All"}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="today">Today</SelectItem>
-            <SelectItem value="upcoming">This week</SelectItem>
-            <SelectItem value="30d">Next 30 days</SelectItem>
-            <SelectItem value="60d">Next 60 days</SelectItem>
-            <SelectItem value="90d">Next 90 days</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="custom">Custom range</SelectItem>
-          </SelectContent>
-        </Select>
+        <Combobox
+          items={RANGE_ITEMS}
+          value={state.range}
+          onValueChange={(v) => state.update("range", v)}
+          placeholder="All"
+          className="w-full h-8"
+        />
       </Field>
 
       {state.range === "custom" && (

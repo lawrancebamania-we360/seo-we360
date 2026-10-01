@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { inviteTeamMember } from "@/lib/actions/team";
@@ -102,15 +102,19 @@ export function InviteDialog({ projects, canInviteAdmin }: Props) {
           </div>
           <div className="space-y-1.5">
             <Label>Role</Label>
-            <Select value={role} onValueChange={(v) => v && setRole(v as typeof role)}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="member">Member — agency team, assignable to tasks</SelectItem>
-                <SelectItem value="client">Client — project stakeholder, NOT assigned to tasks</SelectItem>
-                {canInviteAdmin && <SelectItem value="admin">Admin — full access across all projects</SelectItem>}
-                {canInviteAdmin && <SelectItem value="super_admin">Super Admin — can manage other admins</SelectItem>}
-              </SelectContent>
-            </Select>
+            <Combobox
+              items={[
+                { value: "member", label: "Member — agency team, assignable to tasks" },
+                { value: "client", label: "Client — project stakeholder, NOT assigned to tasks" },
+                ...(canInviteAdmin ? [
+                  { value: "admin", label: "Admin — full access across all projects" },
+                  { value: "super_admin", label: "Super Admin — can manage other admins" },
+                ] : []),
+              ]}
+              value={role}
+              onValueChange={(v) => setRole(v as typeof role)}
+              className="w-full h-8"
+            />
           </div>
 
           {(role === "member" || role === "client") && (

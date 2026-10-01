@@ -16,9 +16,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -799,29 +797,24 @@ function CreateTaskDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Assign to</Label>
-              <Select value={ownerId} onValueChange={(v) => v && setOwnerId(v)}>
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue>
-                    {(value: string | null) => {
-                      if (!value || value === "__none") return <span className="text-muted-foreground">(unassigned)</span>;
-                      return members.find((m) => m.id === value)?.name ?? value;
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none">(unassigned)</SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.id} value={m.id} label={m.name}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
-                          {initials(m.name)}
-                        </span>
-                        {m.name}
+              <Combobox
+                items={[
+                  { value: "__none", label: "(unassigned)" },
+                  ...members.map((m) => ({
+                    value: m.id,
+                    label: m.name,
+                    icon: (
+                      <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
+                        {initials(m.name)}
                       </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    ),
+                  })),
+                ]}
+                value={ownerId}
+                onValueChange={setOwnerId}
+                placeholder="(unassigned)"
+                className="w-full h-9"
+              />
             </div>
 
             {/* Due date — defaults to today + 14d so the task shows up on the

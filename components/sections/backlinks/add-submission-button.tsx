@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { addBacklinkSubmission, addBacklinkWebsite, previewBacklinksImport, commitBacklinksImport } from "@/lib/actions/backlinks";
 import type { Member } from "@/components/sections/assignee-picker";
 
@@ -216,13 +216,14 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
                       <Button type="button" size="sm" variant="outline" onClick={() => setAddingPlatform(false)} disabled={platformBusy}>Cancel</Button>
                     </div>
                   ) : (
-                    <Select items={websiteItems} value={websiteId} onValueChange={(v) => { if (v === ADD_NEW) setAddingPlatform(true); else if (v) setWebsiteId(v); }}>
-                      <SelectTrigger id="add-submission-website" className="h-9 w-full"><SelectValue placeholder="Pick a platform" /></SelectTrigger>
-                      <SelectContent>
-                        {localWebsites.map((w) => <SelectItem key={w.id} value={w.id}>{w.domain}</SelectItem>)}
-                        <SelectItem value={ADD_NEW}>+ Add new platform</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      id="add-submission-website"
+                      items={websiteItems}
+                      value={websiteId}
+                      onValueChange={(v) => { if (v === ADD_NEW) setAddingPlatform(true); else setWebsiteId(v); }}
+                      placeholder="Pick a platform"
+                      className="h-9 w-full"
+                    />
                   )}
                 </div>
                 <div>
@@ -243,13 +244,14 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="add-submission-assignee">Assign to (optional)</label>
-                  <Select items={memberItems} value={assignedTo} onValueChange={(v) => v && setAssignedTo(v)}>
-                    <SelectTrigger id="add-submission-assignee" className="h-9 w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                      {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    id="add-submission-assignee"
+                    items={memberItems}
+                    value={assignedTo}
+                    onValueChange={setAssignedTo}
+                    placeholder="Unassigned"
+                    className="h-9 w-full"
+                  />
                 </div>
                 {error && <p className="text-xs text-error-600">{error}</p>}
               </div>
@@ -307,13 +309,7 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-2">
                   <span className="text-xs font-medium text-muted-foreground">{selected.size} selected</span>
-                  <Select items={memberItems} value={bulkAssignTarget} onValueChange={(v) => v && pickBulkTarget(v)}>
-                    <SelectTrigger className="h-7"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                      {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox items={memberItems} value={bulkAssignTarget} onValueChange={pickBulkTarget} placeholder="Unassigned" className="h-7 w-44" />
                   <Button type="button" size="sm" variant="outline" disabled={!selected.size} onClick={() => applyBulkAssign()} title="Re-apply the picked name to whatever's currently checked">
                     Apply to selected
                   </Button>
@@ -342,13 +338,13 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
                           <td className="px-2 py-1.5 text-muted-foreground">{row.submission_date}</td>
                           <td className="max-w-[160px] truncate px-2 py-1.5 text-muted-foreground" title={row.submission_url}>{row.submission_url}</td>
                           <td className="px-2 py-1.5">
-                            <Select items={memberItems} value={rowAssignments[row.tempId] ?? UNASSIGNED} onValueChange={(v) => v && setRowAssignments((prev) => ({ ...prev, [row.tempId]: v }))}>
-                              <SelectTrigger className="h-7 w-full"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                                {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <Combobox
+                              items={memberItems}
+                              value={rowAssignments[row.tempId] ?? UNASSIGNED}
+                              onValueChange={(v) => setRowAssignments((prev) => ({ ...prev, [row.tempId]: v }))}
+                              placeholder="Unassigned"
+                              className="h-7"
+                            />
                           </td>
                         </tr>
                       ))}

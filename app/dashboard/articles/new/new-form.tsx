@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import { ByokDialog } from "@/components/sections/byok-dialog";
 import { competitionColor, formatNumber } from "@/lib/ui-helpers";
@@ -98,17 +98,14 @@ export function NewArticleForm({ projectId, keywords, initialKeywordId, initialK
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Pick from tracked keywords</Label>
-            <Select value={keywordId} onValueChange={onKeywordChange}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Choose a keyword..." /></SelectTrigger>
-              <SelectContent>
-                {keywords.length === 0 && <div className="p-2 text-xs text-muted-foreground">No keywords tracked yet</div>}
-                {keywords.map((k) => (
-                  <SelectItem key={k.id} value={k.id}>
-                    {k.keyword}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              items={keywords.map((k) => ({ value: k.id, label: k.keyword }))}
+              value={keywordId}
+              onValueChange={onKeywordChange}
+              placeholder="Choose a keyword..."
+              emptyText="No keywords tracked yet"
+              className="w-full h-8"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Or enter manually</Label>

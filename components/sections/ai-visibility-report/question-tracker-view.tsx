@@ -19,9 +19,7 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
 import type { QuestionHistory, QuestionRow } from "@/lib/ai-citation/question-tracker";
 import { fetchQuestionHistory, setQuestionBrandOfInterest } from "@/lib/actions/ai-visibility-questions";
@@ -200,19 +198,16 @@ export function QuestionTrackerView({ questions, projectId, canManage, competito
                 {canManage && (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-medium text-muted-foreground">Brand of interest</span>
-                    <Select value={watched ?? OWN_BRAND} onValueChange={(v) => v && changeBrand(q.promptId, v as string)}>
-                      <SelectTrigger size="sm" className="min-w-[12rem]">
-                        <SelectValue>
-                          {(v) => (v === OWN_BRAND || !v ? projectLabel : competitors.find((c) => c.id === v)?.name ?? "Competitor")}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={OWN_BRAND}>{projectLabel} (your brand)</SelectItem>
-                        {competitors.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      items={[
+                        { value: OWN_BRAND, label: `${projectLabel} (your brand)` },
+                        ...competitors.map((c) => ({ value: c.id, label: c.name })),
+                      ]}
+                      value={watched ?? OWN_BRAND}
+                      onValueChange={(v) => changeBrand(q.promptId, v)}
+                      placeholder={projectLabel}
+                      className="h-7 w-fit min-w-[12rem]"
+                    />
                     <span className="text-xs text-muted-foreground">
                       Only tracked competitors — those are the brands already detected in the stored answers, so history switches instantly.
                     </span>

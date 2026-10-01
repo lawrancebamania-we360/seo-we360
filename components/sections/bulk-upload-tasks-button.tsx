@@ -15,13 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { bulkCreateBlogTasks, type BulkBlogTaskRow } from "@/lib/actions/tasks";
 import { initials } from "@/lib/ui-helpers";
 import type { Profile } from "@/lib/types/database";
@@ -199,45 +193,30 @@ export function BulkUploadTasksButton({ projectId, members, canAssignToOthers, c
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Format</Label>
-                <Select value={format} onValueChange={(v) => v && setFormat(v)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue>
-                      {(value: string | null) =>
-                        !value || value === NONE
-                          ? <span className="text-muted-foreground">(optional)</span>
-                          : FORMAT_OPTIONS.find((o) => o.value === value)?.label ?? value
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>(optional)</SelectItem>
-                    {FORMAT_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value} label={o.label}>{o.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  items={[{ value: NONE, label: "(optional)" }, ...FORMAT_OPTIONS]}
+                  value={format}
+                  onValueChange={setFormat}
+                  placeholder="(optional)"
+                  className="w-full h-9"
+                />
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Priority</Label>
-                <Select value={priority} onValueChange={(v) => v && setPriority(v)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue>
-                      {(value: string | null) =>
-                        !value || value === NONE
-                          ? <span className="text-muted-foreground">(optional)</span>
-                          : value.charAt(0).toUpperCase() + value.slice(1)
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>(optional)</SelectItem>
-                    <SelectItem value="critical">Critical</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  items={[
+                    { value: NONE, label: "(optional)" },
+                    { value: "critical", label: "Critical" },
+                    { value: "high", label: "High" },
+                    { value: "medium", label: "Medium" },
+                    { value: "low", label: "Low" },
+                  ]}
+                  value={priority}
+                  onValueChange={setPriority}
+                  placeholder="(optional)"
+                  className="w-full h-9"
+                />
               </div>
             </div>
 
@@ -258,29 +237,24 @@ export function BulkUploadTasksButton({ projectId, members, canAssignToOthers, c
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Assign to</Label>
                 {canAssignToOthers ? (
-                  <Select value={assignee} onValueChange={(v) => v && setAssignee(v)}>
-                    <SelectTrigger className="w-full h-9">
-                      <SelectValue>
-                        {(value: string | null) => {
-                          if (!value || value === NONE) return <span className="text-muted-foreground">(optional)</span>;
-                          return members.find((m) => m.id === value)?.name ?? value;
-                        }}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>(optional)</SelectItem>
-                      {members.map((m) => (
-                        <SelectItem key={m.id} value={m.id} label={m.name}>
-                          <span className="inline-flex items-center gap-1.5">
-                            <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
-                              {initials(m.name)}
-                            </span>
-                            {m.name}
+                  <Combobox
+                    items={[
+                      { value: NONE, label: "(optional)" },
+                      ...members.map((m) => ({
+                        value: m.id,
+                        label: m.name,
+                        icon: (
+                          <span className="size-4 rounded-full bg-muted text-[8px] inline-flex items-center justify-center font-medium">
+                            {initials(m.name)}
                           </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        ),
+                      })),
+                    ]}
+                    value={assignee}
+                    onValueChange={setAssignee}
+                    placeholder="(optional)"
+                    className="w-full h-9"
+                  />
                 ) : (
                   // Members can only assign to themselves. Show a read-only
                   // chip so they know what's happening without a dropdown.

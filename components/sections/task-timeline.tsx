@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { TaskDetailDialog } from "@/components/sections/task-detail-dialog";
 import { BlogTaskDetailDialog } from "@/components/sections/blog-task-detail-dialog";
@@ -572,20 +572,14 @@ function FilterPill({
   placeholder: string;
   options: Array<{ value: string; label: string }>;
 }) {
-  const matched = options.find((o) => o.value === value);
   return (
-    <Select value={value} onValueChange={(v) => v && onValueChange(v)}>
-      <SelectTrigger className="h-9 px-3 text-xs font-medium bg-white dark:bg-card border-[#E5E7EB] hover:border-[#5B45E0]/40 hover:text-[#231D4F] data-[state=open]:border-[#5B45E0] data-[state=open]:bg-[#F0ECFF] rounded-md transition-colors min-w-[140px] [&>svg]:text-[#7E8492]">
-        <SelectValue placeholder={placeholder}>
-          <span className="text-[#231D4F] dark:text-white">{matched?.label ?? placeholder}</span>
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((o) => (
-          <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Combobox
+      items={options}
+      value={value}
+      onValueChange={onValueChange}
+      placeholder={placeholder}
+      className="h-9 w-fit px-3 text-xs font-medium bg-white dark:bg-card border-[#E5E7EB] hover:border-[#5B45E0]/40 hover:text-[#231D4F] data-[state=open]:border-[#5B45E0] data-[state=open]:bg-[#F0ECFF] rounded-md transition-colors min-w-[140px] [&>svg]:text-[#7E8492]"
+    />
   );
 }
 
