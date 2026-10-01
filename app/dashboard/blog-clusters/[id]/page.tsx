@@ -7,6 +7,7 @@ import { getTeamMembers } from "@/lib/data/tasks";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { BlogClusterTable } from "@/components/sections/blog-clusters/blog-cluster-table";
+import { DeleteClusterButton } from "@/components/sections/blog-clusters/delete-cluster-button";
 
 export default async function BlogClusterDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,6 +28,7 @@ export default async function BlogClusterDetailPage({ params }: { params: Promis
       <PageHeader
         title={cluster.clusterName}
         description={`${cluster.items.length} planned post${cluster.items.length === 1 ? "" : "s"}. Click a row for the full brief - keywords, SERP verdict, interlinks. Assign a writer to turn a row into a real Sprint task.`}
+        actions={ctx.canManageTeam ? <DeleteClusterButton projectId={ctx.activeProject.id} clusterId={cluster.id} clusterName={cluster.clusterName} /> : null}
       />
 
       <BlogClusterTable clusterName={cluster.clusterName} items={cluster.items} members={members} canManage={ctx.canManageTeam} />

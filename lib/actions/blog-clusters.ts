@@ -316,3 +316,30 @@ export async function assignClusterItem(input: z.infer<typeof AssignInput>): Pro
   revalidatePath(`/dashboard/blog-clusters/${item.cluster_id}`);
   return { ok: true, taskId };
 }
+
+// ---- Delete a cluster -------------------------------------------------
+
+const DeleteClusterInput = z.object({
+  project_id: z.string().uuid(),
+  cluster_id: z.string().uuid(),
+});
+
+/**
+ * Deletes the cluster and every planned row in it (topic_cluster_items has
+ * ON DELETE CASCADE on cluster_id). Any row already promoted to a real
+ * Sprint task is left alone - deleting the plan shouldn't delete a writer's
+ * in-progress work, only the item row that pointed at it.
+ */
+export async function deleteBlogCluster(input: z.infer<typeof DeleteClusterInput>): Promise<{ ok: boolean; error?: string }> {
+  const { project_id, cluster_id } = DeleteClusterInput.parse(input);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { error } = await supabase
+    .from("topic_clusters").delete().eq("id", cluster_id).eq("project_id", project_id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard/blog-clusters");
+  return { ok: true };
+}
