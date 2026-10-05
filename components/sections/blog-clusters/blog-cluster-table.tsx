@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { liveUrlFromSlug } from "@/lib/url";
 import { ClusterItemAssignee } from "@/components/sections/blog-clusters/cluster-item-assignee";
 import type { BlogClusterItemRow } from "@/lib/data/blog-clusters";
 import type { Member } from "@/components/sections/assignee-picker";
@@ -73,11 +74,12 @@ async function copyText(text: string, successMessage: string) {
   }
 }
 
-export function BlogClusterTable({ clusterName, items, members, canManage }: {
+export function BlogClusterTable({ clusterName, items, members, canManage, siteDomain }: {
   clusterName: string;
   items: BlogClusterItemRow[];
   members: Member[];
   canManage: boolean;
+  siteDomain: string;
 }) {
   const [openItem, setOpenItem] = useState<BlogClusterItemRow | null>(null);
 
@@ -243,7 +245,7 @@ export function BlogClusterTable({ clusterName, items, members, canManage }: {
                   <DetailSection label="URL slug">
                     <span className="inline-flex items-center gap-1.5">
                       {openItem.urlSlug}
-                      <a href={openItem.urlSlug.startsWith("http") ? openItem.urlSlug : `https://${openItem.urlSlug}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
+                      <a href={liveUrlFromSlug(openItem.urlSlug, siteDomain)} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
                         <ExternalLink className="size-3" />
                       </a>
                     </span>

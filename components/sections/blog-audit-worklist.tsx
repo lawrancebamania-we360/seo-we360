@@ -28,6 +28,7 @@ import type { BlogAuditFinding, BlogAuditDecision, AuditFindingStatus } from "@/
 import type { Profile } from "@/lib/types/database";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
 import type { UrlMetric, UrlTopQuery, UrlTopReferrer } from "@/lib/types/url-metrics";
+import { toExternalUrl } from "@/lib/url";
 
 // ===== Display labels =====
 // Internal decision names stay "prune" / "refresh" / "merge" / "keep" in the
@@ -336,7 +337,7 @@ function FindingRow({
           </Badge>
           <StatusBadge status={finding.status} daysSinceTaskPublished={finding.daysSinceTaskPublished} />
           <a
-            href={finding.url}
+            href={toExternalUrl(finding.url)}
             target="_blank"
             rel="noreferrer"
             onClick={(e) => e.stopPropagation()}
@@ -476,7 +477,7 @@ function FindingDetailDialog({
             <StatusBadge status={finding.status} daysSinceTaskPublished={finding.daysSinceTaskPublished} />
           </DialogTitle>
           <DialogDescription>
-            <a href={finding.url} target="_blank" rel="noreferrer" className="font-medium text-foreground hover:underline break-all">
+            <a href={toExternalUrl(finding.url)} target="_blank" rel="noreferrer" className="font-medium text-foreground hover:underline break-all">
               {finding.url}
             </a>
             <ExternalLink className="size-3 inline ml-1 text-muted-foreground" />
@@ -505,7 +506,7 @@ function FindingDetailDialog({
                 </div>
               </div>
               <a
-                href={finding.mergeTarget.url}
+                href={toExternalUrl(finding.mergeTarget.url)}
                 target="_blank"
                 rel="noreferrer"
                 className="block text-sm font-medium hover:underline break-all"

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { updateTask } from "@/lib/actions/tasks";
+import { toExternalUrl } from "@/lib/url";
 
 interface Props {
   taskId: string;
@@ -95,7 +96,7 @@ export function SupportingLinksEditor({ taskId, links, canEdit, onChange }: Prop
               >
                 <Icon className="size-3 text-muted-foreground shrink-0" />
                 <a
-                  href={url}
+                  href={toExternalUrl(url)}
                   target="_blank"
                   rel="noreferrer"
                   className="text-foreground hover:underline truncate max-w-[200px]"

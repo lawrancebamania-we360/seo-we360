@@ -25,7 +25,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { hostFromUrl, cleanHost } from "@/lib/url";
+import { hostFromUrl, cleanHost, normalizeStoredUrl, toExternalUrl, urlVariants } from "@/lib/url";
 
 const HEADER_MAP: Record<string, string> = {
   "website": "website",
@@ -266,7 +266,8 @@ export async function commitBacklinksImport(input: z.infer<typeof CommitInput>):
       .select("id")
       .eq("website_id", websiteId)
       .eq("submission_date", date)
-      .eq("submission_url", row.submission_url)
+      .in("submission_url", urlVariants(row.submission_url))
+      .limit(1)
       .maybeSingle();
     if (dup) { itemsSkipped++; continue; }
 
@@ -282,7 +283,7 @@ export async function commitBacklinksImport(input: z.infer<typeof CommitInput>):
       website_id: websiteId,
       project_id,
       submission_date: date,
-      submission_url: row.submission_url,
+      submission_url: normalizeStoredUrl(row.submission_url) ?? row.submission_url,
       blog_post_url: blogPostUrl,
       blog_post_label: blogPostLabel,
       topic_name: row.topic_name.trim() || null,
@@ -436,7 +437,7 @@ export async function verifyBacklinkSubmission(input: z.infer<typeof VerifySubmi
 
   try {
     const { fetchPage } = await import("@/lib/seo-skills/fetch");
-    const page = await fetchPage(submission.submission_url, 12000);
+    const page = await fetchPage(toExternalUrl(submission.submission_url) ?? submission.submission_url, 12000);
     if (page.statusCode >= 400) {
       status = "not_found";
       note = `Page returned HTTP ${page.statusCode}.`;
@@ -516,7 +517,8 @@ export async function addBacklinkSubmission(input: z.infer<typeof AddSubmissionI
     .select("id")
     .eq("website_id", website_id)
     .eq("submission_date", date)
-    .eq("submission_url", submission_url)
+    .in("submission_url", urlVariants(submission_url))
+    .limit(1)
     .maybeSingle();
   if (dup) return { ok: false, error: "This exact submission (same platform, date, and link) is already logged.", duplicate: true };
 
@@ -543,7 +545,7 @@ export async function addBacklinkSubmission(input: z.infer<typeof AddSubmissionI
     website_id,
     project_id,
     submission_date: date,
-    submission_url,
+    submission_url: normalizeStoredUrl(submission_url) ?? submission_url,
     blog_post_url: blogPostUrl,
     blog_post_label: blogPostLabel,
     topic_name: (topic_name ?? "").trim() || null,

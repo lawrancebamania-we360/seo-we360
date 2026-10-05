@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toggleTaskDone, deleteTask } from "@/lib/actions/tasks";
 import { UrlMetricsChip } from "@/components/sections/url-metrics-chip";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
+import { pathFromUrl, toExternalUrl } from "@/lib/url";
 
 export function TaskRow({ task, canComplete, canDelete }: { task: TaskWithAssignee; canComplete: boolean; canDelete: boolean }) {
   const [pending, start] = useTransition();
@@ -78,13 +79,13 @@ export function TaskRow({ task, canComplete, canDelete }: { task: TaskWithAssign
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {task.url && (
             <a
-              href={task.url}
+              href={toExternalUrl(task.url)}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1 hover:text-foreground"
             >
               <ExternalLink className="size-3" />
-              {new URL(task.url).pathname}
+              {pathFromUrl(toExternalUrl(task.url) ?? task.url, task.url)}
             </a>
           )}
           {/* Live GSC + GA4 chip — only shows once url_metrics has data for

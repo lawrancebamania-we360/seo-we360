@@ -9,6 +9,7 @@
 import { useMemo, useState } from "react";
 import { ExternalLink, ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { toExternalUrl } from "@/lib/url";
 import { InfluencerCollabActions } from "@/components/sections/influencer-collabs/influencer-collab-actions";
 import type { InfluencerCollabRow } from "@/lib/data/influencer-collabs";
 import type { Member } from "@/components/sections/assignee-picker";
@@ -133,11 +134,11 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
               </td>
               <td className="px-3 py-2.5">
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <a href={c.profileLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline hover:text-foreground" title="Open profile">
+                  <a href={toExternalUrl(c.profileLink)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline hover:text-foreground" title="Open profile">
                     Profile <ExternalLink className="size-3" />
                   </a>
                   {c.postLink && (
-                    <a href={c.postLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline hover:text-foreground" title="Open post">
+                    <a href={toExternalUrl(c.postLink)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline hover:text-foreground" title="Open post">
                       Post <ExternalLink className="size-3" />
                     </a>
                   )}

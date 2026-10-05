@@ -16,6 +16,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { toExternalUrl } from "@/lib/url";
 import type { BacklinkWebsiteSummary } from "@/lib/data/backlinks";
 
 type SortKey = "domain" | "submissionCount" | "lastSubmissionTopic" | "lastSubmissionDate" | "lastSubmissionUrl" | "lastSubmissionAssigneeName";
@@ -139,7 +140,7 @@ export function BacklinkWebsiteTable({ websites }: { websites: BacklinkWebsiteSu
               <td className="max-w-[220px] truncate px-3 py-2.5 text-right text-muted-foreground">
                 {w.lastSubmissionUrl ? (
                   <a
-                    href={w.lastSubmissionUrl}
+                    href={toExternalUrl(w.lastSubmissionUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}

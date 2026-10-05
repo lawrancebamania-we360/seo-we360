@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { DomainFavicon } from "@/components/dashboard/domain-favicon";
 import { OTHER_DOMAIN, type QuestionFlag, type QuestionHistory, type SourceMatrix } from "@/lib/ai-citation/question-tracker";
 import { setQuestionSourceFlag } from "@/lib/actions/ai-visibility-questions";
+import { toExternalUrl } from "@/lib/url";
 
 // Chart styling is defined locally rather than imported from lib/chart-theme,
 // and deliberately uses ONLY design tokens that already exist on main
@@ -282,7 +283,7 @@ function SourceBrandTable({ matrix }: { matrix: SourceMatrix }) {
                   <span className="inline-flex items-center gap-1.5">
                     <DomainFavicon domain={r.domain} size={16} />
                     {r.sampleUrl ? (
-                      <a href={r.sampleUrl} target="_blank" rel="noopener noreferrer"
+                      <a href={toExternalUrl(r.sampleUrl)} target="_blank" rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
                         title={r.sampleTitle ?? r.sampleUrl}
                         className="inline-flex items-center gap-0.5 max-w-[22ch] truncate font-medium hover:underline">

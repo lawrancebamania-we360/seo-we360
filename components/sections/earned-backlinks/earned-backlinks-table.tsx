@@ -9,6 +9,7 @@
 import { useMemo, useState } from "react";
 import { ExternalLink, ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { toExternalUrl } from "@/lib/url";
 import { EarnedBacklinkActions } from "@/components/sections/earned-backlinks/earned-backlink-actions";
 import type { EarnedBacklinkRow } from "@/lib/data/earned-backlinks";
 import type { Member } from "@/components/sections/assignee-picker";
@@ -135,7 +136,7 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage }
               </td>
               <td className="max-w-[260px] truncate px-3 py-2.5 text-muted-foreground">
                 <a
-                  href={b.backlinkUrl}
+                  href={toExternalUrl(b.backlinkUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 hover:underline hover:text-foreground"

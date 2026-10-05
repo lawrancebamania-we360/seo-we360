@@ -2,7 +2,7 @@
 // for the cluster list page and the per-cluster detail table.
 
 import { createClient } from "@/lib/supabase/server";
-import { cleanHost } from "@/lib/url";
+import { buildSitemapIndex, resolveSitemapUrl, toExternalUrl } from "@/lib/url";
 import type { UrlTopQuery } from "@/lib/data/url-metrics";
 import type { AnalyticsCompareRange } from "@/lib/data/analytics-range";
 
@@ -160,9 +160,9 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
 // "Published" is resolved two ways, in order: (1) the item's linked Sprint
 // task has a published_url - definitive; (2) else its pasted/AI-generated
 // url_slug is matched against the project's latest sitemap snapshot
-// (url_metrics_runs.url_list) - the exact cleanHost-keyed lookup pattern
-// lib/actions/backlinks.ts already uses to verify a Backlinks submission's
-// Blog Post reference. An item that resolves neither way was planned/
+// (url_metrics_runs.url_list), matched on host-less path (see lib/url.ts
+// resolveSitemapUrl - a bare slug, "host/path" and full URL all match). An
+// item that resolves neither way was planned/
 // uploaded but never actually published, and is excluded from the ranked
 // list (surfaced separately as "not yet published" so nothing silently
 // vanishes - see BlogClusterAnalytics.unpublishedCount).
@@ -187,7 +187,10 @@ export interface BlogClusterAnalytics {
   id: string;
   clusterName: string;
   totalCount: number;
+  /** Planned posts that aren't on the live sitemap yet. */
   unpublishedCount: number;
+  /** Live posts whose Search Console lookup failed, so they can't be ranked right now (kept countable, never silently dropped). */
+  rankingUnavailableCount: number;
   connected: boolean;
   reason?: string;
   items: BlogClusterAnalyticsItem[];
@@ -218,7 +221,7 @@ export async function getBlogClusterAnalytics(
     .order("position", { ascending: true });
   type ItemRow = { id: string; title: string; url_slug: string | null; task_id: string | null; tasks: { published_url: string | null } | null };
   const items = (itemsData ?? []) as unknown as ItemRow[];
-  const empty = { id: c.id, clusterName: c.cluster_name, totalCount: items.length, unpublishedCount: items.length, connected: true, items: [] };
+  const empty = { id: c.id, clusterName: c.cluster_name, totalCount: items.length, unpublishedCount: items.length, rankingUnavailableCount: 0, connected: true, items: [] };
   if (!items.length) return empty;
 
   const { data: latestRun } = await supabase
@@ -229,22 +232,25 @@ export async function getBlogClusterAnalytics(
     .limit(1)
     .maybeSingle();
   const sitemapUrls = (latestRun as { url_list: string[] | null } | null)?.url_list ?? [];
-  const sitemapByNormalized = new Map<string, string>();
-  for (const u of sitemapUrls) sitemapByNormalized.set(cleanHost(u, { lowercase: true }), u);
+  const sitemapIndex = buildSitemapIndex(sitemapUrls);
 
+  // Matched on host-less PATH, not the whole string: a planned post is usually
+  // stored as a bare slug ("my-post") while the sitemap holds
+  // "https://www.we360.ai/blog/my-post/", which a whole-string compare can
+  // never equal (only 2 of 107 items resolved before this).
   const resolved = new Map<string, string>(); // item.id -> live URL
   for (const it of items) {
-    const publishedUrl = it.tasks?.published_url?.trim();
+    const publishedUrl = toExternalUrl(it.tasks?.published_url);
     if (publishedUrl) { resolved.set(it.id, publishedUrl); continue; }
     if (it.url_slug) {
-      const match = sitemapByNormalized.get(cleanHost(it.url_slug, { lowercase: true }));
+      const match = resolveSitemapUrl(sitemapIndex, it.url_slug);
       if (match) resolved.set(it.id, match);
     }
   }
   if (!resolved.size) return empty;
 
   if (!siteUrl) {
-    return { id: c.id, clusterName: c.cluster_name, totalCount: items.length, unpublishedCount: items.length - resolved.size, connected: false, reason: "No GSC property URL on this project.", items: [] };
+    return { id: c.id, clusterName: c.cluster_name, totalCount: items.length, unpublishedCount: items.length - resolved.size, rankingUnavailableCount: 0, connected: false, reason: "No GSC property URL on this project.", items: [] };
   }
 
   const { getGscUrlSnapshotForRange } = await import("@/lib/google/gsc");
@@ -283,6 +289,7 @@ export async function getBlogClusterAnalytics(
     clusterName: c.cluster_name,
     totalCount: items.length,
     unpublishedCount: items.length - resolved.size,
+    rankingUnavailableCount: resolved.size - out.length,
     connected: true,
     items: out.sort((a, b) => (a.position || 999) - (b.position || 999)),
   };

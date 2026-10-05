@@ -23,6 +23,7 @@ import { CheckWithAIButton } from "@/components/sections/check-with-ai-button";
 import type { Profile } from "@/lib/types/database";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
 import { formatDistanceToNow, format } from "date-fns";
+import { toExternalUrl } from "@/lib/url";
 
 // Select.Value only auto-resolves a label when Select.Root gets an `items`
 // map - without it, the trigger shows the raw value (e.g. "none" instead of
@@ -226,7 +227,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, members, canEdit, o
             {task.url && (
               <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs flex items-center gap-2">
                 <ExternalLink className="size-3.5 text-muted-foreground" />
-                <a href={task.url} target="_blank" rel="noreferrer" className="truncate hover:underline">
+                <a href={toExternalUrl(task.url)} target="_blank" rel="noreferrer" className="truncate hover:underline">
                   {task.url}
                 </a>
               </div>

@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { GAP_BOARD, gapTaskMarker, gapTaskKind, type GapAction } from "@/lib/ai-citation/gap-tasks";
 import { findGapTask, createGapTask, type GapTaskRef } from "@/lib/actions/aiv-gap-tasks";
+import { toExternalUrl } from "@/lib/url";
 
 type Lookup =
   | { phase: "loading" }
@@ -166,7 +167,7 @@ export function GapActionModal({
               )}
               {gap.exampleUrl && (
                 <a
-                  href={gap.exampleUrl}
+                  href={toExternalUrl(gap.exampleUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 font-medium text-ember-600 hover:underline dark:text-ember-400"

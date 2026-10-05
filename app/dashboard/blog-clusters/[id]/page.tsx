@@ -31,7 +31,7 @@ export default async function BlogClusterDetailPage({ params }: { params: Promis
         actions={ctx.canManageTeam ? <DeleteClusterButton projectId={ctx.activeProject.id} clusterId={cluster.id} clusterName={cluster.clusterName} /> : null}
       />
 
-      <BlogClusterTable clusterName={cluster.clusterName} items={cluster.items} members={members} canManage={ctx.canManageTeam} />
+      <BlogClusterTable clusterName={cluster.clusterName} items={cluster.items} members={members} canManage={ctx.canManageTeam} siteDomain={ctx.activeProject.domain} />
     </div>
   );
 }

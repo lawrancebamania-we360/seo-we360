@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getLatestVerification, requeueTaskVerification } from "@/lib/actions/tasks";
 import type { TaskVerification, VerificationIssue } from "@/lib/types/verification";
+import { toExternalUrl } from "@/lib/url";
 
 // Side panel inside the task detail dialog. Shows the latest verification
 // breakdown — overall score, hard/soft fails, individual issues with
@@ -176,7 +177,7 @@ export function AiVerificationPanel({
           <ExternalLink className="size-3 text-muted-foreground" />
           <span className="text-muted-foreground">Verified against</span>
           <a
-            href={verification.source_url}
+            href={toExternalUrl(verification.source_url)}
             target="_blank"
             rel="noreferrer"
             className="font-medium hover:underline truncate"

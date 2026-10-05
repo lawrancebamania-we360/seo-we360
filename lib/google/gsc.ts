@@ -318,7 +318,25 @@ export async function getGscUrlSnapshot(siteUrl: string, pageUrl: string, daysAg
  * url_metrics snapshot's fixed windows. One live GSC call per published post
  * per period (current + previous) - real-time, not cached.
  */
+// Search Console reports a page under whichever spelling it was crawled
+// (this site's cached data has "https://we360.ai/blog/x", while the sitemap now
+// lists "https://www.we360.ai/blog/x/"), and an exact-match page filter on the
+// wrong spelling silently returns zero rows. Match the same page across
+// http/https, www/non-www and a trailing slash instead (RE2 regex).
+export function pageUrlRegex(pageUrl: string): string | null {
+  try {
+    const u = new URL(pageUrl);
+    const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const host = u.hostname.replace(/^www\./i, "");
+    const path = u.pathname.replace(/\/+$/, "");
+    return `^https?://(www\\.)?${esc(host)}${esc(path)}/?$`;
+  } catch {
+    return null;
+  }
+}
+
 export async function getGscUrlSnapshotForRange(siteUrl: string, pageUrl: string, range: { start: string; end: string }): Promise<GscUrlSnapshot> {
+  const pageRegex = pageUrlRegex(pageUrl);
   const token = await getGoogleAccessToken(SCOPE);
   const res = await fetch(
     `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
@@ -329,7 +347,9 @@ export async function getGscUrlSnapshotForRange(siteUrl: string, pageUrl: string
         startDate: range.start,
         endDate: range.end,
         dimensions: ["query"],
-        dimensionFilterGroups: [{ filters: [{ dimension: "page", operator: "equals", expression: pageUrl }] }],
+        dimensionFilterGroups: [{ filters: [pageRegex
+          ? { dimension: "page", operator: "includingRegex", expression: pageRegex }
+          : { dimension: "page", operator: "equals", expression: pageUrl }] }],
         rowLimit: 25,
       }),
       signal: AbortSignal.timeout(15000),

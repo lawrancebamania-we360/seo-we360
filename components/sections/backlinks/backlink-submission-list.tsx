@@ -9,6 +9,7 @@
 
 import { ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { toExternalUrl } from "@/lib/url";
 import { BacklinkSubmissionActions } from "@/components/sections/backlinks/backlink-submission-actions";
 import type { BacklinkSubmissionRow } from "@/lib/data/backlinks";
 import type { Member } from "@/components/sections/assignee-picker";
@@ -49,7 +50,7 @@ export function BacklinkSubmissionList({ submissions, projectId, members, canMan
                   <div className="truncate text-foreground">
                     <span className="mr-1 text-xs font-medium text-muted-foreground">Blog post:</span>
                     {s.blogPostUrl ? (
-                      <a href={s.blogPostUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" title={s.blogPostLabel}>
+                      <a href={toExternalUrl(s.blogPostUrl)} target="_blank" rel="noopener noreferrer" className="hover:underline" title={s.blogPostLabel}>
                         {s.blogPostLabel}
                       </a>
                     ) : (
@@ -64,7 +65,7 @@ export function BacklinkSubmissionList({ submissions, projectId, members, canMan
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   <a
-                    href={s.submissionUrl}
+                    href={toExternalUrl(s.submissionUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

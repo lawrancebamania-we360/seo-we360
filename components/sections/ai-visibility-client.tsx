@@ -23,6 +23,7 @@ import type { Ga4AiReferral } from "@/lib/google/ga4";
 import { generateAiVisibilityPrompts, runAiVisibilityNow, resumeAiVisibilityRun, upsertOutreach, scoreOutreachDomains, draftOutreach, previewOutreachDraft, addAiVisibilityPrompt, updateAiVisibilityPrompt, deleteAiVisibilityPrompt, toggleAiVisibilityPromptActive } from "@/lib/actions/ai-visibility";
 import { BuyerPromptsCard } from "@/components/sections/buyer-prompts-card";
 import type { SourceGapReport, SourceGapRow } from "@/lib/ai-citation/source-gap";
+import { toExternalUrl } from "@/lib/url";
 
 type OutreachAction = "pitch" | "guest_post" | "get_listed" | "comment" | "other";
 type OutreachStatus = "todo" | "drafted" | "posted";
@@ -907,7 +908,7 @@ function OutreachTargetRow({ target, da, canManage, projectId, draft, tracked, b
   return (
     <div className="rounded-lg border p-2.5">
       <div className="flex items-center gap-3">
-        <a href={href} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-sm font-medium hover:underline">
+        <a href={toExternalUrl(href)} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-sm font-medium hover:underline">
           {target.domain}
         </a>
         {da != null && (

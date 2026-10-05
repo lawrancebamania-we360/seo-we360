@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import type { SeoReportRow, SeoReportRollup, ReportHealth } from "@/lib/data/seo-report";
 import { refreshSeoReport } from "@/lib/actions/seo-report";
+import { toExternalUrl } from "@/lib/url";
 
 const HEALTH_RANK: Record<ReportHealth, number> = { problem: 0, watch: 1, winning: 2 };
 
@@ -264,7 +265,7 @@ export function SeoReportView({ rows, rollup, activeRange }: Props) {
             </DialogTitle>
             <DialogDescription>
               {issuesFor?.liveUrl && (
-                <a href={issuesFor.liveUrl} target="_blank" rel="noreferrer"
+                <a href={toExternalUrl(issuesFor.liveUrl)} target="_blank" rel="noreferrer"
                   className="text-xs hover:underline break-all inline-flex items-center gap-1">
                   {issuesFor.liveUrl}
                   <ExternalLink className="size-3 shrink-0" />
@@ -307,7 +308,7 @@ function ReportRow({ row, onShowIssues }: { row: SeoReportRow; onShowIssues: () 
             {row.taskType ?? (row.kind === "blog_task" ? "Blog" : "Page")}
           </Badge>
           {row.liveUrl && (
-            <a href={row.liveUrl} target="_blank" rel="noreferrer"
+            <a href={toExternalUrl(row.liveUrl)} target="_blank" rel="noreferrer"
               className="text-[10px] text-muted-foreground hover:text-foreground hover:underline truncate inline-flex items-center gap-0.5">
               {prettyUrl(row.liveUrl)}
               <ExternalLink className="size-2.5 shrink-0" />

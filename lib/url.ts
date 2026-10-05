@@ -71,6 +71,116 @@ export function pathFromUrl(url: string | null | undefined, fallback = url ?? ""
   }
 }
 
+/**
+ * Turn a stored, user-typed or third-party URL into an href that really leaves
+ * the app. A scheme-less value like "linkedin.com/in/x" is, to a browser, a
+ * RELATIVE path - it opens "<our-site>/dashboard/linkedin.com/in/x" - so it
+ * gets https:// prepended. Returns undefined (render as plain text, not a link)
+ * for empty input, a non-web scheme (javascript:, data:, ...), or anything
+ * without a real dotted host (e.g. a bare slug like "my-post").
+ *
+ * `toExternalUrl("linkedin.com/in/x")` → `"https://linkedin.com/in/x"`
+ * `toExternalUrl("https://a.com/b")` → `"https://a.com/b"` (unchanged)
+ * `toExternalUrl("javascript:alert(1)")` → `undefined`
+ */
+export function toExternalUrl(raw: string | null | undefined): string | undefined {
+  const s = raw?.trim();
+  if (!s) return undefined;
+  let candidate: string;
+  if (/^https?:\/\//i.test(s)) candidate = s;
+  else if (s.startsWith("//")) candidate = `https:${s}`;
+  else if (/^(javascript|data|vbscript|file|blob|about):/i.test(s)) return undefined;
+  else candidate = `https://${s.replace(/^\/+/, "")}`;
+  try {
+    const u = new URL(candidate);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return undefined;
+    if (!u.hostname.includes(".")) return undefined;
+    return candidate;
+  } catch {
+    return undefined;
+  }
+}
+
+/** For saving a user-typed link: the absolute URL when it parses, else the trimmed input as typed; null when empty. */
+export function normalizeStoredUrl(raw: string | null | undefined): string | null {
+  const t = raw?.trim();
+  if (!t) return null;
+  return toExternalUrl(t) ?? t;
+}
+
+/** Both spellings of a stored link (as typed + normalized), for duplicate checks against rows saved before normalization existed. */
+export function urlVariants(raw: string): string[] {
+  return [...new Set([raw, normalizeStoredUrl(raw) ?? raw])];
+}
+
+/**
+ * Real URL for a planned post's stored slug. A full URL or "host/path" is used
+ * as-is; a bare slug ("my-post") or a site path ("/blog/my-post") is resolved on
+ * the project's own domain, bare slugs under /blog/. Without this a bare slug
+ * became "https://my-post" - a made-up host.
+ */
+export function liveUrlFromSlug(slugOrUrl: string | null | undefined, siteDomain: string | null | undefined): string | undefined {
+  const s = slugOrUrl?.trim();
+  if (!s) return undefined;
+  const direct = toExternalUrl(s);
+  if (direct) return direct;
+  const domain = siteDomain?.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+  if (!domain) return undefined;
+  const path = s.startsWith("/") ? s : s.includes("/") ? `/${s}` : `/blog/${s}`;
+  return `https://${domain}${path}${path.endsWith("/") ? "" : "/"}`;
+}
+
+// --- Sitemap matching -------------------------------------------------------
+// A planned post is stored as a bare slug ("my-post"), a host-and-path
+// ("we360.ai/blog/my-post") or a full URL, while the sitemap holds full URLs
+// ("https://www.we360.ai/blog/my-post/"). Comparing those as whole strings
+// never matches a bare slug, so everything is reduced to a host-less,
+// lowercase, slash-trimmed PATH ("blog/my-post") before comparing.
+
+/** Path key of a full sitemap URL: "https://www.x.com/Blog/A/?q=1" → "blog/a". "" for the homepage. */
+export function sitemapPathKey(url: string): string {
+  let path: string;
+  try {
+    path = new URL(url).pathname;
+  } catch {
+    path = url.replace(/^https?:\/\/[^/]+/i, "").replace(/[?#].*$/, "");
+  }
+  return path.toLowerCase().replace(/^\/+|\/+$/g, "");
+}
+
+/**
+ * Path keys a planned post's stored slug could be live under, best first. A
+ * bare slug lives under /blog/ on this site (and, failing that, at the root).
+ */
+export function slugPathKeys(slugOrUrl: string): string[] {
+  const raw = slugOrUrl.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/[?#].*$/, "");
+  if (!raw) return [];
+  const first = raw.split("/")[0];
+  const hostLike = raw.includes("/") && !raw.startsWith("/") && first.includes(".");
+  const path = (hostLike ? raw.slice(first.length) : raw).replace(/^\/+|\/+$/g, "");
+  if (!path) return [];
+  const bare = !hostLike && !raw.startsWith("/") && !path.includes("/");
+  return bare ? [`blog/${path}`, path] : [path];
+}
+
+export function buildSitemapIndex(urls: string[]): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const u of urls) {
+    const key = sitemapPathKey(u);
+    if (key && !index.has(key)) index.set(key, u);
+  }
+  return index;
+}
+
+/** The live sitemap URL for a stored slug / host-path / URL, or null if it isn't on the sitemap. */
+export function resolveSitemapUrl(index: Map<string, string>, slugOrUrl: string): string | null {
+  for (const key of slugPathKeys(slugOrUrl)) {
+    const hit = index.get(key);
+    if (hit) return hit;
+  }
+  return null;
+}
+
 // Hosts that are never a real PRODUCT competitor even if they outrank a brand in
 // SERPs: social / UGC, app stores, review aggregators, reference / medical sites,
 // search engines, generic marketplaces, dev hubs. Used so competitor

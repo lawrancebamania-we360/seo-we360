@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeStoredUrl } from "@/lib/url";
 
 const PLATFORMS = ["YouTube", "Instagram", "Facebook", "Twitter", "LinkedIn"] as const;
 type Platform = (typeof PLATFORMS)[number];
@@ -104,14 +105,14 @@ export async function addInfluencerCollab(input: z.infer<typeof AddInput>): Prom
   const { error } = await admin.from("influencer_collabs").insert({
     project_id,
     influencer_name,
-    profile_link,
+    profile_link: normalizeStoredUrl(profile_link) ?? profile_link,
     platform,
     post_date: postDate,
     closing_date: closingDate,
     is_free: is_free ?? false,
     amount_paid: is_free ? null : parseAmount(amount_paid),
     currency: currency ?? "INR",
-    post_link: post_link?.trim() || null,
+    post_link: normalizeStoredUrl(post_link),
     assigned_to: assigned_to ?? null,
     created_by: user.id,
   });
@@ -260,14 +261,14 @@ export async function commitInfluencerCollabsImport(input: z.infer<typeof Commit
     const { error } = await admin.from("influencer_collabs").insert({
       project_id,
       influencer_name: row.influencer_name,
-      profile_link: row.profile_link,
+      profile_link: normalizeStoredUrl(row.profile_link) ?? row.profile_link,
       platform,
       post_date: postDate,
       closing_date: closingDate,
       is_free: isFree,
       amount_paid: isFree ? null : parseAmount(row.amount_paid),
       currency: parseCurrency(row.currency),
-      post_link: row.post_link.trim() || null,
+      post_link: normalizeStoredUrl(row.post_link),
       assigned_to: row.assigned_to,
       created_by: user.id,
     });

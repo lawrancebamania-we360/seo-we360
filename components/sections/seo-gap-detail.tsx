@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import type { PageGapDetail, AuditFinding } from "@/lib/data/seo-gaps";
+import { toExternalUrl } from "@/lib/url";
 
 const STATUS_META = {
   fail: { label: "Fail", icon: XCircle, className: "text-rose-600 bg-rose-500/10 border-rose-500/20 dark:text-rose-400" },
@@ -75,7 +76,7 @@ export function SeoGapDetailCard({ page }: { page: PageGapDetail }) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <a
-                href={page.url}
+                href={toExternalUrl(page.url)}
                 target="_blank"
                 rel="noreferrer"
                 className="font-semibold text-sm hover:text-primary inline-flex items-center gap-1 min-w-0 max-w-full"

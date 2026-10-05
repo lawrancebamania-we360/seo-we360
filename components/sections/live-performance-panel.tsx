@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { getLiveMetricsForUrl } from "@/lib/actions/url-metrics";
 import type { UrlMetric, UrlTopQuery } from "@/lib/types/url-metrics";
+import { toExternalUrl } from "@/lib/url";
 
 // Live performance panel — shown inside the task detail dialog whenever
 // the task has a URL (or published_url). Pulls the latest snapshots from
@@ -86,7 +87,7 @@ function PanelHeader({ url }: { url?: string } = {}) {
       <span>Live performance</span>
       {url && (
         <a
-          href={url}
+          href={toExternalUrl(url)}
           target="_blank"
           rel="noreferrer"
           className="ml-auto inline-flex items-center gap-1 text-[10px] hover:underline normal-case tracking-normal font-medium"

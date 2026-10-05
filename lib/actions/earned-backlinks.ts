@@ -11,6 +11,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeStoredUrl, urlVariants } from "@/lib/url";
 
 // Accepts DD-MM-YYYY / DD/MM/YYYY (this team's sheets use day-first dates)
 // or an ISO date - same logic as lib/actions/backlinks.ts's normalizeDate,
@@ -95,7 +96,8 @@ export async function addEarnedBacklink(input: z.infer<typeof AddInput>): Promis
     .eq("project_id", project_id)
     .eq("website", website)
     .eq("acquired_date", date)
-    .eq("backlink_url", backlink_url)
+    .in("backlink_url", urlVariants(backlink_url))
+    .limit(1)
     .maybeSingle();
   if (dup) return { ok: false, error: "This exact backlink (same website, date, and link) is already logged.", duplicate: true };
 
@@ -104,7 +106,7 @@ export async function addEarnedBacklink(input: z.infer<typeof AddInput>): Promis
     website,
     acquired_date: date,
     domain_rating: parseDr(domain_rating),
-    backlink_url,
+    backlink_url: normalizeStoredUrl(backlink_url) ?? backlink_url,
     assigned_to: assigned_to ?? null,
     is_free: is_free ?? false,
     amount_paid: is_free ? null : parseAmount(amount_paid),
@@ -240,7 +242,8 @@ export async function commitEarnedBacklinksImport(input: z.infer<typeof CommitIn
       .eq("project_id", project_id)
       .eq("website", row.website)
       .eq("acquired_date", date)
-      .eq("backlink_url", row.backlink_url)
+      .in("backlink_url", urlVariants(row.backlink_url))
+      .limit(1)
       .maybeSingle();
     if (dup) { itemsSkipped++; continue; }
 
@@ -250,7 +253,7 @@ export async function commitEarnedBacklinksImport(input: z.infer<typeof CommitIn
       website: row.website,
       acquired_date: date,
       domain_rating: parseDr(row.domain_rating),
-      backlink_url: row.backlink_url,
+      backlink_url: normalizeStoredUrl(row.backlink_url) ?? row.backlink_url,
       assigned_to: row.assigned_to,
       is_free: isFree,
       amount_paid: isFree ? null : parseAmount(row.amount_paid),

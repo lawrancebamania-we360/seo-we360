@@ -103,17 +103,35 @@ export function BlogClustersAnalyticsBox({ projectId, clusters, siteUrl, compare
               <div className="text-[13px] text-slate-400">{data.reason ?? "No GSC property connected for this project yet."}</div>
             </div>
           ) : data.items.length === 0 ? (
-            <div className="px-6 py-11 text-center">
-              <div className="text-sm font-semibold text-slate-700 dark:text-foreground">Nothing published yet</div>
-              <div className="mt-1 text-[13px] text-slate-400">
-                {data.totalCount} planned post{data.totalCount === 1 ? "" : "s"} in this cluster, none matched to a live URL on the sitemap yet.
+            data.rankingUnavailableCount > 0 ? (
+              <div className="px-6 py-11 text-center">
+                <div className="text-sm font-semibold text-slate-700 dark:text-foreground">Rankings unavailable right now</div>
+                <div className="mt-1 text-[13px] text-slate-400">
+                  {data.rankingUnavailableCount} post{data.rankingUnavailableCount === 1 ? " is" : "s are"} live on the sitemap, but Search Console didn&apos;t return data for {data.rankingUnavailableCount === 1 ? "it" : "them"}. Try again in a moment.
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="px-6 py-11 text-center">
+                <div className="text-sm font-semibold text-slate-700 dark:text-foreground">Nothing published yet</div>
+                <div className="mt-1 text-[13px] text-slate-400">
+                  {data.totalCount} planned post{data.totalCount === 1 ? "" : "s"} in this cluster, none matched to a live URL on the sitemap yet.
+                </div>
+              </div>
+            )
           ) : (
             <div>
-              {data.unpublishedCount > 0 && (
-                <div className="border-b border-slate-150 bg-muted/30 px-[22px] py-2 text-[12px] text-slate-400 dark:border-border">
-                  {data.unpublishedCount} more planned post{data.unpublishedCount === 1 ? "" : "s"} in this cluster {data.unpublishedCount === 1 ? "isn't" : "aren't"} live on the sitemap yet, so {data.unpublishedCount === 1 ? "it's" : "they're"} not ranked below.
+              {(data.unpublishedCount > 0 || data.rankingUnavailableCount > 0) && (
+                <div className="space-y-0.5 border-b border-slate-150 bg-muted/30 px-[22px] py-2 text-[12px] text-slate-400 dark:border-border">
+                  {data.unpublishedCount > 0 && (
+                    <div>
+                      {data.unpublishedCount} more planned post{data.unpublishedCount === 1 ? "" : "s"} in this cluster {data.unpublishedCount === 1 ? "isn't" : "aren't"} live on the sitemap yet, so {data.unpublishedCount === 1 ? "it's" : "they're"} not ranked below.
+                    </div>
+                  )}
+                  {data.rankingUnavailableCount > 0 && (
+                    <div>
+                      {data.rankingUnavailableCount} live post{data.rankingUnavailableCount === 1 ? "" : "s"} couldn&apos;t be loaded from Search Console just now, so {data.rankingUnavailableCount === 1 ? "it's" : "they're"} not ranked below.
+                    </div>
+                  )}
                 </div>
               )}
               {data.items.map((it) => {

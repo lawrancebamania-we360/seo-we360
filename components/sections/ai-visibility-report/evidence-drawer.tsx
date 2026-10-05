@@ -21,6 +21,7 @@ import type { EvidenceFilter } from "@/lib/ai-citation/trust";
 import { segmentMentions } from "@/lib/ai-citation/highlight";
 import { fetchAiVisibilityEvidence, fetchAiVisibilityTranscript } from "@/lib/actions/ai-visibility-evidence";
 import { SentimentChip } from "./sentiment-chip";
+import { toExternalUrl } from "@/lib/url";
 
 export type DrawerRequest =
   | { kind: "list"; filter: EvidenceFilter; title: string; subtitle?: string }
@@ -155,7 +156,7 @@ function ListView({ items, total, loading, onOpen, onLoadMore }: {
             <p className="text-xs font-medium text-primary">Read the full answer</p>
             {a.sourceUrls?.[0] && (
               <a
-                href={a.sourceUrls[0]}
+                href={toExternalUrl(a.sourceUrls[0])}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
@@ -249,7 +250,7 @@ function TranscriptView({ transcript, loading, fromList, onBack }: {
                 </span>
                 {s.title && <span className="truncate text-muted-foreground">· {s.title}</span>}
                 {href && (
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="ml-auto shrink-0 text-muted-foreground hover:text-foreground" title="Open the cited page">
+                  <a href={toExternalUrl(href)} target="_blank" rel="noopener noreferrer" className="ml-auto shrink-0 text-muted-foreground hover:text-foreground" title="Open the cited page">
                     <ExternalLink className="size-3" />
                   </a>
                 )}
@@ -287,7 +288,7 @@ function renderInline(text: string, brand: string[], comp: string[], kp: string)
     if (m[1]) nodes.push(<strong key={`${kp}b${k++}`} className="font-semibold text-foreground">{highlightRuns(m[2], brand, comp, `${kp}bi${k}`)}</strong>);
     else if (m[3]) nodes.push(<em key={`${kp}i${k++}`}>{highlightRuns(m[4], brand, comp, `${kp}ii${k}`)}</em>);
     else if (m[5]) nodes.push(<code key={`${kp}c${k++}`} className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]">{m[6]}</code>);
-    else if (m[7]) nodes.push(<a key={`${kp}l${k++}`} href={m[9]} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">{m[8]}</a>);
+    else if (m[7]) nodes.push(<a key={`${kp}l${k++}`} href={toExternalUrl(m[9])} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">{m[8]}</a>);
     last = re.lastIndex;
   }
   if (last < text.length) nodes.push(...highlightRuns(text.slice(last), brand, comp, `${kp}t${k++}`));

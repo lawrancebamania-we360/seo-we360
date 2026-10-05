@@ -28,6 +28,7 @@ import { ExternalLink } from "lucide-react";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
 import type { TaskStatus, Profile } from "@/lib/types/database";
 import { differenceInDays, format, startOfDay } from "date-fns";
+import { toExternalUrl } from "@/lib/url";
 
 type Column = { id: TaskStatus; label: string; accent: string; icon: typeof Pin };
 
@@ -389,7 +390,7 @@ function BlogCard({
         {/* Published URL badge (clickable) */}
         {task.published_url && (
           <a
-            href={task.published_url}
+            href={toExternalUrl(task.published_url)}
             target="_blank"
             rel="noreferrer"
             onClick={(e) => e.stopPropagation()}

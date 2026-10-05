@@ -25,6 +25,7 @@ import type { CitationGap, WhyCitedResult } from "@/lib/ai-citation/why-cited";
 import { classifyGapRoute, type GapAction } from "@/lib/ai-citation/gap-tasks";
 import { GapActionModal } from "@/components/sections/ai-visibility-report/gap-action-modal";
 import { useEvidence } from "./evidence-context";
+import { toExternalUrl } from "@/lib/url";
 
 const pct = (x: number) => (x > 0 && x < 0.005 ? "<1%" : `${Math.round(x * 100)}%`);
 const ordinal = (n: number) => `${n}${["th", "st", "nd", "rd"][(n % 100 - n % 10 === 10 ? 0 : n % 10)] ?? "th"}`;
@@ -284,7 +285,7 @@ function WhyCitedPanel({ result, competitorName, projectId, canManage }: { resul
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                 {/* ONE link per gap — the primary example page (dedupe fix). */}
                 {g.examples[0] ? (
-                  <a href={g.examples[0]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-muted-foreground/80 hover:text-foreground">
+                  <a href={toExternalUrl(g.examples[0])} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-muted-foreground/80 hover:text-foreground">
                     <ExternalLink className="size-3" /> See their page
                   </a>
                 ) : <span />}
