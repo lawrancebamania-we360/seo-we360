@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
 import type { AiVisibilityReport } from "@/lib/ai-citation/report";
 import type { PersonaHistory } from "@/lib/ai-citation/answer-history";
+import { formatDateTime } from "@/lib/format-datetime";
 import { GetCitedDialog } from "@/components/sections/get-cited-dialog";
 import { useEvidence } from "./evidence-context";
 import { SentimentChip } from "./sentiment-chip";
@@ -70,9 +71,6 @@ const cardsFromHistory = (h: PersonaHistory): PersonaCardView[] =>
     paused: p.paused,
   }));
 
-const formatDay = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
-
 export function AnswersTab({ report, projectId, canManage, competitors }: {
   report: AiVisibilityReport; projectId: string; canManage: boolean;
   /** Tracked competitors, for the per-question brand-of-interest picker. */
@@ -99,7 +97,7 @@ export function AnswersTab({ report, projectId, canManage, competitors }: {
       const t = Date.parse(a.createdAt);
       if (!Number.isNaN(t) && t > max) max = t;
     }
-    return max ? formatDay(new Date(max).toISOString()) : null;
+    return max ? formatDateTime(new Date(max).toISOString()) : null;
   }, [report.answers]);
 
   // Level 1 — the persona grid (default view).

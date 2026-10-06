@@ -15,15 +15,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchCheckAnswers } from "@/lib/actions/ai-visibility-answers";
+import { formatDateTime } from "@/lib/format-datetime";
 import type { HistoryAnswer, PersonaHistoryCheck } from "@/lib/ai-citation/answer-history";
 import { AnswerCard } from "./answer-card";
 
 const FAILED = "Could not load these answers.";
 /** Geography codes shown in a group header before "+N". */
 const GEOS_SHOWN = 4;
-
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -149,7 +147,7 @@ function CheckGroup({ projectId, category, persona, check, open, onToggle, canMa
       >
         {open ? <ChevronDown className="size-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
         <span className="text-sm font-semibold text-foreground">
-          {formatDate(check.date)}{" "}
+          <time dateTime={check.date} title={`${formatDateTime(check.date)} (your local time)`}>{formatDateTime(check.date)}</time>{" "}
           <span className="font-normal text-muted-foreground">
             ({plural(check.answers, "answer", "answers")}, {check.mentioned} mentioned)
           </span>

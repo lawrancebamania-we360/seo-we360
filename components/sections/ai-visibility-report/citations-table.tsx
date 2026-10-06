@@ -15,6 +15,7 @@ import { ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
 import type { CitationRow } from "@/lib/ai-citation/citation-aggregate";
 import { countryName } from "@/lib/geo/countries";
 import { EngineLogo } from "@/components/icons/engines/engine-logo";
+import { formatClock, formatDateTime, formatDay } from "@/lib/format-datetime";
 import { useEvidence } from "./evidence-context";
 
 type SortKey = "site" | "promptText" | "engine" | "createdAt";
@@ -28,10 +29,6 @@ const COLUMNS: { key: SortKey; label: string; defaultDir: SortDir }[] = [
   { key: "engine", label: "LLM model", defaultDir: "asc" },
   { key: "createdAt", label: "Date", defaultDir: "desc" },
 ];
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
-}
 
 /** The line under the site name: the page title when stored, else the readable path. */
 function secondaryText(r: CitationRow): string {
@@ -199,7 +196,10 @@ export function CitationsTable({ rows, skipped, truncated }: { rows: CitationRow
                     )}
                   </div>
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-[13px] text-muted-foreground">{formatDate(r.createdAt)}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-[13px] text-muted-foreground" title={`${formatDateTime(r.createdAt)} (your local time)`}>
+                  <div>{formatDay(r.createdAt)}</div>
+                  <div className="text-[11.5px] tabular-nums text-muted-foreground/80">{formatClock(r.createdAt)}</div>
+                </td>
                 <td className="px-4 py-3 text-center">
                   <a
                     href={r.url}
