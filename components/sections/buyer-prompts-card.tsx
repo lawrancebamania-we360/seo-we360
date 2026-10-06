@@ -146,8 +146,10 @@ export function BuyerPromptsCard({
     setDeleteBusy(true);
     const r = await onDelete(promptId);
     setDeleteBusy(false);
-    if (r.ok) setDeletingId(null);
-    else toast.error(r.error ?? "Could not delete that prompt.");
+    if (r.ok) {
+      setDeletingId(null);
+      if (r.notice) toast.warning(r.notice, { duration: 9000 });
+    } else toast.error(r.error ?? "Could not delete that prompt.");
   };
 
   const flipToggle = async (p: PromptRow) => {
@@ -250,7 +252,7 @@ export function BuyerPromptsCard({
                   ) : deletingId === p.id ? (
                     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-error-300/60 bg-error-500/5 p-2.5">
                       <span className="text-[13px] text-error-700 dark:text-error-400">
-                        Delete this prompt? Any AI answers already recorded for it will be deleted too — this can&apos;t be undone. To keep the history but stop running it, use the on/off toggle instead.
+                        Delete this question? It leaves this list and won&apos;t run again. The AI answers already recorded for it are kept and stay under their persona on Sample answers. To pause it instead and keep it here, use the on/off toggle.
                       </span>
                       <div className="ml-auto flex shrink-0 items-center gap-1.5">
                         <Button type="button" variant="ghost" size="sm" onClick={() => setDeletingId(null)} disabled={deleteBusy}>Cancel</Button>

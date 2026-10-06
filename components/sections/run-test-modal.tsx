@@ -58,7 +58,7 @@ export function RunTestModal({
   onGenPrompts: () => void;
   onAddPrompt: (fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string }>;
   onEditPrompt: (promptId: string, fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string; notice?: string }>;
-  onDeletePrompt: (promptId: string) => Promise<{ ok: boolean; error?: string }>;
+  onDeletePrompt: (promptId: string) => Promise<{ ok: boolean; error?: string; notice?: string }>;
   onTogglePrompt: (promptId: string, active: boolean) => Promise<{ ok: boolean; error?: string }>;
   /** The project's own country as a valid ISO-2 code, or null when it has none.
    *  The Geography picker starts on it. */

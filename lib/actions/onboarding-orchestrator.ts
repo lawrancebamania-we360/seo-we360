@@ -10,6 +10,7 @@
 import { getUserContext } from "@/lib/auth/get-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { regeneratePersonas } from "@/lib/actions/ai-visibility";
+import { isMissingColumn } from "@/lib/ai-citation/run-state";
 
 export async function unlockPersonasAndExtend(input: { project_id: string }): Promise<{ ok: boolean; error?: string }> {
   // getUserContext redirects unauthenticated callers to /login.
@@ -25,7 +26,16 @@ export async function unlockPersonasAndExtend(input: { project_id: string }): Pr
     const labels = ((locked ?? []) as { label: string }[]).map((p) => p.label);
     if (labels.length) {
       await admin.from("ai_citation_personas").update({ locked: false } as never).eq("project_id", input.project_id).eq("locked", true);
-      await admin.from("ai_citation_prompts").update({ active: true }).eq("project_id", input.project_id).in("persona", labels);
+      // Reactivate the locked personas' questions, but NEVER one the person deleted
+      // (deleted_at set): this blanket update would otherwise bring it back. Before
+      // that column exists the same update runs without the filter.
+      const reactivate = (skipDeleted: boolean) => {
+        let q = admin.from("ai_citation_prompts").update({ active: true }).eq("project_id", input.project_id).in("persona", labels);
+        if (skipDeleted) q = q.is("deleted_at", null);
+        return q;
+      };
+      const first = await reactivate(true);
+      if (first.error && isMissingColumn(first.error.message)) await reactivate(false);
     }
   } catch { /* best-effort unlock — a project that never locked has nothing to clear */ }
 

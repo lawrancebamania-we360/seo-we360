@@ -179,7 +179,16 @@ export async function generateAiVisibilityPrompts(input: { project_id: string; c
     });
     // Persist the GLOSSARY: never wipe existing prompts (we re-check them over time);
     // append only genuinely-new lines, capped to a few once a glossary already exists.
-    let fresh = set.prompts.filter((p) => !existingTexts.has(p.text.trim().toLowerCase()));
+    // A question the person deleted must not be re-created by regenerating. (Only
+    // THIS category's deleted questions count: the same wording in another category
+    // is a separate question there. Without the deleted_at column this is empty.)
+    const { data: deletedRows } = await admin.from("ai_citation_prompts")
+      .select("text").eq("project_id", project_id).eq("category", category).not("deleted_at", "is", null);
+    const deletedTexts = new Set(((deletedRows ?? []) as Array<{ text: string }>).map((r) => r.text.trim().toLowerCase()));
+    let fresh = set.prompts.filter((p) => {
+      const key = p.text.trim().toLowerCase();
+      return !existingTexts.has(key) && !deletedTexts.has(key);
+    });
     if (isGrow) fresh = fresh.slice(0, 8);
     const { inserted } = await saveGeneratedPrompts(admin, project_id, { ...set, prompts: fresh }, {
       country: project.country ?? undefined, createdBy: user.id, source: "ai_suggested", category,
@@ -383,19 +392,43 @@ const PromptDelete = z.object({
   prompt_id: z.string().uuid(),
 });
 
-// Hard delete - ai_citation_runs.prompt_id references this row ON DELETE
-// CASCADE, so this also permanently removes every historical AI answer
-// recorded for this prompt. The client warns about that before calling this;
-// toggleAiVisibilityPromptActive above is the reversible alternative.
-export async function deleteAiVisibilityPrompt(input: z.infer<typeof PromptDelete>): Promise<{ ok: boolean; error?: string }> {
+// "Delete" removes the QUESTION, never its answers. ai_citation_runs.prompt_id
+// references this row ON DELETE CASCADE, so actually deleting the row would erase
+// every answer (and cited link) collected for it. Instead the row is hidden
+// (deleted_at) and switched off (active = false): it leaves the Buyer Prompts list
+// and every future run, while its answers keep their persona, topic and wording and
+// stay on Sample answers and Citation sources. Scoped by id, so the same wording in
+// another category is a different row and is never touched.
+//
+// Before the column exists (migration not applied) the prompt is only PAUSED, and
+// `notice` says so: still nothing is erased, it just stays visible in the list.
+export async function deleteAiVisibilityPrompt(input: z.infer<typeof PromptDelete>): Promise<{ ok: boolean; error?: string; notice?: string }> {
   const { project_id, prompt_id } = PromptDelete.parse(input);
   const a = await authProject(project_id);
   if ("error" in a) return { ok: false, error: a.error };
   const admin = createAdminClient();
-  const { error } = await admin.from("ai_citation_prompts").delete().eq("id", prompt_id).eq("project_id", project_id);
-  if (error) return { ok: false, error: error.message };
-  revalidateAiVisibility();
-  return { ok: true };
+
+  // Best effort: make sure the answers already carry the wording they were asked
+  // with, so they stay readable on their own. Never blocks the delete.
+  const { data: before } = await admin
+    .from("ai_citation_prompts").select("text").eq("id", prompt_id).eq("project_id", project_id).maybeSingle();
+  if (before?.text) await preservePriorWording(admin, prompt_id, before.text as string);
+
+  const { error } = await admin
+    .from("ai_citation_prompts")
+    .update({ active: false, deleted_at: new Date().toISOString() })
+    .eq("id", prompt_id).eq("project_id", project_id);
+  if (!error) {
+    revalidateAiVisibility();
+    return { ok: true };
+  }
+  if (isMissingColumn(error.message)) {
+    const paused = await admin.from("ai_citation_prompts").update({ active: false }).eq("id", prompt_id).eq("project_id", project_id);
+    if (paused.error) return { ok: false, error: paused.error.message };
+    revalidateAiVisibility();
+    return { ok: true, notice: "Paused, not removed: a pending database update is needed before a question can leave the list. Its past answers are safe either way." };
+  }
+  return { ok: false, error: error.message };
 }
 
 // A short, honest, LLM-written read of what the AI-visibility score actually

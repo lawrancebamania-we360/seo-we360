@@ -12,7 +12,7 @@ import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { AiVisibilityClient } from "@/components/sections/ai-visibility-client";
 import { AiVisibilityHero } from "@/components/sections/ai-visibility-hero";
 import { getAiVisibilityScope } from "@/lib/actions/ai-visibility";
-import { getLatestRunBatch } from "@/lib/ai-citation/run-state";
+import { getLatestRunBatch, isMissingColumn } from "@/lib/ai-citation/run-state";
 import { getPersonas } from "@/lib/data/personas";
 import { isGoogleServiceAccountConfigured } from "@/lib/google/auth";
 import { profileForIndustry } from "@/lib/ai-citation/industry-profiles";
@@ -29,15 +29,23 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
   const project = ctx.activeProject;
 
   const supabase = await createClient();
-  const [report, promptsRes, perms, aiReferral, sourceGap, outreachRes, scope, compsRes, kwRes, personas, integrations] = await Promise.all([
+  // The category's questions for the Buyer Prompts card. Deleted ones (deleted_at
+  // set) are hidden but their rows, and every answer recorded for them, stay in the
+  // database. Before that column exists the same read runs without the filter, so
+  // the list never goes blank on a database that hasn't been updated yet.
+  const loadPrompts = (hideDeleted: boolean) => {
+    let q = supabase.from("ai_citation_prompts")
+      .select("id, text, persona, topic, tags, demand, active").eq("project_id", project.id).eq("category", category);
+    if (hideDeleted) q = q.is("deleted_at", null);
+    return q.order("created_at", { ascending: true }).limit(200);
+  };
+  const [report, promptsFirst, perms, aiReferral, sourceGap, outreachRes, scope, compsRes, kwRes, personas, integrations] = await Promise.all([
     getAiVisibilityReport(supabase, project.id, category),
     // Ticket 6: fetch BOTH active and inactive prompts - the Buyer Prompts card
     // manages the on/off toggle in place, so a paused prompt needs to still
     // render (dimmed) rather than disappear. Runs still only ever see active
     // ones (run.ts's own query filters .eq("active", true) independently).
-    supabase.from("ai_citation_prompts")
-      .select("id, text, persona, topic, tags, demand, active").eq("project_id", project.id).eq("category", category)
-      .order("created_at", { ascending: true }).limit(200),
+    loadPrompts(true),
     getProjectSectionPermissions(project.id),
     // Is being cited actually sending traffic? Best-effort GA4 AI-referral read.
     getGa4AiReferralTraffic(project.ga4_property_id ?? null, project.id),
@@ -53,6 +61,8 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
     getPersonas(project.id),
     getIntegrations(),
   ]);
+
+  const promptsRes = promptsFirst.error && isMissingColumn(promptsFirst.error.message) ? await loadPrompts(false) : promptsFirst;
 
   // Durable state of the latest run (P0-5) so the client renders a truthful
   // running/failed/timed_out banner + Retry on first paint (then polls to
