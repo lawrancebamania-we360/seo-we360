@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
 import type { CitationRow } from "@/lib/ai-citation/citation-aggregate";
+import { countryName } from "@/lib/geo/countries";
 import { EngineLogo } from "@/components/icons/engines/engine-logo";
 import { useEvidence } from "./evidence-context";
 
@@ -72,7 +73,9 @@ export function CitationsTable({ rows, skipped, truncated }: { rows: CitationRow
     const filtered = rows.filter((r) => {
       if (engine && r.engine !== engine) return false;
       if (!q) return true;
-      return r.site.includes(q) || r.url.toLowerCase().includes(q) || r.promptText.toLowerCase().includes(q) || (r.title ?? "").toLowerCase().includes(q);
+      return r.site.includes(q) || r.url.toLowerCase().includes(q) || r.promptText.toLowerCase().includes(q) || (r.title ?? "").toLowerCase().includes(q)
+        // Geography: matches the country name ("india") and its ISO code ("in").
+        || (!!r.country && (countryName(r.country).toLowerCase().includes(q) || r.country.toLowerCase().includes(q)));
     });
     const dir = sortDir === "asc" ? 1 : -1;
     return filtered.sort((a, b) => {
@@ -108,7 +111,7 @@ export function CitationsTable({ rows, skipped, truncated }: { rows: CitationRow
             <Input
               value={query}
               onChange={(e) => { setQuery(e.target.value); setPage(0); }}
-              placeholder="Search site, link or prompt"
+              placeholder="Search site, link, prompt or country"
               className="h-8 pl-8 text-[13px]"
               aria-label="Search citations"
             />
@@ -182,9 +185,19 @@ export function CitationsTable({ rows, skipped, truncated }: { rows: CitationRow
                   <div className="line-clamp-2" title={r.promptText}>{r.promptText}</div>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3">
-                  <span className="inline-flex items-center gap-1.5 text-[13px] text-foreground/90">
-                    <EngineLogo engine={r.engine} size={15} /> {ENGINE_LABEL[r.engine]}
-                  </span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="inline-flex items-center gap-1.5 text-[13px] text-foreground/90">
+                      <EngineLogo engine={r.engine} size={15} /> {ENGINE_LABEL[r.engine]}
+                    </span>
+                    {r.country && (
+                      // Name + ISO code, no flag emoji (Windows Chrome does not render them).
+                      // Indented to line up under the engine name, past the 15px logo + gap.
+                      <span className="inline-flex items-center gap-1.5 pl-[21px] text-[11.5px] text-muted-foreground" title={`Asked as if searching from ${countryName(r.country)}`}>
+                        {countryName(r.country)}
+                        <span className="rounded border border-border bg-muted px-1 py-px font-mono text-[10px] font-semibold uppercase leading-none text-muted-foreground">{r.country}</span>
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-[13px] text-muted-foreground">{formatDate(r.createdAt)}</td>
                 <td className="px-4 py-3 text-center">

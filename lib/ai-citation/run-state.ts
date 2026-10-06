@@ -63,7 +63,10 @@ export const STALE_HEARTBEAT_MS = 3 * 60 * 1000;
 // long a parked 'queued' row may wait for the drain before it terminal-expires -
 // the drain cadence is external (cron-job.org, like process-pending-kickoffs), so
 // without this cap a never-drained batch would show an active banner forever.
-export const MAX_RESUME_PASSES = 4;
+// 8 passes = 9 slices of ~40 calls = room for the MAX_RUN_TASKS (300) a single
+// run may now contain (several geographies multiply the task list). It was 4
+// (about 200 calls), which would have silently cut the tail off a bigger run.
+export const MAX_RESUME_PASSES = 8;
 export const RESUME_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6h
 
 // The batch's full task recipe, written when the batch opens so a run is
@@ -77,6 +80,17 @@ export interface RunBatchSpec {
   aioPromptCap?: number | null;
   promptCapByEngine?: Partial<Record<AiEngine, number>> | null;
   skipGate?: boolean; // ops scripts meter elsewhere; a continued slice must match
+  /** Explicit ISO-2 geographies chosen for this run; null/absent = each prompt's own
+   *  country, else defaultCountry (today's behaviour). Only a run with MORE THAN ONE
+   *  needs the country in its "already done" key; older and single-country runs
+   *  resume exactly as before. */
+  countries?: string[] | null;
+  /** The project's country, FROZEN when the batch opened so editing the project
+   *  mid-run can't change which task a finished row belongs to. */
+  defaultCountry?: string | null;
+  /** The exact wording of every prompt at open time, so a prompt edited mid-run
+   *  can't split one batch across two wordings. */
+  promptTexts?: Record<string, string> | null;
 }
 
 // A missing-table Postgres error (42P01) must not break the run. Detect it so we

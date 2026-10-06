@@ -13,6 +13,7 @@ import { env } from "@/lib/env";
 import { callByokLLM } from "@/lib/ai/byok";
 import type { AiEngine, EngineAdapter, EngineCitation, EngineResult } from "../types";
 import { ANSWER_MAX_TOKENS, engineError, localize } from "./_shared";
+import { normalizeCountry } from "@/lib/geo/countries";
 
 const ENGINE: AiEngine = "chatgpt";
 // Default to a model that supports the Responses web_search tool (gpt-5.5 /
@@ -90,6 +91,16 @@ async function plainCompletion(apiKey: string, input: string, timeoutMs: number)
   }
 }
 
+/**
+ * The Responses API web_search tool. With a valid country it carries
+ * `user_location` so the SEARCH itself is localized (results, not just the
+ * model's wording); without one it is the plain tool, exactly as before.
+ */
+export function webSearchTool(country?: string): { type: "web_search"; user_location?: { type: "approximate"; country: string } } {
+  const iso = normalizeCountry(country);
+  return iso ? { type: "web_search", user_location: { type: "approximate", country: iso } } : { type: "web_search" };
+}
+
 export const chatgptAdapter: EngineAdapter = {
   engine: ENGINE,
   isConfigured: () => !!env().OPENAI_API_KEY,
@@ -108,7 +119,7 @@ export const chatgptAdapter: EngineAdapter = {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
           body: JSON.stringify({
-            model, tools: [{ type: "web_search" }], input, max_output_tokens: ANSWER_MAX_TOKENS,
+            model, tools: [webSearchTool(opts?.country)], input, max_output_tokens: ANSWER_MAX_TOKENS,
             // Opts into the full web_search_call.action.sources list - see
             // parseResponses' header comment for why this matters.
             include: ["web_search_call.action.sources"],

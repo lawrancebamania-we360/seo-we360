@@ -25,6 +25,8 @@ interface EvidenceContextValue {
   openTranscript: (runId: string) => void;
   /** True while the lazy sentiment pass is running (chips show a shimmer). */
   classifying: boolean;
+  /** Which AI Visibility category the page is showing (children that load their own data need it). */
+  category: string;
 }
 
 const Ctx = createContext<EvidenceContextValue | null>(null);
@@ -72,7 +74,7 @@ export function AivEvidenceProvider({ projectId, category, canManage, unclassifi
   }, []);
 
   return (
-    <Ctx.Provider value={{ openList, openTranscript, classifying }}>
+    <Ctx.Provider value={{ openList, openTranscript, classifying, category }}>
       {children}
       <EvidenceDrawer projectId={projectId} category={category} request={request} onClose={() => setRequest(null)} />
     </Ctx.Provider>

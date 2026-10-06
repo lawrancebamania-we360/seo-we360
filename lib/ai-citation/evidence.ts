@@ -14,13 +14,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { hostFromUrl } from "@/lib/url";
 import type { AiEngine } from "./types";
 import { isMissingColumn } from "./run-state";
+import { askedText, runCountry } from "./question-tracker";
+import { SNAPSHOT_COLS, withSnapshotCols } from "./snapshot-columns";
 import { asBrandSentiment, stageForTags, type BrandSentiment, type EvidenceFilter } from "./trust";
 
 export const EVIDENCE_PAGE_SIZE = 20;
 
 export interface EvidenceItem {
   runId: string;
+  /** The wording that was ASKED for this answer (the run's own snapshot), not the prompt's current text. */
   promptText: string;
+  /** ISO-2 geography this answer was requested for; null for older / unknown runs. */
+  country: string | null;
   persona: string;
   topic: string;
   engine: AiEngine;
@@ -49,6 +54,8 @@ type RunRow = {
   position: number | null;
   sentiment: string | null;
   created_at: string;
+  prompt_text?: string | null;
+  country?: string | null;
 };
 
 // The latest batch OF THIS CATEGORY - the same scoping report.ts uses to build
@@ -82,13 +89,17 @@ export async function getAnswerEvidence(
   // Light columns for the whole batch (a batch is bounded: prompts x engines x
   // samples, a few hundred rows), full answer_text only for the final page.
   const [runsRes, promptsRes] = await Promise.all([
-    supabase.from("ai_citation_runs")
-      .select("id, prompt_id, engine, project_mentioned, project_cited, position, sentiment, created_at")
-      .eq("run_batch_id", batchId).is("error", null),
+    // prompt_text + country are the per-run snapshot; withSnapshotCols re-reads
+    // without them on a database that doesn't have them yet.
+    withSnapshotCols((snap) => supabase.from("ai_citation_runs")
+      .select(`id, prompt_id, engine, project_mentioned, project_cited, position, sentiment, created_at${snap ? SNAPSHOT_COLS : ""}`)
+      .eq("run_batch_id", batchId).is("error", null)),
     supabase.from("ai_citation_prompts")
       .select("id, text, persona, topic, tags").eq("project_id", projectId),
   ]);
-  const runs = (runsRes.data ?? []) as RunRow[];
+  // `as unknown as`: the select string is dynamic (the snapshot columns are
+  // optional), so supabase-js can't infer a row type from it.
+  const runs = (runsRes.data ?? []) as unknown as RunRow[];
   if (!runs.length) return emptyPage;
   const prompts = (promptsRes.data ?? []) as Array<{ id: string; text: string; persona: string | null; topic: string | null; tags: string[] | null }>;
   const promptMap = new Map(prompts.map((p) => [p.id, p]));
@@ -137,7 +148,8 @@ export async function getAnswerEvidence(
       const p = promptMap.get(r.prompt_id);
       return {
         runId: r.id,
-        promptText: p?.text || "",
+        promptText: askedText(r.prompt_text, p?.text),
+        country: runCountry(r.country),
         persona: p?.persona || UNLABELLED,
         topic: p?.topic || UNLABELLED,
         engine: r.engine,
@@ -164,7 +176,10 @@ export interface TranscriptSource {
 
 export interface AnswerTranscript {
   runId: string;
+  /** The wording that was ASKED for this answer (the run's own snapshot), not the prompt's current text. */
   promptText: string;
+  /** ISO-2 geography this answer was requested for; null for older / unknown runs. */
+  country: string | null;
   persona: string | null;
   topic: string | null;
   engine: AiEngine;
@@ -189,9 +204,10 @@ export async function getAnswerTranscript(
   projectId: string,
   runId: string,
 ): Promise<AnswerTranscript | null> {
-  const { data: run } = await supabase.from("ai_citation_runs")
-    .select("id, prompt_id, engine, project_mentioned, project_cited, position, sentiment, created_at, answer_text, error")
-    .eq("id", runId).eq("project_id", projectId).maybeSingle();
+  const runRes = await withSnapshotCols((snap) => supabase.from("ai_citation_runs")
+    .select(`id, prompt_id, engine, project_mentioned, project_cited, position, sentiment, created_at, answer_text, error${snap ? SNAPSHOT_COLS : ""}`)
+    .eq("id", runId).eq("project_id", projectId).maybeSingle());
+  const run = runRes.data as unknown as (RunRow & { answer_text: string | null; error: string | null }) | null;
   if (!run) return null;
 
   const [promptRes, sourcesRes, projectRes, compsRes] = await Promise.all([
@@ -215,7 +231,8 @@ export async function getAnswerTranscript(
   const prompt = promptRes.data as { text: string; persona: string | null; topic: string | null } | null;
   return {
     runId: run.id as string,
-    promptText: prompt?.text || "",
+    promptText: askedText(run.prompt_text, prompt?.text),
+    country: runCountry(run.country),
     persona: prompt?.persona ?? null,
     topic: prompt?.topic ?? null,
     engine: run.engine as AiEngine,

@@ -160,6 +160,26 @@ export interface TrackerRunRow {
   project_cited: boolean;
   created_at: string;
   run_batch_id?: string | null;
+  /** The exact wording this run asked (snapshot). Absent before the snapshot migration. */
+  prompt_text?: string | null;
+  /** ISO-2 geography this run was requested for. Absent before the snapshot migration. */
+  country?: string | null;
+}
+
+/**
+ * The wording of a question as it was ACTUALLY asked. A run stamps the exact text
+ * it sent (ai_citation_runs.prompt_text); editing a prompt afterwards rewrites
+ * ai_citation_prompts.text in place, so the prompt's current text is only the
+ * fallback for runs that predate the snapshot (null or blank).
+ */
+export function askedText(runText: string | null | undefined, currentText: string | null | undefined): string {
+  const snap = runText?.trim();
+  return snap ? snap : (currentText ?? "");
+}
+
+/** The geography stamped on a run (ISO-2), or null for older / unknown runs. */
+export function runCountry(raw: string | null | undefined): string | null {
+  return raw?.trim() || null;
 }
 export interface TrackerSourceRow {
   run_id: string;
@@ -457,8 +477,9 @@ export function buildQuestionRows(input: BuildQuestionRowsInput): QuestionRow[] 
 
     // Latest answer for this question: prefer the full-history lookup, else this
     // batch. null when the question has never been run.
-    const latestInBatch = mine.reduce<string | null>(
-      (acc, r) => (!acc || r.created_at > acc ? r.created_at : acc), null);
+    const latestRun = mine.reduce<TrackerRunRow | null>(
+      (acc, r) => (!acc || r.created_at > acc.created_at ? r : acc), null);
+    const latestInBatch = latestRun?.created_at ?? null;
     const lastCheckedAt = input.lastSeen?.get(p.id) ?? latestInBatch;
     const daysSinceCheck = lastCheckedAt
       ? Math.max(0, daysBetween(nowMs, Date.parse(lastCheckedAt)))
@@ -477,7 +498,9 @@ export function buildQuestionRows(input: BuildQuestionRowsInput): QuestionRow[] 
 
     return {
       promptId: p.id,
-      text: p.text,
+      // The wording the LATEST check actually asked (an edit since then only
+      // changes future checks); the prompt's current text when it has no snapshot.
+      text: askedText(latestRun?.prompt_text, p.text),
       persona: p.persona,
       topic: p.topic,
       brandLabel,

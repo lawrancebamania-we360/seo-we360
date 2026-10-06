@@ -23,6 +23,8 @@ import { estimateAiCostCents } from "@/lib/billing/ai-pricing";
 import { generatePromptSet, saveGeneratedPrompts, savePersonas, resolveBuckets } from "@/lib/ai-citation/prompts";
 import { runProjectCitations, estimateRunCostCents, resumeRunBatch } from "@/lib/ai-citation/run";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
+import { AIO_ONDEMAND_CAP, MAX_GEOGRAPHIES, MAX_RUN_TASKS } from "@/lib/ai-citation/run-config";
+import { normalizeCountries, normalizeCountry } from "@/lib/geo/countries";
 import { getOpportunityPools } from "@/lib/google/gsc-opportunities";
 import { profileForIndustry } from "@/lib/ai-citation/industry-profiles";
 import { configuredEngines } from "@/lib/ai-citation/engines";
@@ -48,10 +50,9 @@ function revalidateAiVisibility(): void {
   revalidatePath("/dashboard/ai-visibility/[categoryKey]", "page");
 }
 
-// How many prompts Google AI Overviews covers on the ON-DEMAND run (Apify-metered +
-// slow). Bounds cost/time of a manual run; the weekly cron does full AIO coverage.
-// Shared by the run path AND the scope-drawer cost preview so they never disagree.
-const AIO_ONDEMAND_CAP = 5;
+// (AIO_ONDEMAND_CAP - how many prompts Google AI Overviews covers on the on-demand
+// run - now lives in run-config.ts, shared with the run dialog so the estimate
+// the user sees can never disagree with what the server actually runs.)
 
 interface AuthedProject { user: { id: string }; project: { id: string; name: string; domain: string; industry: string | null; country: string | null; gsc_property_url: string | null; analysis_focus: string | null; brand_summary: string | null } }
 
@@ -763,10 +764,26 @@ export async function runAiVisibilityNow(input: {
   /** Which product this scan is for (the run-test modal passes the current
    *  category page's value). Omitted -> workforce_analytics. */
   category?: AiVisibilityCategory;
+  /** Geographies (ISO-2) to run in. EVERY question runs in EACH (so cost and time
+   *  multiply). Omitted or empty -> today's behaviour: each question in its own
+   *  country, else the project's. At most MAX_GEOGRAPHIES, each a real country. */
+  countries?: string[];
 }): Promise<RunNowResult> {
   const { project_id } = ProjectInput.parse(input);
   const a = await authProject(project_id);
   if ("error" in a) return { ok: false, error: a.error };
+
+  // Validate the geographies BEFORE anything is spent. An unrecognised entry is an
+  // error (not silently dropped): the user asked for that country and would
+  // otherwise get a run that quietly skipped it.
+  const requested = (input.countries ?? []).filter((c) => typeof c === "string" && c.trim());
+  if (requested.some((c) => !normalizeCountry(c))) {
+    return { ok: false, error: "One of the countries wasn't recognised. Pick them from the list." };
+  }
+  const countries = normalizeCountries(requested, Infinity);
+  if (countries.length > MAX_GEOGRAPHIES) {
+    return { ok: false, error: `Pick up to ${MAX_GEOGRAPHIES} countries per run.` };
+  }
 
   // Run EVERY configured engine, including Google AI Overviews, so the on-demand
   // audit reflects all of them (not just the chat engines). AIO is Apify-metered +
@@ -824,6 +841,13 @@ export async function runAiVisibilityNow(input: {
       promptCapByEngine: input.promptIds?.length ? undefined : input.promptCapByEngine,
       promptIds: input.promptIds,
       category: runCategory,
+      // Chosen geographies (empty -> each question's own / the project's country,
+      // exactly as before). The size guard applies to runs that choose countries
+      // (they multiply the call count): refuse, before spending, a run the
+      // continuation limit would silently cut short. Older entry points (scope
+      // drawer, onboarding) have no way to shrink a run, so they stay unguarded.
+      countries,
+      maxTasks: countries.length ? MAX_RUN_TASKS : undefined,
     }),
   );
   if ((locked as { skipped?: string } | null)?.skipped === "locked") {

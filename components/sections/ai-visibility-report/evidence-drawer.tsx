@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { cn } from "@/lib/utils";
 import { ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
 import { EngineLogo } from "@/components/icons/engines/engine-logo";
+import { countryName } from "@/lib/geo/countries";
 import type { AnswerTranscript, EvidenceItem } from "@/lib/ai-citation/evidence";
 import type { EvidenceFilter } from "@/lib/ai-citation/trust";
 import { segmentMentions } from "@/lib/ai-citation/highlight";
@@ -29,6 +30,20 @@ export type DrawerRequest =
   | null;
 
 const engineLabel = (e: string) => ENGINE_LABEL[e as AiEngine] ?? e;
+
+/** The geography an answer was requested for: country name + ISO code. Renders nothing
+ *  for older answers that have none. No flag emoji (Windows Chrome does not render them). */
+function CountryBadge({ country }: { country: string | null }) {
+  if (!country) return null;
+  const name = countryName(country);
+  return (
+    <Badge variant="outline" className="gap-1.5 text-muted-foreground" title={`Asked as if searching from ${name}`}>
+      {name}
+      <span className="font-mono text-[10px] font-semibold uppercase leading-none">{country}</span>
+    </Badge>
+  );
+}
+
 const fmtWhen = (iso: string) => {
   try { return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); }
   catch { return iso; }
@@ -144,6 +159,7 @@ function ListView({ items, total, loading, onOpen, onLoadMore }: {
           className="w-full rounded-lg border p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/30 cursor-pointer space-y-1.5">
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
             <Badge variant="secondary" className="gap-1 pl-1"><EngineLogo engine={a.engine} size={12} />{engineLabel(a.engine)}</Badge>
+            <CountryBadge country={a.country} />
             {a.persona !== "Other" && <Badge variant="outline">{a.persona}</Badge>}
             {a.mentioned
               ? <Badge className="bg-success-500/15 text-success-700 hover:bg-success-500/15">Mentioned{a.position ? ` #${a.position}` : ""}</Badge>
@@ -187,6 +203,7 @@ function TranscriptView({ transcript, loading, fromList, onBack }: {
         <p className="text-sm font-medium">{t.promptText || "(prompt no longer available)"}</p>
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <Badge variant="secondary" className="gap-1 pl-1"><EngineLogo engine={t.engine} size={12} />{engineLabel(t.engine)}</Badge>
+          <CountryBadge country={t.country} />
           {t.persona && <Badge variant="outline">{t.persona}</Badge>}
           {t.topic && <Badge variant="outline">{t.topic}</Badge>}
           <span className="text-xs text-muted-foreground">asked {fmtWhen(t.createdAt)}</span>

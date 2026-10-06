@@ -12,7 +12,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_CATEGORY, type AiEngine, type AiVisibilityCategory } from "./types";
 import { isMissingColumn } from "./run-state";
 import { FUNNEL_STAGES, asBrandSentiment, stageForTags, type BrandSentiment, type FunnelStage } from "./trust";
-import { buildQuestionRows, type QuestionRow } from "./question-tracker";
+import { askedText, buildQuestionRows, runCountry, type QuestionRow } from "./question-tracker";
+import { SNAPSHOT_COLS, withSnapshotCols } from "./snapshot-columns";
 
 export interface BrandRate { mentionRate: number; citationRate: number; n: number }
 /** One heatmap cell: the mention rate plus the raw counts behind it, so the grid
@@ -44,7 +45,10 @@ export interface AiVisibilityReport {
     modelByBrand: Array<{ row: string; cells: Record<string, HeatCellValue> }>;
     personaByTopic: { topics: string[]; rows: Array<{ row: string; cells: Record<string, HeatCellValue> }> };
   };
-  answers: Array<{ runId: string; promptText: string; persona: string; topic: string; engine: AiEngine; mentioned: boolean; cited: boolean; position: number | null; snippet: string; sentiment: BrandSentiment | null; createdAt: string }>;
+  /** promptText is the wording that was ASKED for that answer (the run's own snapshot),
+   *  not the prompt's current text. country is the ISO-2 geography it was requested
+   *  for, or null for older / unknown runs. */
+  answers: Array<{ runId: string; promptText: string; persona: string; topic: string; engine: AiEngine; mentioned: boolean; cited: boolean; position: number | null; snippet: string; sentiment: BrandSentiment | null; createdAt: string; country: string | null }>;
   sentimentRollup: SentimentRollup;
   funnel: { stages: FunnelStage[]; rows: FunnelMatrixRow[] };
   /** Per-question source tracker rows (question-tracker.ts). Every ACTIVE prompt,
@@ -113,10 +117,13 @@ export async function getAiVisibilityReport(
   const batchId = lastRun?.run_batch_id as string | undefined;
   if (!batchId) return empty(projectLabel);
 
-  const { data: runs } = await supabase.from("ai_citation_runs")
-    .select("id, prompt_id, engine, project_mentioned, project_cited, position, answer_text, error, sentiment, created_at")
-    .eq("run_batch_id", batchId);
-  const runList = (runs ?? []) as Array<{ id: string; prompt_id: string; engine: AiEngine; project_mentioned: boolean; project_cited: boolean; position: number | null; answer_text: string | null; error: string | null; sentiment: string | null; created_at: string }>;
+  // prompt_text + country are the per-run snapshot (migration 20261006000001);
+  // withSnapshotCols re-reads without them on a database that doesn't have them yet.
+  const { data: runs } = await withSnapshotCols((snap) => supabase.from("ai_citation_runs")
+    .select(`id, prompt_id, engine, project_mentioned, project_cited, position, answer_text, error, sentiment, created_at${snap ? SNAPSHOT_COLS : ""}`)
+    .eq("run_batch_id", batchId));
+  // `as unknown as`: the select string is dynamic, so supabase-js can't infer a row type.
+  const runList = (runs ?? []) as unknown as Array<{ id: string; prompt_id: string; engine: AiEngine; project_mentioned: boolean; project_cited: boolean; position: number | null; answer_text: string | null; error: string | null; sentiment: string | null; created_at: string; prompt_text?: string | null; country?: string | null }>;
   if (!runList.length) return empty(projectLabel);
   const runIds = runList.map((r) => r.id);
 
@@ -298,7 +305,7 @@ export async function getAiVisibilityReport(
   // createdAt let the UI click through to the full stored transcript.
   const answerRows = ok.map((r) => {
     const m = runMeta.get(r.id)!;
-    return { runId: r.id, promptText: promptMap.get(r.prompt_id)?.text || "", persona: m.persona, topic: m.topic, engine: r.engine, mentioned: r.project_mentioned, cited: r.project_cited, position: r.position, snippet: (r.answer_text || "").slice(0, 400), sentiment: asBrandSentiment(r.sentiment), createdAt: r.created_at };
+    return { runId: r.id, promptText: askedText(r.prompt_text, promptMap.get(r.prompt_id)?.text), country: runCountry(r.country), persona: m.persona, topic: m.topic, engine: r.engine, mentioned: r.project_mentioned, cited: r.project_cited, position: r.position, snippet: (r.answer_text || "").slice(0, 400), sentiment: asBrandSentiment(r.sentiment), createdAt: r.created_at };
   });
   answerRows.sort((a, b) => Number(b.mentioned) - Number(a.mentioned));
   const answers = answerRows.slice(0, 30);

@@ -7,6 +7,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildCitationRows, type CitationRow, type RawCitation } from "@/lib/ai-citation/citation-aggregate";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
+import { askedText, runCountry } from "@/lib/ai-citation/question-tracker";
+import { SNAPSHOT_COLS, withSnapshotCols } from "@/lib/ai-citation/snapshot-columns";
 import type { AiEngine } from "@/lib/ai-citation/types";
 
 /** Hard ceiling. Data grows ~85 rows per category per weekly check, so this is years of headroom. */
@@ -30,7 +32,8 @@ type SourceJoin = {
   is_project: boolean;
   competitor_id: string | null;
   // PostgREST returns a to-one embed as an object (an array only for to-many).
-  ai_citation_runs: { engine: AiEngine; created_at: string; prompt_id: string } | null;
+  // prompt_text + country are the per-run snapshot: absent before migration 20261006000001.
+  ai_citation_runs: { engine: AiEngine; created_at: string; prompt_id: string; prompt_text?: string | null; country?: string | null } | null;
 };
 
 export async function getCitationSourceRows(
@@ -39,11 +42,11 @@ export async function getCitationSourceRows(
   category: string,
 ): Promise<CitationSourcesData> {
   // Rebuilt for every page: a Supabase query builder is single-use.
-  const page = (from: number, scoped: boolean) => {
+  const page = (from: number, scoped: boolean, snap: boolean) => {
     let q = supabase
       .from("ai_citation_sources")
       .select(
-        "id, run_id, domain, url, title, is_project, competitor_id, ai_citation_runs!inner(engine, created_at, prompt_id)",
+        `id, run_id, domain, url, title, is_project, competitor_id, ai_citation_runs!inner(engine, created_at, prompt_id${snap ? SNAPSHOT_COLS : ""})`,
         { count: "exact" },
       )
       .eq("project_id", projectId)
@@ -59,14 +62,30 @@ export async function getCitationSourceRows(
   };
 
   let scoped = true;
+  // Two independent optional-column degrades compose here: the snapshot columns
+  // (withSnapshotCols re-reads the page without them) and the category column
+  // (the scoped retry below). `snapOk` is learned from the first page that succeeds
+  // without the snapshot, so later pages don't repeat the failed attempt. It is only
+  // flipped on a SUCCESSFUL no-snapshot read: a category error also fails the
+  // no-snapshot retry, and must not make us drop columns that do exist.
+  let snapOk = true;
+  const attempt = { snap: true };
+  const fetchPage = async (from: number) => {
+    const res = await withSnapshotCols((snap) => {
+      attempt.snap = snap && snapOk;
+      return page(from, scoped, attempt.snap);
+    });
+    if (!res.error && !attempt.snap) snapOk = false;
+    return res;
+  };
   const joined: SourceJoin[] = [];
   let total = Infinity;
   let truncated = false;
   while (joined.length < total) {
-    let res = await page(joined.length, scoped);
+    let res = await fetchPage(joined.length);
     if (res.error && scoped && isMissingColumn(res.error.message)) {
       scoped = false; // pre-category schema: single-category by necessity
-      res = await page(joined.length, scoped);
+      res = await fetchPage(joined.length);
     }
     if (res.error) throw new Error(res.error.message);
     const batch = (res.data ?? []) as unknown as SourceJoin[];
@@ -95,8 +114,9 @@ export async function getCitationSourceRows(
       title: s.title,
       isProject: s.is_project,
       competitorName: s.competitor_id ? compName.get(s.competitor_id) ?? null : null,
-      promptText: promptText.get(run.prompt_id) ?? "",
+      promptText: askedText(run.prompt_text, promptText.get(run.prompt_id)),
       engine: run.engine,
+      country: runCountry(run.country),
       createdAt: run.created_at,
     });
   }

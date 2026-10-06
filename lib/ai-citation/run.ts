@@ -25,6 +25,10 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hostFromUrl } from "@/lib/url";
+import { normalizeCountries, normalizeCountry } from "@/lib/geo/countries";
+import { AIO_N, COST_CENTS, DEFAULT_N_BY_ENGINE, MAX_GEOGRAPHIES } from "./run-config";
+import { buildTasks, rowKey, taskKey } from "./tasks";
+import { insertRowsDegrading } from "./snapshot-columns";
 import { cleanCompetitorRows } from "./clean-inputs";
 import { configuredEngines, ENGINE_ADAPTERS } from "./engines";
 import { detectInAnswer } from "./detect";
@@ -37,20 +41,9 @@ import {
   type RunTrigger, type EngineProgress, type RunBatchSpec,
 } from "./run-state";
 
-const AIO_N = 1; // Google-AIO samples per prompt (reverted from a temp 2x bump).
-// Per-engine sampling, tuned for a controlled ~$5 test run by default (see
-// run-test-modal.tsx's duplicated copy of these same numbers + COST_CENTS):
-// ChatGPT/Gemini browse the web so vary more call-to-call, Claude doesn't.
-// Google AIO is on-demand and dearest per call, so it stays at 1.
-const DEFAULT_N_BY_ENGINE: Record<AiEngine, number> = { chatgpt: 2, claude: 1, perplexity: 1, google_aio: AIO_N, gemini: 2 };
+// Sampling depth + per-call pricing live in run-config.ts (shared with the run
+// dialog, which used to keep a hand-synced copy).
 const RUN_CONCURRENCY = 12; // parallel adapter calls in flight - turns a ~350s serial run into ~25s for a scoped run
-// Directional per-call cost in cents for metering (NOT shown to users as dollars).
-// chatgpt now browses via the OpenAI web_search tool (pricier than a plain
-// completion -> ~3c); Claude stays cheap; Gemini's grounded-search call is a
-// conservative estimate (Google bills grounding per-prompt past a 5,000/mo free
-// allowance - verify at ai.google.dev/gemini-api/docs/pricing if this needs
-// tightening); Google AIO (Apify) is dearest.
-const COST_CENTS: Record<AiEngine, number> = { chatgpt: 3, claude: 1, perplexity: 1, google_aio: 12, gemini: 3 };
 // Launch budget: stop firing new tasks after this. In-flight tasks settle in
 // parallel (tail ~ one slow call, up to the ~20s adapter timeout), so 38s + tail
 // stays under the 60s Vercel cap with margin. Scoped runs finish well before it;
@@ -83,6 +76,19 @@ export interface RunOptions {
    *  batch/run rows get written. Defaults to workforce_analytics (today's only
    *  real category) so pre-category callers are unaffected. */
   category?: AiVisibilityCategory;
+  /** Geographies (ISO-2) this run covers. EVERY prompt runs in EACH, so the run is
+   *  prompts x geographies x engines x calls. Omitted/empty = today's behaviour:
+   *  each prompt runs once, in its own country, else the project's. */
+  countries?: string[];
+  /** INTERNAL (resume): the project country frozen when the batch opened. */
+  defaultCountry?: string | null;
+  /** INTERNAL (resume): every prompt's wording frozen when the batch opened, so a
+   *  prompt edited mid-run can't split one batch across two wordings. */
+  promptTexts?: Record<string, string>;
+  /** Refuse, before spending anything, a NEW run whose task list is larger than
+   *  this (a batch only gets MAX_RESUME_PASSES + 1 slices; a bigger run would have
+   *  its tail silently cut off). Set by the on-demand action; unset for cron. */
+  maxTasks?: number;
 }
 
 export interface RunSummary {
@@ -115,13 +121,15 @@ function emptySummary(over: Partial<RunSummary>): RunSummary {
 export function estimateRunCostCents(
   promptCount: number, engines: AiEngine[], n: number | Partial<Record<AiEngine, number>> = DEFAULT_N_BY_ENGINE,
   aioPromptCap?: number,
+  /** Every selected geography re-runs the whole set, so it multiplies the cost. */
+  geographies = 1,
 ): number {
   const samplesFor = (e: AiEngine) =>
     e === "google_aio" ? AIO_N : (typeof n === "number" ? n : (n[e] ?? DEFAULT_N_BY_ENGINE[e]));
   // AIO can be capped to fewer prompts than the rest (on-demand cost guard).
   const countFor = (e: AiEngine) =>
     e === "google_aio" && aioPromptCap != null ? Math.min(aioPromptCap, promptCount) : promptCount;
-  return engines.reduce((s, e) => s + COST_CENTS[e] * samplesFor(e) * countFor(e), 0);
+  return Math.max(1, geographies) * engines.reduce((s, e) => s + COST_CENTS[e] * samplesFor(e) * countFor(e), 0);
 }
 
 export async function runProjectCitations(projectId: string, opts: RunOptions = {}): Promise<RunSummary> {
@@ -176,6 +184,25 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
   }
   if (!prompts?.length) return bail("no active prompts");
 
+  // A resumed batch asks the EXACT wording it opened with: a prompt edited between
+  // slices must not split one batch across two wordings.
+  const frozenText = opts.promptTexts;
+  const promptRows = frozenText ? prompts.map((p) => ({ ...p, text: frozenText[p.id] ?? p.text })) : prompts;
+
+  // Geographies. Explicit list = every prompt runs in each. None = today's
+  // behaviour: a prompt's own country, else the project's (frozen on resume).
+  const defaultCountry = normalizeCountry(opts.defaultCountry ?? project.country);
+  const countries = opts.countries?.length ? normalizeCountries(opts.countries, MAX_GEOGRAPHIES) : [];
+  const multiGeo = countries.length > 1;
+  if (multiGeo && !resumeId) {
+    // Several countries need the per-answer country column to tell their answers
+    // apart. Refuse up front (nothing spent) rather than saving look-alike rows.
+    const probe = await admin.from("ai_citation_runs").select("country").limit(1);
+    if (probe.error && isMissingColumn(probe.error.message)) {
+      return bail("Running several countries at once needs a one-time database update first (migration 20261006000001). Pick one country, or apply the update and try again.");
+    }
+  }
+
   // Only run engines that are configured; drop AIO if we have no Apify token.
   const requested = (opts.engines ?? configuredEngines()).filter((e) => AI_ENGINES.includes(e));
   const engines = requested.filter((e) => e !== "google_aio" || !!opts.apifyToken);
@@ -190,36 +217,43 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
   // Samples of the same prompt x engine are independent, so they parallelize freely.
   // Built BEFORE the budget gate so both the reservation and the continuation
   // dedupe below work on the exact task list.
-  const allTasks: { p: (typeof prompts)[number]; engine: AiEngine; i: number }[] = [];
-  for (let pi = 0; pi < prompts.length; pi++) {
-    const p = prompts[pi];
-    for (const engine of engines) {
-      // Cap the expensive google_aio engine to the first aioPromptCap prompts (the
-      // on-demand cost/time guard) unless a run-test-modal override replaces it;
-      // any other engine can be capped the same way via promptCapByEngine.
-      const cap = engine === "google_aio" ? (opts.aioPromptCap ?? opts.promptCapByEngine?.[engine]) : opts.promptCapByEngine?.[engine];
-      if (cap != null && pi >= cap) continue;
-      const samples = nFor(engine);
-      for (let i = 0; i < samples; i++) allTasks.push({ p, engine, i });
-    }
+  // (prompt x geography x engine x sample): see tasks.ts for the order and caps.
+  const allTasks = buildTasks({
+    prompts: promptRows, engines, samplesFor: nFor,
+    aioPromptCap: opts.aioPromptCap, promptCapByEngine: opts.promptCapByEngine,
+    countries, defaultCountry,
+  });
+  type RunTask = (typeof allTasks)[number];
+
+  // A new run bigger than the action allows is refused BEFORE anything is spent:
+  // a batch only gets MAX_RESUME_PASSES + 1 slices, so a bigger one would have its
+  // tail silently cut off at the continuation limit.
+  if (!resumeId && opts.maxTasks != null && allTasks.length > opts.maxTasks) {
+    return bail(`This run is ${allTasks.length} calls and one run can hold ${opts.maxTasks}. Lower the countries, questions, or calls per question.`);
   }
 
   // Continuation dedupe: any task that already has a persisted row for this batch
-  // is DONE - never re-run, never re-billed. Keyed on the same triple stamped on
-  // every ai_citation_runs row, so partial samples of one prompt x engine resume
-  // exactly where they stopped.
+  // is DONE - never re-run, never re-billed. Keyed on (prompt, engine, sample), so
+  // partial samples of one prompt x engine resume exactly where they stopped; a
+  // MULTI-country batch also keys on country (its rows carry it, since the run
+  // refused to open without the column). Older and single-country batches keep the
+  // original 3-part key, so they resume unchanged.
   let tasks = allTasks;
   let alreadyDone = 0;
   const doneByEngine: Record<string, number> = {};
   if (resumeId) {
-    const { data: doneRows, error: doneErr } = await admin
+    // Plain `string` (not a literal): the query-type parser can't read a choice
+    // between two literal column lists, and the rows are cast explicitly below.
+    const doneCols: string = multiGeo ? "prompt_id, engine, run_index, country" : "prompt_id, engine, run_index";
+    const { data: doneData, error: doneErr } = await admin
       .from("ai_citation_runs")
-      .select("prompt_id, engine, run_index")
+      .select(doneCols)
       .eq("run_batch_id", resumeId);
     // Failing open here could double-run (and double-bill) finished tasks - bail.
     if (doneErr) return bail(`could not load completed tasks: ${doneErr.message}`);
-    const done = new Set((doneRows ?? []).map((r) => `${r.prompt_id}|${r.engine}|${r.run_index}`));
-    tasks = allTasks.filter((t) => !done.has(`${t.p.id}|${t.engine}|${t.i}`));
+    const doneRows = (doneData ?? []) as unknown as Array<{ prompt_id: string; engine: string; run_index: number; country?: string | null }>;
+    const done = new Set(doneRows.map((r) => rowKey(r, multiGeo)));
+    tasks = allTasks.filter((t) => !done.has(taskKey(t, multiGeo)));
     alreadyDone = done.size;
     for (const r of (doneRows ?? []) as { engine: string }[]) {
       doneByEngine[r.engine] = (doneByEngine[r.engine] ?? 0) + 1;
@@ -266,12 +300,15 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
   } else {
     await reapStaleBatches(admin, projectId);
     const spec: RunBatchSpec = {
-      promptIds: prompts.map((p) => p.id),
+      promptIds: promptRows.map((p) => p.id),
       engines,
       nByEngine: Object.fromEntries(engines.map((e) => [e, nFor(e)])) as Partial<Record<AiEngine, number>>,
       aioPromptCap: opts.aioPromptCap ?? null,
       promptCapByEngine: opts.promptCapByEngine ?? null,
       skipGate: opts.skipGate || undefined,
+      countries: countries.length ? countries : null,
+      defaultCountry,
+      promptTexts: Object.fromEntries(promptRows.map((p) => [p.id, p.text])),
     };
     const { specPersisted } = await startRunBatch(admin, {
       projectId, batchId, totalTasks: allTasks.length, engines,
@@ -307,9 +344,9 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
     await heartbeatRunBatch(admin, batchId, completedCount, engineProgress());
   };
 
-  const runOne = async (t: (typeof tasks)[number]): Promise<void> => {
+  const runOne = async (t: RunTask): Promise<void> => {
     const res = await ENGINE_ADAPTERS[t.engine].run(t.p.text, {
-      country: t.p.country ?? project.country ?? undefined,
+      country: t.country ?? undefined,
       projectDomain: host,
       apifyToken: opts.apifyToken,
       deadlineMs: deadline,
@@ -328,6 +365,9 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
     runRows.push({
       id: runId, project_id: projectId, prompt_id: t.p.id, engine: t.engine,
       run_index: t.i, run_batch_id: batchId, category,
+      // What was ACTUALLY asked, and where from: a later edit of the prompt must not
+      // rewrite this answer's history. (Both columns are optional until migrated.)
+      prompt_text: t.p.text, country: t.country,
       answer_text: res.answerText ? res.answerText.slice(0, 8000) : null,
       project_cited: det?.project.cited ?? false,
       project_mentioned: det?.project.mentioned ?? false,
@@ -386,12 +426,10 @@ export async function runProjectCitations(projectId: string, opts: RunOptions = 
 
     // Persist runs first (sources FK to runs.id, which we set client-side).
     if (runRows.length) {
-      let { error } = await admin.from("ai_citation_runs").insert(runRows);
-      if (error && isMissingColumn(error.message)) {
-        // Category migration not applied yet - degrade to pre-category rows
-        // rather than losing the whole run's results.
-        ({ error } = await admin.from("ai_citation_runs").insert(runRows.map(({ category: _category, ...r }) => r)));
-      }
+      // Optional columns (category, prompt_text, country) that a migration hasn't
+      // added yet are dropped ONE AT A TIME and the insert retried: a run's paid
+      // results must never be lost to a missing column. Real errors still throw.
+      const { error } = await insertRowsDegrading(admin, "ai_citation_runs", runRows, ["prompt_text", "country", "category"]);
       if (error) throw new Error(`insert runs: ${error.message}`);
     }
     if (sourceRows.length) {
@@ -555,6 +593,11 @@ export async function resumeRunBatch(
     aioPromptCap: spec.aioPromptCap ?? undefined,
     promptCapByEngine: spec.promptCapByEngine ?? undefined,
     skipGate: spec.skipGate === true,
+    // Geographies + wording frozen when the batch opened (older batches lack these
+    // and resume exactly as before: each prompt in its own/the project's country).
+    countries: spec.countries ?? undefined,
+    defaultCountry: spec.defaultCountry ?? undefined,
+    promptTexts: spec.promptTexts ?? undefined,
     apifyToken: opts.apifyToken,
     maxMs: opts.maxMs,
     userId: b.user_id,

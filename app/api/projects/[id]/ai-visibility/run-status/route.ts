@@ -19,10 +19,17 @@ import { DEFAULT_CATEGORY, type AiVisibilityCategory } from "@/lib/ai-citation/t
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Category keys are lowercase snake_case slugs (employee_monitoring, a team
+// member's own self-serve key, ...). Anything else falls back to the default.
+const CATEGORY_KEY = /^[a-z0-9_]{1,60}$/;
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = await params;
   const categoryParam = request.nextUrl.searchParams.get("category");
-  const category: AiVisibilityCategory = categoryParam === "employee_monitoring" ? "employee_monitoring" : DEFAULT_CATEGORY;
+  // Pass the REAL category through. This used to collapse every category except
+  // employee_monitoring into the default, so a self-serve category polled the
+  // wrong category's batch and a multi-slice (parked) run there never resumed.
+  const category: AiVisibilityCategory = categoryParam && CATEGORY_KEY.test(categoryParam) ? categoryParam : DEFAULT_CATEGORY;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

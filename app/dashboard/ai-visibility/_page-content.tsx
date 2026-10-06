@@ -17,6 +17,7 @@ import { getPersonas } from "@/lib/data/personas";
 import { isGoogleServiceAccountConfigured } from "@/lib/google/auth";
 import { profileForIndustry } from "@/lib/ai-citation/industry-profiles";
 import { cleanCompetitorRows, cleanKeywords } from "@/lib/ai-citation/clean-inputs";
+import { normalizeCountry } from "@/lib/geo/countries";
 
 // Shared body for both category pages (employee-monitoring/, workforce-analytics/).
 // The report (score/heatmaps/answers/sources), the source-gap read, and the
@@ -70,6 +71,11 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
 
   const engines = configuredEngines().map((e) => ({ key: e, label: ENGINE_LABEL[e] }));
 
+  // The project's market as a valid ISO-2 code (null when the stored value is not a
+  // recognizable country). Seeds the run dialog's Geography picker; a run that keeps
+  // exactly this one country behaves as it always did.
+  const projectCountry = normalizeCountry(project.country);
+
   // Ticket 10's run-test modal shows amount-left per engine. Maps each AI-citation
   // engine to the integration card that tracks its spend (google_aio shares the
   // 'apify' card - see BUDGET_ENGINES in lib/data/integrations.ts).
@@ -107,6 +113,7 @@ export async function AiVisibilityCategoryPage({ category }: { category: AiVisib
         scope={scope}
         initialRun={latestRun}
         engineBudgets={engineBudgets}
+        projectCountry={projectCountry}
       />
     </div>
   );

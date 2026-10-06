@@ -47,6 +47,17 @@ import { BreakdownsTab } from "@/components/sections/ai-visibility-report/breakd
 import { AnswersTab } from "@/components/sections/ai-visibility-report/answers-tab";
 
 type Tab = "overview" | "breakdowns" | "answers" | "sources" | "setup";
+
+// The settings a run was started with (from the run dialog). Kept in a ref so Retry
+// can replay them; undefined fields mean "server default".
+type RunOverride = {
+  engines: AiEngine[];
+  nByEngine: Partial<Record<AiEngine, number>>;
+  promptCapByEngine?: Partial<Record<AiEngine, number>>;
+  promptIds?: string[];
+  /** ISO-2 geographies; only set when different from the project's own country. */
+  countries?: string[];
+};
 export type PromptRow = { id: string; text: string; persona: string | null; topic: string | null; tags: string[] | null; demand: string | null; active: boolean };
 
 // Durable run-lifecycle state (P0-5), read from ai_citation_run_batches. Shape
@@ -70,7 +81,7 @@ type RunBatchState = {
 
 
 export function AiVisibilityClient({
-  projectId, category, personas, googleConnected, report, prompts, configuredEngines, canManage, aiReferral, sourceGap, outreach, competitors, suggestedTopics, defaultKeyword, scope, initialRun, engineBudgets,
+  projectId, category, personas, googleConnected, report, prompts, configuredEngines, canManage, aiReferral, sourceGap, outreach, competitors, suggestedTopics, defaultKeyword, scope, initialRun, engineBudgets, projectCountry,
 }: {
   projectId: string;
   /** Which product this page scans/reports on - threaded into every run/generate
@@ -92,6 +103,9 @@ export function AiVisibilityClient({
   initialRun: RunBatchState;
   /** Per-engine budget cap/spend so far, for the run-test modal (ticket 10). */
   engineBudgets: Record<AiEngine, { capUsd: number | null; spentUsd: number | null }>;
+  /** The project's own country as a valid ISO-2 code, or null when it has none.
+   *  Seeds the run dialog's Geography picker. */
+  projectCountry: string | null;
 }) {
   // Ticket 6: `prompts` now includes inactive (toggled-off) rows too, so the
   // Buyer Prompts card can manage them in place. Every run-related count below
@@ -120,6 +134,10 @@ export function AiVisibilityClient({
   // Guards the browser-driven continuation so only one resume slice is in flight
   // at a time (a slice runs up to ~38s; the 3s poll must not stack resumes).
   const resumingRef = useRef(false);
+  // The settings of the most recent run started from the dialog, so Retry replays
+  // the same engines / questions / geographies instead of silently falling back to
+  // the defaults. null = the last run used server defaults (or none ran this visit).
+  const lastRunOverrideRef = useRef<RunOverride | null>(null);
 
   // Fetch the latest durable run state. Returns the batch (or null).
   const fetchRunStatus = useCallback(async (): Promise<RunBatchState> => {
@@ -173,7 +191,8 @@ export function AiVisibilityClient({
     return () => { cancelled = true; clearInterval(interval); };
   }, [runActive, fetchRunStatus, router, projectId]);
 
-  const runNow = (override?: { engines: AiEngine[]; nByEngine: Partial<Record<AiEngine, number>>; promptCapByEngine?: Partial<Record<AiEngine, number>>; promptIds?: string[] }) => {
+  const runNow = (override?: RunOverride) => {
+    lastRunOverrideRef.current = override ?? null;
     setBusy("run");
     // Remember the run that existed BEFORE this click, so we can tell whether a
     // real batch row was created for THIS attempt (a newer id) vs. the action
@@ -195,6 +214,8 @@ export function AiVisibilityClient({
       const r = await runAiVisibilityNow({
         project_id: projectId, category,
         ...(override ? { engines: override.engines, nByEngine: override.nByEngine, promptCapByEngine: override.promptCapByEngine, promptIds: override.promptIds } : {}),
+        // Omitted entirely for a default-geography run, so that call is unchanged.
+        ...(override?.countries ? { countries: override.countries } : {}),
       });
       setBusy(null);
       const latest = await fetchRunStatus();
@@ -309,7 +330,7 @@ export function AiVisibilityClient({
       {/* Durable run state (P0-5): real progress while running, a truthful
           failed / timed-out state with Retry, so a run never hides behind a
           spinner or looks "stuck running" after the request died. */}
-      <RunStatusBanner run={run} canManage={canManage} onRetry={runNow} retryDisabled={pending || runActive} />
+      <RunStatusBanner run={run} canManage={canManage} onRetry={() => runNow(lastRunOverrideRef.current ?? undefined)} retryDisabled={pending || runActive} />
 
       <AiVisibilityScopeDrawer
         open={scopeOpen}
@@ -341,9 +362,10 @@ export function AiVisibilityClient({
         onEditPrompt={editPrompt}
         onDeletePrompt={deletePrompt}
         onTogglePrompt={togglePrompt}
-        onConfirm={(engines, nByEngine, promptCapByEngine, promptIds) => {
+        projectCountry={projectCountry}
+        onConfirm={(engines, nByEngine, promptCapByEngine, promptIds, countries) => {
           setRunModalOpen(false);
-          runNow({ engines, nByEngine, promptCapByEngine, promptIds });
+          runNow({ engines, nByEngine, promptCapByEngine, promptIds, countries });
         }}
       />
 
@@ -420,7 +442,7 @@ function RunStatusBanner({
           </div>
         )}
         <p className="text-xs text-muted-foreground">
-          This keeps running even if you leave the page. Results update here automatically.
+          Keep this tab open until the check finishes. Results update here automatically.
         </p>
       </div>
     );

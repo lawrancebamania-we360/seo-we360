@@ -18,8 +18,11 @@ export interface RawCitation {
   title: string | null;
   isProject: boolean;
   competitorName: string | null;
+  /** The wording that was ASKED (the run's own snapshot), not the prompt's current text. */
   promptText: string;
   engine: AiEngine;
+  /** ISO-2 geography the answer was requested for; null for older / unknown runs. */
+  country: string | null;
   /** The ANSWER's date (ai_citation_runs.created_at), not the source row's. */
   createdAt: string;
 }
@@ -37,6 +40,8 @@ export interface CitationRow {
   title: string | null;
   promptText: string;
   engine: AiEngine;
+  /** ISO-2 geography the answer was requested for; null for older / unknown runs. */
+  country: string | null;
   createdAt: string;
   isProject: boolean;
   competitorName: string | null;
@@ -143,7 +148,7 @@ export function buildCitationRows(raw: RawCitation[]): BuiltCitations {
     rows.push({
       id: r.id, runId: r.runId, site, linkKey, url,
       title: r.title?.trim() || null,
-      promptText: r.promptText, engine: r.engine, createdAt: r.createdAt,
+      promptText: r.promptText, engine: r.engine, country: r.country, createdAt: r.createdAt,
       isProject: r.isProject, competitorName: r.competitorName,
     });
   }

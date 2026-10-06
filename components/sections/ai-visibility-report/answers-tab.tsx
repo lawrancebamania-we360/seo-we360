@@ -7,42 +7,114 @@
 //      By question toggle (per-answer transcripts + the per-question source
 //      tracker), both scoped to the chosen persona.
 // Counts are per QUESTION (a question counts once regardless of how many engines
-// answered it) — computed in report.ts (report.personas[].question*).
+// answered it).
+//
+// The grid and the "By answer" view read EVERY check (lib/ai-citation/answer-history.ts,
+// loaded lazily through usePersonaHistory): a persona that was ever asked is listed
+// even when its prompts are now paused, and its answers from older checks are one
+// click away. While that loads, or if it fails (or the optional DB columns are not
+// there yet), both fall back to the latest-check report exactly as before
+// (report.personas / report.answers). "By question" stays the latest-check view.
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, ListFilter, MessageSquare, Quote, Sparkles, TableProperties, Users } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, ListFilter, Loader2, MessageSquare, Quote, Sparkles, TableProperties, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
 import type { AiVisibilityReport } from "@/lib/ai-citation/report";
+import type { PersonaHistory } from "@/lib/ai-citation/answer-history";
 import { GetCitedDialog } from "@/components/sections/get-cited-dialog";
 import { useEvidence } from "./evidence-context";
 import { SentimentChip } from "./sentiment-chip";
 import { QuestionTrackerView } from "./question-tracker-view";
+import { AnswersHistory } from "./answers-history";
+import { usePersonaHistory } from "./use-persona-history";
 
 const engineLabel = (e: string) => ENGINE_LABEL[e as AiEngine] ?? e;
 
 type AnswersView = "answers" | "questions";
+
+/** What a persona card shows, whichever source it came from. */
+interface PersonaCardView {
+  persona: string;
+  asked: number;
+  mentioned: number;
+  cited: number;
+  brandedCount: number;
+  /** No active question left: only history remains. */
+  paused: boolean;
+}
+
+/** Where the grid's numbers come from: every check, or the latest check only (and why). */
+type GridSource = "history" | "loading" | "failed" | "latest";
+
+const cardsFromReport = (report: AiVisibilityReport): PersonaCardView[] =>
+  report.personas.map((p) => ({
+    persona: p.persona,
+    asked: p.questionCount,
+    mentioned: p.questionsMentioned,
+    cited: p.questionsCited,
+    brandedCount: p.brandedCount,
+    paused: false,
+  }));
+
+const cardsFromHistory = (h: PersonaHistory): PersonaCardView[] =>
+  h.personas.map((p) => ({
+    persona: p.persona,
+    asked: p.asked,
+    mentioned: p.mentioned,
+    cited: p.cited,
+    brandedCount: p.brandedCount,
+    paused: p.paused,
+  }));
+
+const formatDay = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 
 export function AnswersTab({ report, projectId, canManage, competitors }: {
   report: AiVisibilityReport; projectId: string; canManage: boolean;
   /** Tracked competitors, for the per-question brand-of-interest picker. */
   competitors: Array<{ id: string; name: string }>;
 }) {
-  const { openList, openTranscript, classifying } = useEvidence();
+  const { openList, openTranscript, classifying, category } = useEvidence();
+  const history = usePersonaHistory(projectId, category, report);
   const [getCited, setGetCited] = useState<{ question: string; persona: string | null } | null>(null);
   const [view, setView] = useState<AnswersView>("answers");
   const [persona, setPersona] = useState<string | null>(null);
 
+  // History is used only when it actually has personas; empty or failed falls back to the latest-check report.
+  const historyPersonas = history.data?.personas.length ? history.data.personas : null;
+  const cards = useMemo(
+    () => (history.data && historyPersonas ? cardsFromHistory(history.data) : cardsFromReport(report)),
+    [history.data, historyPersonas, report],
+  );
+  const source: GridSource = historyPersonas ? "history" : history.loading ? "loading" : history.error ? "failed" : "latest";
+
+  // The date of the latest check, for the "By question" note: newest answer in the report.
+  const latestCheckDate = useMemo(() => {
+    let max = 0;
+    for (const a of report.answers) {
+      const t = Date.parse(a.createdAt);
+      if (!Number.isNaN(t) && t > max) max = t;
+    }
+    return max ? formatDay(new Date(max).toISOString()) : null;
+  }, [report.answers]);
+
   // Level 1 — the persona grid (default view).
   if (persona === null) {
-    return <PersonaGrid report={report} onSelect={(p) => { setPersona(p); setView("answers"); }} />;
+    return <PersonaGrid cards={cards} source={source} onSelect={(p) => { setPersona(p); setView("answers"); }} />;
   }
 
   // Level 2 — one persona's answers.
+  const histCard = historyPersonas?.find((p) => p.persona === persona) ?? null;
   const stat = report.personas.find((p) => p.persona === persona);
+  const headerStat = histCard
+    ? { asked: histCard.asked, mentioned: histCard.mentioned, cited: histCard.cited }
+    : stat
+      ? { asked: stat.questionCount, mentioned: stat.questionsMentioned, cited: stat.questionsCited }
+      : null;
   const personaAnswers = report.answers.filter((a) => a.persona === persona);
   const personaQuestions = report.questions.filter((q) => q.persona === persona);
 
@@ -58,12 +130,15 @@ export function AnswersTab({ report, projectId, canManage, competitors }: {
             <ChevronLeft className="size-3.5" /> All personas
           </Button>
           <div className="min-w-0">
-            <h2 className="font-heading text-lg font-semibold leading-snug tracking-tight text-foreground">{persona}</h2>
-            {stat && (
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-heading text-lg font-semibold leading-snug tracking-tight text-foreground">{persona}</h2>
+              {histCard?.paused && <PausedBadge />}
+            </div>
+            {headerStat && (
               <p className="mt-0.5 text-[13px] text-muted-foreground">
-                Asked <span className="font-semibold text-foreground tabular-nums">{stat.questionCount}</span> ·
-                Mentioned <span className="font-semibold text-success-strong tabular-nums">{stat.questionsMentioned}</span> ·
-                Cited <span className="font-semibold text-info-700 tabular-nums">{stat.questionsCited}</span>
+                Asked <span className="font-semibold text-foreground tabular-nums">{headerStat.asked}</span> ·
+                Mentioned <span className="font-semibold text-success-strong tabular-nums">{headerStat.mentioned}</span> ·
+                Cited <span className="font-semibold text-info-700 tabular-nums">{headerStat.cited}</span>
               </p>
             )}
           </div>
@@ -73,22 +148,37 @@ export function AnswersTab({ report, projectId, canManage, competitors }: {
             By answer
           </ViewToggle>
           <ViewToggle active={view === "questions"} onClick={() => setView("questions")} icon={TableProperties}>
-            By question ({personaQuestions.length})
+            By question (latest check)
           </ViewToggle>
         </div>
       </div>
 
       {view === "questions" && (
-        <QuestionTrackerView
-          questions={personaQuestions}
-          projectId={projectId}
-          canManage={canManage}
-          competitors={competitors}
-          projectLabel={report.projectLabel}
-        />
+        <>
+          <p className="text-[12.5px] text-muted-foreground">
+            Latest check only{latestCheckDate ? ` (${latestCheckDate})` : ""}. Older checks are under By answer.
+          </p>
+          <QuestionTrackerView
+            questions={personaQuestions}
+            projectId={projectId}
+            canManage={canManage}
+            competitors={competitors}
+            projectLabel={report.projectLabel}
+          />
+        </>
       )}
 
-      {view === "answers" && (
+      {view === "answers" && (histCard ? (
+        <AnswersHistory
+          key={histCard.persona}
+          projectId={projectId}
+          category={category}
+          persona={histCard.persona}
+          checks={histCard.checks}
+          canManage={canManage}
+          onGetCited={(question) => setGetCited({ question, persona: histCard.persona === "Other" ? null : histCard.persona })}
+        />
+      ) : (
         <AnswerCards
           answers={personaAnswers}
           totalForScope={stat?.n ?? personaAnswers.length}
@@ -98,24 +188,49 @@ export function AnswersTab({ report, projectId, canManage, competitors }: {
           openTranscript={openTranscript}
           classifying={classifying}
         />
-      )}
+      ))}
     </div>
   );
 }
 
 // ---- Level 1: persona grid --------------------------------------------------
 
-function PersonaGrid({ report, onSelect }: { report: AiVisibilityReport; onSelect: (persona: string) => void }) {
+/** Small "Paused" tag for a persona with no active question (only its history is left). */
+function PausedBadge() {
+  return (
+    <span
+      title="This persona has no active questions right now. Its answers from earlier checks are still here."
+      className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[10.5px] font-semibold text-muted-foreground"
+    >
+      Paused
+    </span>
+  );
+}
+
+function PersonaGrid({ cards, source, onSelect }: {
+  cards: PersonaCardView[];
+  source: GridSource;
+  onSelect: (persona: string) => void;
+}) {
   return (
     <div className="space-y-4">
       <div>
         <h2 className="font-heading text-lg font-semibold tracking-tight text-foreground">Sample answers by persona</h2>
         <p className="mt-0.5 text-[13px] text-muted-foreground">
-          Pick a buyer persona to read the questions it asked and the AI answers behind them. Counts are per question.
+          Pick a buyer persona to read the questions it asked and the AI answers behind them.{" "}
+          {source === "history" ? "Counts are per question, across every check." : "Counts are per question."}
         </p>
+        {source === "loading" && (
+          <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="size-3 animate-spin" /> Counting answers from every check...
+          </p>
+        )}
+        {source === "failed" && (
+          <p className="mt-1 text-xs text-muted-foreground">Could not load older checks, so this shows the latest check only.</p>
+        )}
       </div>
 
-      {!report.personas.length ? (
+      {!cards.length ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
           <Users className="size-6 text-muted-foreground" />
           <p className="text-sm font-medium text-foreground">No persona data yet</p>
@@ -123,8 +238,8 @@ function PersonaGrid({ report, onSelect }: { report: AiVisibilityReport; onSelec
         </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {report.personas.map((p) => {
-            const coverage = p.questionCount ? p.questionsMentioned / p.questionCount : 0;
+          {cards.map((p) => {
+            const coverage = p.asked ? p.mentioned / p.asked : 0;
             return (
               <button
                 key={p.persona}
@@ -140,21 +255,26 @@ function PersonaGrid({ report, onSelect }: { report: AiVisibilityReport; onSelec
                     <p className="line-clamp-2 text-[13.5px] font-semibold leading-snug text-foreground group-hover:text-primary">
                       {p.persona}
                     </p>
-                    {p.brandedCount > 0 && (
-                      <span
-                        title="These questions name we360 directly, so a mention is expected — not an unprompted recommendation. The real signal is the other personas, where AI names you without being told."
-                        className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10.5px] font-semibold text-warning-strong"
-                      >
-                        Names we360 · discount
-                      </span>
+                    {(p.brandedCount > 0 || p.paused) && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        {p.brandedCount > 0 && (
+                          <span
+                            title="These questions name we360 directly, so a mention is expected, not an unprompted recommendation. The real signal is the other personas, where AI names you without being told."
+                            className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10.5px] font-semibold text-warning-strong"
+                          >
+                            Names we360 · discount
+                          </span>
+                        )}
+                        {p.paused && <PausedBadge />}
+                      </div>
                     )}
                   </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-3 gap-2">
-                  <Stat label="Asked" value={p.questionCount} tone="neutral" />
-                  <Stat label="Mentioned" value={p.questionsMentioned} tone="success" />
-                  <Stat label="Cited" value={p.questionsCited} tone="info" />
+                  <Stat label="Asked" value={p.asked} tone="neutral" />
+                  <Stat label="Mentioned" value={p.mentioned} tone="success" />
+                  <Stat label="Cited" value={p.cited} tone="info" />
                 </div>
 
                 <div className="mt-3 flex items-center gap-2">

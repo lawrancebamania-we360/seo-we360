@@ -229,6 +229,7 @@ export function BuyerPromptsCard({
                         className="text-sm"
                         autoFocus
                       />
+                      <p className="text-xs text-muted-foreground">Editing changes future checks only. Past answers keep the wording that was asked.</p>
                       <div className="flex flex-wrap items-center gap-2">
                         <label className="text-xs text-muted-foreground" htmlFor={`edit-persona-${p.id}`}>Persona</label>
                         <PersonaSelect id={`edit-persona-${p.id}`} value={editFields.persona} onChange={(v) => setEditFields((f) => ({ ...f, persona: v }))} personas={personas} />

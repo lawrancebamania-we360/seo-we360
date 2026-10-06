@@ -17,6 +17,8 @@ import { callPlatformLLM } from "@/lib/ai/platform-llm";
 import { extractFirstJson } from "@/lib/ai/byok";
 import { hostFromUrl } from "@/lib/url";
 import { asBrandSentiment, type BrandSentiment } from "./trust";
+import { askedText } from "./question-tracker";
+import { SNAPSHOT_COLS, withSnapshotCols } from "./snapshot-columns";
 
 /** Answers packed into ONE platform-LLM call. */
 export const SENTIMENT_BATCH_SIZE = 20;
@@ -87,15 +89,19 @@ export async function classifyBatchSentiment(admin: SupabaseClient, projectId: s
   const batchId = lastRun?.run_batch_id as string | undefined;
   if (!batchId) return { ...ZERO };
 
-  const { data: rows } = await admin.from("ai_citation_runs")
-    .select("id, prompt_id, answer_text")
+  // prompt_text is the wording the run actually asked (an edited prompt keeps its
+  // id), so the classifier judges the answer against the question it answered.
+  // withSnapshotCols re-reads without it before the snapshot migration is applied.
+  const { data: rows } = await withSnapshotCols((snap) => admin.from("ai_citation_runs")
+    .select(`id, prompt_id, answer_text${snap ? SNAPSHOT_COLS : ""}`)
     .eq("run_batch_id", batchId)
     .eq("project_mentioned", true)
     .is("sentiment", null)
     .is("error", null)
     .order("created_at", { ascending: true })
-    .limit(SENTIMENT_MAX_PER_INVOCATION);
-  const todo = (rows ?? []) as Array<{ id: string; prompt_id: string; answer_text: string | null }>;
+    .limit(SENTIMENT_MAX_PER_INVOCATION));
+  // `as unknown as`: the select string is dynamic, so supabase-js can't infer a row type.
+  const todo = (rows ?? []) as unknown as Array<{ id: string; prompt_id: string; answer_text: string | null; prompt_text?: string | null }>;
   if (!todo.length) return { ...ZERO };
 
   const { data: project } = await admin.from("projects")
@@ -117,7 +123,7 @@ export async function classifyBatchSentiment(admin: SupabaseClient, projectId: s
     const chunk = todo.slice(at, at + SENTIMENT_BATCH_SIZE);
     const items = chunk.map((r, i) => ({
       n: i + 1,
-      question: questionById.get(r.prompt_id) ?? "",
+      question: askedText(r.prompt_text, questionById.get(r.prompt_id)),
       excerpt: excerptAround(r.answer_text ?? "", aliases),
     }));
     try {

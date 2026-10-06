@@ -1,5 +1,6 @@
 // Shared helpers for the AI-citation engine adapters.
 
+import { countryHintName } from "@/lib/geo/countries";
 import type { AiEngine, EngineCitation, EngineResult } from "../types";
 
 // A failed / unconfigured engine returns ok:false (never throws) so one dead
@@ -26,11 +27,13 @@ export function extractUrlCitations(text: string): EngineCitation[] {
 }
 
 // Lightly localize the question so an engine answers for the right market. Kept
-// minimal so it does not distort the natural answer we are measuring.
+// minimal so it does not distort the natural answer we are measuring. The
+// country is spelled out ("India", "the United States"): a bare ISO code reads
+// ambiguously in prose ("located in IN" can mean Indiana to a model).
 export function localize(prompt: string, country?: string): string {
   const c = country?.trim();
   if (!c) return prompt;
-  return `${prompt}\n\n(Answer for someone located in ${c}.)`;
+  return `${prompt}\n\n(Answer for someone located in ${countryHintName(c)}.)`;
 }
 
 // Engines should answer like a real assistant a buyer would ask, capped so the

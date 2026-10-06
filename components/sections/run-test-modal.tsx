@@ -1,47 +1,49 @@
 "use client";
 
 // Ticket 10 (+ follow-up): the "Run AI-citation test" flow, now a 2-step wizard.
-// Step 1 - pick engines, calls/question (N), and how many of the active
-// questions each engine covers (budget control mid-test, e.g. "just 1 question
-// to Gemini"). Step 2 - "Set up Personas": review/edit personas, see the buyer
-// prompts that will run, add a question by hand, then confirm the run.
+// Step 1 - pick engines, calls/question (N), how many of the active questions
+// each engine covers (budget control mid-test, e.g. "just 1 question to
+// Gemini"), and the geographies to run from (each one repeats the whole run).
+// Step 2 - "Set up Personas": review/edit personas, see the buyer prompts that
+// will run, add a question by hand, then confirm the run.
 
-import { useEffect, useRef, useState } from "react";
-import { Play, Check, Info, ArrowLeft, AlertTriangle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Play, Check, Info, ArrowLeft, AlertTriangle, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { MultiCombobox } from "@/components/ui/multi-combobox";
 import { cn } from "@/lib/utils";
 import { EngineLogo } from "@/components/icons/engines/engine-logo";
 import { ENGINE_LABEL, type AiEngine } from "@/lib/ai-citation/types";
+import {
+  AIO_N, AIO_ONDEMAND_CAP, COST_CENTS, DEFAULT_N_BY_ENGINE, MAX_GEOGRAPHIES, MAX_RUN_TASKS, estimateRunMinutes,
+} from "@/lib/ai-citation/run-config";
+import { countryItems } from "@/lib/geo/countries";
 import { PersonaReview } from "@/components/sections/persona-review";
 import { BuyerPromptsCard } from "@/components/sections/buyer-prompts-card";
 import type { PersonaRow } from "@/lib/data/personas";
 import type { PromptRow } from "@/components/sections/ai-visibility-client";
 
-// Same defaults + pricing run.ts's DEFAULT_N_BY_ENGINE / COST_CENTS use -
-// duplicated here since that file is server-only (pulls in the admin Supabase
-// client) and can't be imported client-side. Keep all three in sync if they
-// ever change. Tuned for a controlled ~$5 test run by default (Ticket 7):
-// chatgpt/gemini browse the web so vary more call-to-call, claude doesn't,
-// google_aio is on-demand and always forced to 1 sample server-side regardless
-// of what's set here.
-const DEFAULT_N: Record<AiEngine, number> = { chatgpt: 2, claude: 1, gemini: 2, google_aio: 1, perplexity: 1 };
 const DEFAULT_QUESTIONS = 20;
-// Directional per-call cost in cents - mirrors run.ts's COST_CENTS exactly.
-const COST_CENTS: Record<AiEngine, number> = { chatgpt: 3, claude: 1, perplexity: 1, google_aio: 12, gemini: 3 };
 const BUDGET_WARN_USD = 5;
+// One run slice finishes about this many calls (see estimateRunMinutes); a bigger
+// run needs several slices, so the dialog flags it amber.
+const ONE_SLICE_CALLS = 40;
 const RUN_ENGINES: AiEngine[] = ["chatgpt", "claude", "gemini", "google_aio"];
 
 export function RunTestModal({
   open, onClose, configuredEngines, engineBudgets, onConfirm, running,
   promptCount, projectId, personas, googleConnected, canManage, prompts,
   busy, pending, onGenPrompts, onAddPrompt, onEditPrompt, onDeletePrompt, onTogglePrompt,
+  projectCountry,
 }: {
   open: boolean;
   onClose: () => void;
   configuredEngines: { key: string; label: string }[];
   engineBudgets: Record<AiEngine, { capUsd: number | null; spentUsd: number | null }>;
-  onConfirm: (engines: AiEngine[], nByEngine: Partial<Record<AiEngine, number>>, promptCapByEngine: Partial<Record<AiEngine, number>>, promptIds?: string[]) => void;
+  /** `countries` is passed ONLY when the pick differs from the project default
+   *  (exactly the project's own country), so a default run behaves as it always did. */
+  onConfirm: (engines: AiEngine[], nByEngine: Partial<Record<AiEngine, number>>, promptCapByEngine: Partial<Record<AiEngine, number>>, promptIds?: string[], countries?: string[]) => void;
   running: boolean;
   /** Live count of ACTIVE prompts for this category - the "questions" field's
    *  default + max, and what decides whether a chosen count counts as a cap. */
@@ -58,26 +60,32 @@ export function RunTestModal({
   onEditPrompt: (promptId: string, fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string }>;
   onDeletePrompt: (promptId: string) => Promise<{ ok: boolean; error?: string }>;
   onTogglePrompt: (promptId: string, active: boolean) => Promise<{ ok: boolean; error?: string }>;
+  /** The project's own country as a valid ISO-2 code, or null when it has none.
+   *  The Geography picker starts on it. */
+  projectCountry: string | null;
 }) {
   const configuredSet = new Set(configuredEngines.map((e) => e.key));
   const [step, setStep] = useState<1 | 2>(1);
   const [selected, setSelected] = useState<Set<AiEngine>>(() => new Set(RUN_ENGINES.filter((e) => configuredSet.has(e))));
-  const [n, setN] = useState<Record<AiEngine, number>>(() => ({ ...DEFAULT_N }));
+  const [n, setN] = useState<Record<AiEngine, number>>(() => ({ ...DEFAULT_N_BY_ENGINE }));
   const [qCap, setQCap] = useState<Record<AiEngine, number>>(() => Object.fromEntries(RUN_ENGINES.map((e) => [e, Math.min(DEFAULT_QUESTIONS, promptCount)])) as Record<AiEngine, number>);
+  const [countries, setCountries] = useState<string[]>(() => (projectCountry ? [projectCountry] : [])); // ISO-2, pick order; every one repeats the whole run
   const [costAck, setCostAck] = useState(false); // Ticket 7: must be checked to proceed once the estimate passes BUDGET_WARN_USD
+  const countryOptions = useMemo(() => countryItems(), []);
 
-  // Reset to step 1 and re-seed the "questions" defaults only on the OPENING
-  // edge - not on every promptCount change while already open (which would
+  // Reset to step 1 and re-seed the "questions" defaults + geography only on the
+  // OPENING edge - not on every promptCount change while already open (which would
   // wipe a cap the user just chose the moment a manual prompt bumps the total).
   const wasOpen = useRef(false);
   useEffect(() => {
     if (open && !wasOpen.current) {
       setStep(1);
       setQCap(Object.fromEntries(RUN_ENGINES.map((e) => [e, Math.min(DEFAULT_QUESTIONS, promptCount)])) as Record<AiEngine, number>);
+      setCountries(projectCountry ? [projectCountry] : []);
       setCostAck(false);
     }
     wasOpen.current = open;
-  }, [open, promptCount]);
+  }, [open, promptCount, projectCountry]);
 
   const toggle = (e: AiEngine) => {
     if (!configuredSet.has(e)) return;
@@ -89,14 +97,9 @@ export function RunTestModal({
   };
   const setCount = (e: AiEngine, v: number) => { setN((prev) => ({ ...prev, [e]: Math.min(7, Math.max(1, v)) })); setCostAck(false); };
   const setQuestions = (e: AiEngine, v: number) => { setQCap((prev) => ({ ...prev, [e]: Math.min(Math.max(promptCount, 1), Math.max(1, v)) })); setCostAck(false); };
+  const changeCountries = (v: string[]) => { setCountries(v); setCostAck(false); };
 
-  // Ticket 7: live estimate mirroring run.ts's estimateRunCostCents (per-engine
-  // COST_CENTS x calls/question x questions), but honoring each engine's OWN
-  // "questions" cap - the server-side helper only supports one uniform count.
   const engines = RUN_ENGINES.filter((e) => selected.has(e));
-  const estCents = engines.reduce((s, e) => s + COST_CENTS[e] * n[e] * qCap[e], 0);
-  const estUsd = estCents / 100;
-  const overBudget = estUsd > BUDGET_WARN_USD;
 
   // Ticket 8: once any selected engine's "questions" is reduced below the full
   // active-prompt count, require an EXPLICIT hand-picked set instead of an
@@ -105,7 +108,9 @@ export function RunTestModal({
   // selected engine's cap; that same explicit list is then sent to every
   // engine (superseding their individual numeric caps - see confirm() below).
   const activePrompts = prompts.filter((p) => p.active);
-  const cappedEngines = engines.filter((e) => qCap[e] < promptCount);
+  // (Google AI Overviews is excluded: the server fixes it at AIO_ONDEMAND_CAP
+  // questions whatever the field says, so it can't drive the "choose prompts" picker.)
+  const cappedEngines = engines.filter((e) => e !== "google_aio" && qCap[e] < promptCount);
   const pickerTarget = cappedEngines.length ? Math.min(...cappedEngines.map((e) => qCap[e])) : null;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   // Reseed to the default first-N (same stable created_at order run.ts now
@@ -131,11 +136,41 @@ export function RunTestModal({
     });
   };
 
+  // Run size + cost. The whole question set runs once per geography, so
+  //   calls    = G x sum_e samples(e) x questions(e)
+  //   estCents = G x sum_e COST_CENTS[e] x samples(e) x questions(e)
+  // Google AI Overviews is special-cased the way the server runs it: always 1
+  // sample (AIO_N) and never more than AIO_ONDEMAND_CAP questions. Each engine
+  // honors its OWN "questions" cap, except that an explicit hand-picked set
+  // (pickerTarget, Ticket 8) is sent to every engine and supersedes the caps.
+  const geoCount = Math.max(1, countries.length);
+  let callsPerGeo = 0;
+  let centsPerGeo = 0;
+  for (const e of engines) {
+    // Google AI Overviews ignores the per-engine "questions" field: the server
+    // always covers the first AIO_ONDEMAND_CAP of whatever set is being asked.
+    const asked = e === "google_aio" ? (pickerTarget ?? promptCount) : (pickerTarget ?? qCap[e]);
+    const questions = e === "google_aio" ? Math.min(asked, AIO_ONDEMAND_CAP) : asked;
+    const samples = e === "google_aio" ? AIO_N : n[e];
+    callsPerGeo += samples * questions;
+    centsPerGeo += COST_CENTS[e] * samples * questions;
+  }
+  const calls = geoCount * callsPerGeo;
+  const estCents = geoCount * centsPerGeo;
+  const estUsd = estCents / 100;
+  const overBudget = estUsd > BUDGET_WARN_USD;
+  const noCountry = countries.length === 0;
+  const overRunCap = calls > MAX_RUN_TASKS;
+  const runBlocked = noCountry || overRunCap;
+
   const confirm = () => {
-    if (!engines.length || promptCount === 0 || (overBudget && !costAck)) return;
+    if (!engines.length || promptCount === 0 || runBlocked || (overBudget && !costAck)) return;
+    // Only send geographies when they differ from the project default (exactly its
+    // own country), so a default run reaches the server unchanged.
+    const geo = countries.length === 1 && countries[0] === projectCountry ? undefined : countries;
     if (pickerTarget != null) {
       if (selectedIds.size !== pickerTarget) return; // guard - UI shouldn't allow reaching here short
-      onConfirm(engines, n, {}, [...selectedIds]);
+      onConfirm(engines, n, {}, [...selectedIds], geo);
       return;
     }
     // Only send a cap for an engine the user actually reduced below the live
@@ -143,8 +178,8 @@ export function RunTestModal({
     // this modal opened) is still included, since "no cap" means "every active
     // prompt" at run time.
     const promptCapByEngine: Partial<Record<AiEngine, number>> = {};
-    for (const e of engines) if (qCap[e] < promptCount) promptCapByEngine[e] = qCap[e];
-    onConfirm(engines, n, promptCapByEngine);
+    for (const e of engines) if (e !== "google_aio" && qCap[e] < promptCount) promptCapByEngine[e] = qCap[e];
+    onConfirm(engines, n, promptCapByEngine, undefined, geo);
   };
 
   return (
@@ -188,7 +223,7 @@ export function RunTestModal({
                     <div className="min-w-0 flex-1">
                       <div className="text-[13.5px] font-semibold text-foreground">{ENGINE_LABEL[e]}</div>
                       <div className="text-[11.5px] text-muted-foreground">
-                        {!configured ? "Not connected — add a key on Integrations" : budget?.capUsd != null ? `$${left!.toFixed(2)} left of $${budget.capUsd.toFixed(2)}` : "No budget set"}
+                        {!configured ? "Not connected, add a key on Integrations" : budget?.capUsd != null ? `$${left!.toFixed(2)} left of $${budget.capUsd.toFixed(2)}` : "No budget set"}
                       </div>
                     </div>
                     <div className="flex flex-none items-center gap-1.5">
@@ -198,10 +233,12 @@ export function RunTestModal({
                         type="number"
                         min={1}
                         max={Math.max(1, promptCount)}
-                        value={qCap[e]}
+                        value={e === "google_aio" ? Math.min(Math.max(promptCount, 1), AIO_ONDEMAND_CAP) : qCap[e]}
                         onChange={(ev) => setQuestions(e, Number(ev.target.value) || 1)}
-                        disabled={!configured || !isOn || promptCount === 0}
-                        title={`Out of ${promptCount} active question${promptCount === 1 ? "" : "s"}`}
+                        disabled={!configured || !isOn || promptCount === 0 || e === "google_aio"}
+                        title={e === "google_aio"
+                          ? `Google AI Overviews always asks the first ${AIO_ONDEMAND_CAP} questions, once each.`
+                          : `Out of ${promptCount} active question${promptCount === 1 ? "" : "s"}`}
                         className="h-7 w-14 rounded-md border border-border bg-background px-1.5 text-center text-[12.5px] tabular-nums disabled:opacity-50"
                       />
                     </div>
@@ -212,9 +249,9 @@ export function RunTestModal({
                         type="number"
                         min={1}
                         max={7}
-                        value={n[e]}
+                        value={e === "google_aio" ? AIO_N : n[e]}
                         onChange={(ev) => setCount(e, Number(ev.target.value) || 1)}
-                        disabled={!configured || !isOn}
+                        disabled={!configured || !isOn || e === "google_aio"}
                         className="h-7 w-12 rounded-md border border-border bg-background px-1.5 text-center text-[12.5px] tabular-nums disabled:opacity-50"
                       />
                     </div>
@@ -259,6 +296,34 @@ export function RunTestModal({
               </div>
             )}
 
+            <div className="space-y-1.5">
+              <div>
+                <label htmlFor="run-geography" className="text-[13px] font-semibold text-foreground">Geography</label>
+                <p className="text-[11.5px] text-muted-foreground">
+                  Questions are asked as if from each country. Every country runs the full question set.
+                </p>
+              </div>
+              <MultiCombobox
+                id="run-geography"
+                ariaLabel="Geography"
+                items={countryOptions}
+                value={countries}
+                onValueChange={changeCountries}
+                min={1}
+                max={MAX_GEOGRAPHIES}
+                placeholder="Pick countries"
+                searchPlaceholder="Search countries"
+                emptyText="No matching country."
+                disabled={running}
+              />
+              {noCountry && <p className="text-[11.5px] text-error-600 dark:text-error-400">Pick at least one country.</p>}
+              {countries.length > 1 && (
+                <p className="text-[11.5px] text-muted-foreground">
+                  {`${countries.length} geographies = ${countries.length}x the runs and ${countries.length}x the cost.`}
+                </p>
+              )}
+            </div>
+
             <div className={cn(
               "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-[12.5px]",
               overBudget ? "border-warning-300/60 bg-warning-500/10 text-warning-700 dark:text-warning-400" : "border-border bg-muted/30 text-muted-foreground",
@@ -266,6 +331,21 @@ export function RunTestModal({
               <span>Estimated cost for this run</span>
               <span className="font-semibold tabular-nums">~${estUsd.toFixed(2)}</span>
             </div>
+
+            <div className={cn(
+              "flex items-start gap-2 rounded-lg px-3 py-2 text-[12px] leading-relaxed",
+              calls > ONE_SLICE_CALLS ? "border border-warning-300/60 bg-warning-500/10 text-warning-700 dark:text-warning-400" : "bg-muted/50 text-muted-foreground",
+            )}>
+              <Clock className="mt-0.5 size-3.5 shrink-0" />
+              <p>{`${calls} calls, about ${estimateRunMinutes(calls)} min. Keep this tab open until it finishes.`}</p>
+            </div>
+
+            {overRunCap && (
+              <div className="flex items-start gap-2 rounded-lg border border-error-300 bg-error-50 px-3 py-2.5 text-[12.5px] text-error-700 dark:border-error-900 dark:bg-error-950/30 dark:text-error-400">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                <p>{`This run is ${calls} calls and one run can hold ${MAX_RUN_TASKS}. Lower the geographies, questions, or calls per question.`}</p>
+              </div>
+            )}
 
             {overBudget && (
               <label className="flex items-start gap-2 rounded-lg border border-warning-300/60 bg-warning-500/5 px-3 py-2.5 text-[12.5px] text-warning-700 dark:text-warning-400">
@@ -282,7 +362,7 @@ export function RunTestModal({
               <Button
                 variant="brand"
                 onClick={() => selected.size > 0 && setStep(2)}
-                disabled={running || selected.size === 0 || (overBudget && !costAck) || (pickerTarget != null && selectedIds.size !== pickerTarget)}
+                disabled={running || selected.size === 0 || runBlocked || (overBudget && !costAck) || (pickerTarget != null && selectedIds.size !== pickerTarget)}
                 className="gap-1.5"
               >
                 Set up Personas
@@ -312,7 +392,7 @@ export function RunTestModal({
               <Button variant="outline" onClick={() => setStep(1)} disabled={running} className="gap-1.5">
                 <ArrowLeft className="size-3.5" /> Back
               </Button>
-              <Button variant="brand" onClick={confirm} disabled={running || promptCount === 0} className="gap-1.5">
+              <Button variant="brand" onClick={confirm} disabled={running || promptCount === 0 || runBlocked} className="gap-1.5">
                 <Play className="size-3.5" /> {running ? "Starting…" : "Run citation"}
               </Button>
             </DialogFooter>
