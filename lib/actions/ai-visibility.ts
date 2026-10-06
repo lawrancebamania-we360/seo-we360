@@ -24,6 +24,7 @@ import { generatePromptSet, saveGeneratedPrompts, savePersonas, resolveBuckets }
 import { runProjectCitations, estimateRunCostCents, resumeRunBatch } from "@/lib/ai-citation/run";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
 import { AIO_ONDEMAND_CAP, MAX_GEOGRAPHIES, MAX_RUN_TASKS } from "@/lib/ai-citation/run-config";
+import { preservePriorWording } from "@/lib/ai-citation/snapshot-columns";
 import { normalizeCountries, normalizeCountry } from "@/lib/geo/countries";
 import { getOpportunityPools } from "@/lib/google/gsc-opportunities";
 import { profileForIndustry } from "@/lib/ai-citation/industry-profiles";
@@ -322,16 +323,39 @@ const PromptEdit = z.object({
 // 'manual' - purely forensic (regeneration never deletes existing prompts
 // regardless of source, see generateAiVisibilityPrompts' "grow" mode above),
 // but it's an honest record that a human touched this row.
-export async function updateAiVisibilityPrompt(input: z.infer<typeof PromptEdit>): Promise<{ ok: boolean; error?: string }> {
+//
+// The text is overwritten in place (same id), so BEFORE it changes, every answer
+// already collected for the old wording is stamped with that wording
+// (preservePriorWording). Otherwise those answers would silently read as answers
+// to the new question. `notice` is set when that could not be done (the database
+// update that adds the column hasn't been applied) - the edit still saves, but the
+// caller tells the user older answers will show the new wording.
+export async function updateAiVisibilityPrompt(input: z.infer<typeof PromptEdit>): Promise<{ ok: boolean; error?: string; notice?: string }> {
   const { project_id, prompt_id, text, persona, topic } = PromptEdit.parse(input);
   const a = await authProject(project_id);
   if ("error" in a) return { ok: false, error: a.error };
   const admin = createAdminClient();
+
+  let notice: string | undefined;
+  const { data: before } = await admin
+    .from("ai_citation_prompts").select("text").eq("id", prompt_id).eq("project_id", project_id).maybeSingle();
+  const oldText = (before?.text as string | undefined) ?? "";
+  if (oldText.trim() && oldText.trim() !== text.trim()) {
+    const kept = await preservePriorWording(admin, prompt_id, oldText);
+    if (kept.status === "failed") {
+      // Never overwrite the wording if its results could not be tied to it first.
+      return { ok: false, error: "Couldn't save the earlier wording with its past answers, so this edit wasn't saved. Please try again." };
+    }
+    if (kept.status === "unavailable") {
+      notice = "Saved. Past answers can't keep the old wording until the pending database update is applied, so they will show the new wording for now.";
+    }
+  }
+
   const patch: Record<string, unknown> = { text, source: "manual", persona: persona || null, topic: topic || null };
   const { error } = await admin.from("ai_citation_prompts").update(patch).eq("id", prompt_id).eq("project_id", project_id);
   if (error) return { ok: false, error: error.message };
   revalidateAiVisibility();
-  return { ok: true };
+  return notice ? { ok: true, notice } : { ok: true };
 }
 
 const PromptToggle = z.object({

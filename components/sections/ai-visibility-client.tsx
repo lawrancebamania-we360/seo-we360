@@ -258,10 +258,10 @@ export function AiVisibilityClient({
     if (r.ok) router.refresh();
     return r.ok ? { ok: true } : { ok: false, error: r.error };
   };
-  const editPrompt = async (promptId: string, fields: { text: string; persona: string; topic: string }): Promise<{ ok: boolean; error?: string }> => {
+  const editPrompt = async (promptId: string, fields: { text: string; persona: string; topic: string }): Promise<{ ok: boolean; error?: string; notice?: string }> => {
     const r = await updateAiVisibilityPrompt({ project_id: projectId, prompt_id: promptId, ...fields });
     if (r.ok) router.refresh();
-    return r.ok ? { ok: true } : { ok: false, error: r.error };
+    return r.ok ? { ok: true, notice: r.notice } : { ok: false, error: r.error };
   };
   const deletePrompt = async (promptId: string): Promise<{ ok: boolean; error?: string }> => {
     const r = await deleteAiVisibilityPrompt({ project_id: projectId, prompt_id: promptId });
@@ -1044,7 +1044,7 @@ function SetupTab({ projectId, personas, googleConnected, prompts, engines, canM
   projectId: string; personas: PersonaRow[]; googleConnected: boolean; prompts: PromptRow[]; engines: { key: string; label: string }[];
   canManage: boolean; busy: "run" | "gen" | null; pending: boolean; onGen: () => void; onRun: () => void;
   onAddPrompt: (fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string }>;
-  onEditPrompt: (promptId: string, fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string }>;
+  onEditPrompt: (promptId: string, fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string; notice?: string }>;
   onDeletePrompt: (promptId: string) => Promise<{ ok: boolean; error?: string }>;
   onTogglePrompt: (promptId: string, active: boolean) => Promise<{ ok: boolean; error?: string }>;
 }) {

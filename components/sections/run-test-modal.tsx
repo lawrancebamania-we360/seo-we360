@@ -57,7 +57,7 @@ export function RunTestModal({
   pending: boolean;
   onGenPrompts: () => void;
   onAddPrompt: (fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string }>;
-  onEditPrompt: (promptId: string, fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string }>;
+  onEditPrompt: (promptId: string, fields: { text: string; persona: string; topic: string }) => Promise<{ ok: boolean; error?: string; notice?: string }>;
   onDeletePrompt: (promptId: string) => Promise<{ ok: boolean; error?: string }>;
   onTogglePrompt: (promptId: string, active: boolean) => Promise<{ ok: boolean; error?: string }>;
   /** The project's own country as a valid ISO-2 code, or null when it has none.

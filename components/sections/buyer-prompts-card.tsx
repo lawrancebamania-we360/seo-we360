@@ -40,7 +40,8 @@ const TOPIC_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 type PromptFields = { text: string; persona: string; topic: string };
-type ActionResult = { ok: boolean; error?: string };
+/** `notice`: the action succeeded but the person should be told something (e.g. an edit saved without being able to keep the old wording with its past answers). */
+type ActionResult = { ok: boolean; error?: string; notice?: string };
 
 function PersonaSelect({ value, onChange, personas, id }: { value: string; onChange: (v: string) => void; personas: PersonaRow[]; id: string }) {
   return (
@@ -134,8 +135,10 @@ export function BuyerPromptsCard({
     setEditError(null);
     const r = await onEdit(editingId, { ...editFields, text });
     setEditBusy(false);
-    if (r.ok) setEditingId(null);
-    else setEditError(r.error ?? "Could not save that edit.");
+    if (r.ok) {
+      setEditingId(null);
+      if (r.notice) toast.warning(r.notice, { duration: 9000 });
+    } else setEditError(r.error ?? "Could not save that edit.");
   };
 
   const confirmDelete = async (promptId: string) => {

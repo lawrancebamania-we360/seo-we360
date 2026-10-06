@@ -66,6 +66,39 @@ export async function insertRowsDegrading(
   return { error: { message: `${table}: insert still failing after dropping optional columns` }, dropped };
 }
 
+export type PreserveWordingResult =
+  /** Every answer for the prompt now carries the wording it was asked with. */
+  | { status: "saved" }
+  /** The prompt_text column doesn't exist yet (migration not applied): nothing could be saved. */
+  | { status: "unavailable" }
+  /** A real database error: the caller must NOT go on to overwrite the wording. */
+  | { status: "failed"; message: string };
+
+/**
+ * Called just BEFORE a prompt's text is overwritten: stamp every answer of that
+ * prompt that doesn't yet carry its own wording with the OLD wording, so the
+ * results already collected stay tied to the question they actually answered.
+ * Answers that already carry a wording are never touched (`prompt_text is null`
+ * only), so calling this twice, or for a prompt whose answers are all stamped,
+ * changes nothing.
+ */
+export async function preservePriorWording(
+  admin: SupabaseClient,
+  promptId: string,
+  oldText: string,
+): Promise<PreserveWordingResult> {
+  const wording = oldText.trim();
+  if (!wording) return { status: "saved" };
+  const { error } = await admin
+    .from("ai_citation_runs")
+    .update({ prompt_text: wording })
+    .eq("prompt_id", promptId)
+    .is("prompt_text", null);
+  if (!error) return { status: "saved" };
+  if (isMissingColumn(error.message)) return { status: "unavailable" };
+  return { status: "failed", message: error.message };
+}
+
 /**
  * Run a read that selects the snapshot columns; if the database doesn't have them
  * yet, run it again without. `run(true)` must include SNAPSHOT_COLS in its select.
