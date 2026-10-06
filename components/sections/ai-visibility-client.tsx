@@ -6,7 +6,7 @@
 // x topic prompts + generate/run). Reads the aggregated report from the server;
 // run/generate go through metered server actions. Dash-free copy per project rule.
 
-import { useState, useTransition, useEffect, useRef, useCallback } from "react";
+import { useState, useTransition, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -37,7 +37,11 @@ import { PersonaReview } from "@/components/sections/persona-review";
 import type { PersonaRow } from "@/lib/data/personas";
 // Trust features (evidence drawer + sentiment + funnel matrix) live in their own
 // folder; this file only mounts them. OverviewTab / AnswersTab moved there too.
-import { AivEvidenceProvider, useEvidence } from "@/components/sections/ai-visibility-report/evidence-context";
+import { AivEvidenceProvider } from "@/components/sections/ai-visibility-report/evidence-context";
+import { useCitationRows } from "@/components/sections/ai-visibility-report/use-citation-rows";
+import { CitationsTable } from "@/components/sections/ai-visibility-report/citations-table";
+import { CitationSitesGraph } from "@/components/sections/ai-visibility-report/citation-sites-graph";
+import { groupCitationsBySite } from "@/lib/ai-citation/citation-aggregate";
 import { OverviewTab } from "@/components/sections/ai-visibility-report/overview-tab";
 import { BreakdownsTab } from "@/components/sections/ai-visibility-report/breakdowns-tab";
 import { AnswersTab } from "@/components/sections/ai-visibility-report/answers-tab";
@@ -257,7 +261,7 @@ export function AiVisibilityClient({
   ];
 
   return (
-    <AivEvidenceProvider projectId={projectId} canManage={canManage} unclassifiedCount={report.sentimentRollup.unclassified}>
+    <AivEvidenceProvider projectId={projectId} category={category} canManage={canManage} unclassifiedCount={report.sentimentRollup.unclassified}>
     <div className="space-y-6">
       {/* Engines + actions row (comp lines 1282-1291): configured engine chips on
           the left, the primary actions on the right. */}
@@ -350,7 +354,7 @@ export function AiVisibilityClient({
           {tab === "overview" && <OverviewTab report={report} aiReferral={aiReferral} configuredEngines={configuredEngines} sourceGap={sourceGap} projectId={projectId} canManage={canManage} onGoSources={() => setTab("sources")} onOpenSetup={() => setSetupOpen(true)} />}
           {tab === "breakdowns" && <BreakdownsTab report={report} configuredEngines={configuredEngines} />}
           {tab === "answers" && <AnswersTab report={report} projectId={projectId} canManage={canManage} competitors={competitors} />}
-          {tab === "sources" && <SourcesTab report={report} projectId={projectId} canManage={canManage} sourceGap={sourceGap} outreach={outreach} />}
+          {tab === "sources" && <SourcesTab report={report} projectId={projectId} category={category} canManage={canManage} sourceGap={sourceGap} outreach={outreach} />}
         </>
       )}
 
@@ -607,56 +611,34 @@ function FirstRunHero({ hasPrompts, canManage, onGoSetup }: { hasPrompts: boolea
   );
 }
 
-function SourcesTab({ report, projectId, canManage, sourceGap, outreach }: {
-  report: AiVisibilityReport; projectId: string; canManage: boolean; sourceGap: SourceGapReport; outreach: OutreachRow[];
+function SourcesTab({ report, projectId, category, canManage, sourceGap, outreach }: {
+  report: AiVisibilityReport; projectId: string; category: AiVisibilityCategory; canManage: boolean; sourceGap: SourceGapReport; outreach: OutreachRow[];
 }) {
-  const { openList } = useEvidence();
-  // Nothing was cited in the latest run → an informative empty state (which
-  // engines return source links + what to do) instead of bare "no sources" lines.
-  if (report.sources.length === 0) return <CitationSourcesEmpty />;
+  // Every link any answer has cited for this category, across ALL checks. Loaded
+  // when this tab opens; the table and the graph both derive from the same rows,
+  // so their counts always agree.
+  const { loading, data, error } = useCitationRows(projectId, category, report);
+  const groups = useMemo(() => (data ? groupCitationsBySite(data.rows) : []), [data]);
+
+  if (loading) return <SourcesSkeleton />;
+  if (error || !data) {
+    return <Card className="p-6 text-sm text-muted-foreground">{error ?? "Could not load the cited sources."}</Card>;
+  }
+  // No check has captured a single link → an informative empty state (which
+  // engines return source links + what to do) instead of an empty table.
+  if (data.rows.length === 0) return <CitationSourcesEmpty />;
 
   return (
     <div className="space-y-6">
-      {/* Section A: where AI pulls answers from today (existing). */}
-      <Card className="p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <span className="flex size-[26px] shrink-0 items-center justify-center rounded-lg bg-info/10 text-info">
-            <Quote className="size-3.5" />
-          </span>
-          <h3 className="font-heading text-[15px] font-bold text-foreground">Where AI pulls its answers from</h3>
-        </div>
-        <div className="space-y-0.5">
-          {report.sources.map((s) => (
-            <button
-              key={s.domain}
-              type="button"
-              onClick={() => openList(
-                { sourceDomain: s.domain },
-                s.domain,
-                `Every question in the latest run whose AI answer cited ${s.domain}.`,
-              )}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-2 py-2 -mx-2 text-left transition-colors hover:bg-muted/50 cursor-pointer",
-                s.isProject && "bg-warning-500/[0.07] hover:bg-warning-500/[0.12]",
-              )}
-            >
-              <span className={cn(
-                "flex size-[26px] flex-none items-center justify-center rounded-lg text-[11px] font-bold",
-                s.isProject ? "bg-warning-500/15 text-warning-strong" : "bg-muted text-muted-foreground",
-              )}>{s.domain.trim().charAt(0).toUpperCase() || "?"}</span>
-              <span className={cn("min-w-[100px] flex-1 truncate text-sm", s.isProject ? "font-semibold text-warning-strong" : "text-foreground")}>{s.domain}{s.isProject && " (you)"}</span>
-              <div className="hidden h-[9px] w-[200px] max-w-[34vw] flex-none overflow-hidden rounded-full bg-muted sm:block">
-                <div className={cn("h-full rounded-full", s.isProject ? "bg-warning-500" : "bg-ember-500")} style={{ width: `${Math.max(3, Math.round((s.count / (report.sources[0]?.count || 1)) * 100))}%` }} />
-              </div>
-              <span className="w-8 text-right font-mono text-[13.5px] font-medium tabular-nums text-foreground">{s.count}</span>
-            </button>
-          ))}
-          {!report.sources.length && <p className="text-xs text-muted-foreground">No cited sources yet.</p>}
-        </div>
-      </Card>
+      {/* Section A: every citation, one row per link per answer. */}
+      <CitationsTable rows={data.rows} skipped={data.skipped} truncated={data.truncated} />
 
-      {/* Section B: the source GAP - third-party domains citing competitors but not
-          you = ranked outreach targets, each trackable through todo/drafted/posted. */}
+      {/* Section B: the same citations grouped by site, each expandable into its own links. */}
+      <CitationSitesGraph groups={groups} />
+
+      {/* Section C: the source GAP - third-party domains citing competitors but not
+          you = ranked outreach targets, each trackable through todo/drafted/posted.
+          Unlike A and B, this reads only your LATEST check (see its subtitle). */}
       <SourceGapSection projectId={projectId} canManage={canManage} sourceGap={sourceGap} outreach={outreach} competitorCount={report.competitors.length} />
 
       <Card className="p-5 space-y-3 border-success-300/40 bg-success-500/5">
@@ -677,7 +659,22 @@ function SourcesTab({ report, projectId, canManage, sourceGap, outreach }: {
   );
 }
 
-// Shown when the latest run captured ZERO cited sources. Explains that only some
+function SourcesSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true">
+      <Card className="space-y-3 p-5">
+        <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+        {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 animate-pulse rounded-lg bg-muted/60" />)}
+      </Card>
+      <Card className="space-y-3 p-5">
+        <div className="h-4 w-56 animate-pulse rounded bg-muted" />
+        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-7 animate-pulse rounded-lg bg-muted/60" />)}
+      </Card>
+    </div>
+  );
+}
+
+// Shown when NO check has captured a cited source. Explains that only some
 // engines return source links (so the user knows this isn't a bug) and what to do.
 function CitationSourcesEmpty() {
   const rows: { engine: string; returns: boolean; note: string }[] = [
@@ -695,7 +692,7 @@ function CitationSourcesEmpty() {
         <h3 className="font-heading text-lg font-bold text-foreground">No citation sources captured yet</h3>
         <p className="mt-1.5 text-sm text-muted-foreground">
           This tab lists the websites AI pulls its answers from — but it only fills in once an engine
-          actually returns the links it cited. Your last check captured none.
+          actually returns the links it cited. No check has captured any yet.
         </p>
       </div>
 
@@ -801,7 +798,7 @@ function SourceGapSection({ projectId, canManage, sourceGap, outreach, competito
         <div>
           <h3 className="font-heading text-[15px] font-bold text-foreground">Outreach targets: sites that cite rivals, not you</h3>
           <p className="text-xs text-muted-foreground mt-1">
-            These third-party pages already feed AI answers and cite a competitor, but never cite you. Earn a mention on them and you land in the answer too.
+            Based on your latest check only. These third-party pages already feed AI answers and cite a competitor, but never cite you. Earn a mention on them and you land in the answer too.
           </p>
         </div>
         {canManage && targets.length > 0 && unscored.length > 0 && (

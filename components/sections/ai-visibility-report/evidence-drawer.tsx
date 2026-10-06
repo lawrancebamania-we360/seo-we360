@@ -34,8 +34,10 @@ const fmtWhen = (iso: string) => {
   catch { return iso; }
 };
 
-export function EvidenceDrawer({ projectId, request, onClose }: {
+export function EvidenceDrawer({ projectId, category, request, onClose }: {
   projectId: string;
+  /** The AI Visibility category being viewed - answers must come from ITS latest check, not another category's. */
+  category: string;
   request: DrawerRequest;
   onClose: () => void;
 }) {
@@ -49,12 +51,12 @@ export function EvidenceDrawer({ projectId, request, onClose }: {
 
   const loadPage = useCallback((filter: EvidenceFilter, page: number, append: boolean) => {
     start(async () => {
-      const r = await fetchAiVisibilityEvidence({ project_id: projectId, filter, page });
+      const r = await fetchAiVisibilityEvidence({ project_id: projectId, category, filter, page });
       if (!r.ok || !r.page) { setError(r.error ?? "Could not load the answers."); return; }
       setTotal(r.page.total);
       setItems((prev) => (append ? [...prev, ...r.page!.items] : r.page!.items));
     });
-  }, [projectId]);
+  }, [projectId, category]);
 
   const loadTranscript = useCallback((runId: string) => {
     setTranscript(null);
@@ -152,21 +154,7 @@ function ListView({ items, total, loading, onOpen, onLoadMore }: {
           </div>
           <p className="text-sm font-medium">{a.promptText}</p>
           {a.snippet && <p className="line-clamp-2 text-xs text-muted-foreground">{a.snippet}</p>}
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-primary">Read the full answer</p>
-            {a.sourceUrls?.[0] && (
-              <a
-                href={toExternalUrl(a.sourceUrls[0])}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                title="Open the cited page"
-              >
-                View cited URL <ExternalLink className="size-3" />
-              </a>
-            )}
-          </div>
+          <p className="text-xs font-medium text-primary">Read the full answer</p>
         </button>
       ))}
       {items.length < total && (

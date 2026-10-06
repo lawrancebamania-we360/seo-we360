@@ -35,8 +35,10 @@ export function useEvidence(): EvidenceContextValue {
   return v;
 }
 
-export function AivEvidenceProvider({ projectId, canManage, unclassifiedCount, children }: {
+export function AivEvidenceProvider({ projectId, category, canManage, unclassifiedCount, children }: {
   projectId: string;
+  /** Which AI Visibility category the page is showing; scopes every drill-down to its own latest check. */
+  category: string;
   canManage: boolean;
   /** report.sentimentRollup.unclassified - how many mention rows still need a tier. */
   unclassifiedCount: number;
@@ -72,7 +74,7 @@ export function AivEvidenceProvider({ projectId, canManage, unclassifiedCount, c
   return (
     <Ctx.Provider value={{ openList, openTranscript, classifying }}>
       {children}
-      <EvidenceDrawer projectId={projectId} request={request} onClose={() => setRequest(null)} />
+      <EvidenceDrawer projectId={projectId} category={category} request={request} onClose={() => setRequest(null)} />
     </Ctx.Provider>
   );
 }

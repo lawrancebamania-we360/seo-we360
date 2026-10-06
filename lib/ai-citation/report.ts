@@ -44,7 +44,6 @@ export interface AiVisibilityReport {
     modelByBrand: Array<{ row: string; cells: Record<string, HeatCellValue> }>;
     personaByTopic: { topics: string[]; rows: Array<{ row: string; cells: Record<string, HeatCellValue> }> };
   };
-  sources: Array<{ domain: string; count: number; isProject: boolean }>;
   answers: Array<{ runId: string; promptText: string; persona: string; topic: string; engine: AiEngine; mentioned: boolean; cited: boolean; position: number | null; snippet: string; sentiment: BrandSentiment | null; createdAt: string }>;
   sentimentRollup: SentimentRollup;
   funnel: { stages: FunnelStage[]; rows: FunnelMatrixRow[] };
@@ -91,7 +90,7 @@ export async function getAiVisibilityReport(
     citationRate: 0, mentionRate: 0, totalRuns: 0, promptCount: 0, projectLabel,
     engines: [], personas: [], topics: [], competitors: [],
     heatmaps: { brands: [projectLabel], personaByBrand: [], topicByBrand: [], modelByBrand: [], personaByTopic: { topics: [], rows: [] } },
-    sources: [], answers: [],
+    answers: [],
     sentimentRollup: { recommended: 0, withCaveats: 0, dismissed: 0, unclassified: 0, mentioned: 0 },
     funnel: { stages: FUNNEL_STAGES, rows: [] },
     questions: [],
@@ -290,16 +289,10 @@ export async function getAiVisibilityReport(
     else sentimentRollup.unclassified++;
   }
 
-  // Top cited domains.
-  const domainCount = new Map<string, { count: number; isProject: boolean }>();
-  for (const s of sources) {
-    const d = (s.domain || (s.url ? safeHost(s.url) : "")).toLowerCase();
-    if (!d) continue;
-    const cur = domainCount.get(d) ?? { count: 0, isProject: false };
-    cur.count++; if (s.is_project) cur.isProject = true; domainCount.set(d, cur);
-  }
-  const topSources = [...domainCount.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 12)
-    .map(([domain, v]) => ({ domain, count: v.count, isProject: v.isProject }));
+  // (The Citation sources tab no longer reads a top-12, latest-check-only domain
+  // list from here: it loads every citation across all checks itself, via
+  // lib/ai-citation/citation-sources.ts. `sources` above still feeds the
+  // per-question tracker.)
 
   // Recent answers (prefer ones where we were mentioned, then fill). runId +
   // createdAt let the UI click through to the full stored transcript.
@@ -367,7 +360,6 @@ export async function getAiVisibilityReport(
       return { id: found?.id ?? null, name, mentionRate: totalRuns ? a.m / totalRuns : 0, citationRate: totalRuns ? a.c / totalRuns : 0, n: a.n };
     }),
     heatmaps: { brands, personaByBrand, topicByBrand, modelByBrand, personaByTopic: { topics: ptTopics, rows: personaByTopicRows } },
-    sources: topSources,
     answers,
     sentimentRollup,
     funnel: { stages: FUNNEL_STAGES, rows: funnelRows },
@@ -375,6 +367,3 @@ export async function getAiVisibilityReport(
   };
 }
 
-function safeHost(url: string): string {
-  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
-}

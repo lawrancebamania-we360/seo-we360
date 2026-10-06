@@ -19,6 +19,7 @@ import {
   getAnswerEvidence, getAnswerTranscript,
   type AnswerTranscript, type EvidencePage,
 } from "@/lib/ai-citation/evidence";
+import { getCitationSourceRows, type CitationSourcesData } from "@/lib/ai-citation/citation-sources";
 import {
   classifyBatchSentiment,
   SENTIMENT_BATCH_SIZE, SENTIMENT_MAX_PER_INVOCATION,
@@ -54,20 +55,20 @@ const FilterSchema = z.object({
   mentioned: z.boolean().optional(),
   cited: z.boolean().optional(),
   sentiment: z.enum(["recommended", "with_caveats", "dismissed"]).optional(),
-  sourceDomain: z.string().max(255).optional(),
 });
 
 const EvidenceInput = z.object({
   project_id: z.string().uuid(),
+  category: z.string().trim().min(1).max(60),
   page: z.number().int().min(0).max(500).default(0),
   filter: FilterSchema.default({}),
 });
 
 export interface EvidenceResult { ok: boolean; error?: string; page?: EvidencePage }
 
-/** Paged answer list for a clicked report slice (latest run batch). */
+/** Paged answer list for a clicked report slice (latest run batch of the category being viewed). */
 export async function fetchAiVisibilityEvidence(input: {
-  project_id: string; page?: number; filter?: z.infer<typeof FilterSchema>;
+  project_id: string; category: string; page?: number; filter?: z.infer<typeof FilterSchema>;
 }): Promise<EvidenceResult> {
   const parsed = EvidenceInput.parse(input);
   const a = await authViewer(parsed.project_id);
@@ -78,10 +79,34 @@ export async function fetchAiVisibilityEvidence(input: {
   }
   try {
     const supabase = await createClient(); // RLS-scoped: reads only what the user's org can see
-    const page = await getAnswerEvidence(supabase, parsed.project_id, parsed.filter, parsed.page);
+    const page = await getAnswerEvidence(supabase, parsed.project_id, parsed.category, parsed.filter, parsed.page);
     return { ok: true, page };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Could not load the answers." };
+  }
+}
+
+const CitationsInput = z.object({
+  project_id: z.string().uuid(),
+  category: z.string().trim().min(1).max(60),
+});
+
+export interface CitationsResult { ok: boolean; error?: string; data?: CitationSourcesData }
+
+/** Every link cited by any AI answer for this category, across all checks (slim rows, no answer text). */
+export async function fetchAiVisibilityCitations(input: { project_id: string; category: string }): Promise<CitationsResult> {
+  const parsed = CitationsInput.parse(input);
+  const a = await authViewer(parsed.project_id);
+  if ("error" in a) return { ok: false, error: a.error };
+  if (!(await rateLimit(`aiv-citations:${a.userId}`, 30, 60))) {
+    return { ok: false, error: "Too many requests. Give it a moment and try again." };
+  }
+  try {
+    const supabase = await createClient(); // RLS-scoped
+    const data = await getCitationSourceRows(supabase, parsed.project_id, parsed.category);
+    return { ok: true, data };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not load the cited sources." };
   }
 }
 

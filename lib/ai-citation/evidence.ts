@@ -13,6 +13,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { hostFromUrl } from "@/lib/url";
 import type { AiEngine } from "./types";
+import { isMissingColumn } from "./run-state";
 import { asBrandSentiment, stageForTags, type BrandSentiment, type EvidenceFilter } from "./trust";
 
 export const EVIDENCE_PAGE_SIZE = 20;
@@ -29,10 +30,6 @@ export interface EvidenceItem {
   sentiment: BrandSentiment | null;
   createdAt: string;
   snippet: string;
-  /** Set only when filtering by sourceDomain: the actual URL(s) this answer
-   *  cited FOR that domain, so the list can offer a direct "view cited URL"
-   *  link without needing to open the full transcript. */
-  sourceUrls?: string[];
 }
 
 export interface EvidencePage {
@@ -54,21 +51,32 @@ type RunRow = {
   created_at: string;
 };
 
-async function latestBatchId(supabase: SupabaseClient, projectId: string): Promise<string | null> {
-  const { data } = await supabase.from("ai_citation_runs")
-    .select("run_batch_id").eq("project_id", projectId)
+// The latest batch OF THIS CATEGORY - the same scoping report.ts uses to build
+// the numbers a user clicks on. Without it a click in Workforce Analytics could
+// open answers from Employee Monitoring's (newer) batch. Falls back to the
+// pre-category "latest of any category" only if the column isn't migrated.
+async function latestBatchId(supabase: SupabaseClient, projectId: string, category: string): Promise<string | null> {
+  const scoped = await supabase.from("ai_citation_runs")
+    .select("run_batch_id").eq("project_id", projectId).eq("category", category)
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  let data = scoped.data;
+  if (scoped.error && isMissingColumn(scoped.error.message)) {
+    ({ data } = await supabase.from("ai_citation_runs")
+      .select("run_batch_id").eq("project_id", projectId)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle());
+  }
   return (data?.run_batch_id as string | null) ?? null;
 }
 
 export async function getAnswerEvidence(
   supabase: SupabaseClient,
   projectId: string,
+  category: string,
   filter: EvidenceFilter,
   page: number,
 ): Promise<EvidencePage> {
   const emptyPage: EvidencePage = { total: 0, pageSize: EVIDENCE_PAGE_SIZE, items: [] };
-  const batchId = await latestBatchId(supabase, projectId);
+  const batchId = await latestBatchId(supabase, projectId, category);
   if (!batchId) return emptyPage;
 
   // Light columns for the whole batch (a batch is bounded: prompts x engines x
@@ -94,22 +102,6 @@ export async function getAnswerEvidence(
     competitorRunIds = new Set(((hits ?? []) as Array<{ run_id: string }>).map((h) => h.run_id));
   }
 
-  // Source-domain drill-down: which runs cited this exact domain, and with
-  // which URL(s) - a run can cite the same domain more than once (different
-  // pages), so this is a map to an array, not a single URL.
-  let sourceUrlsByRun: Map<string, string[]> | null = null;
-  if (filter.sourceDomain) {
-    const { data: srcRows } = await supabase.from("ai_citation_sources")
-      .select("run_id, url").in("run_id", runs.map((r) => r.id)).eq("domain", filter.sourceDomain);
-    sourceUrlsByRun = new Map();
-    for (const s of (srcRows ?? []) as Array<{ run_id: string; url: string | null }>) {
-      if (!s.url) continue;
-      const list = sourceUrlsByRun.get(s.run_id) ?? [];
-      if (!list.includes(s.url)) list.push(s.url);
-      sourceUrlsByRun.set(s.run_id, list);
-    }
-  }
-
   const matches = runs.filter((r) => {
     const p = promptMap.get(r.prompt_id);
     if (filter.engine && r.engine !== filter.engine) return false;
@@ -120,7 +112,6 @@ export async function getAnswerEvidence(
     if (filter.cited && !r.project_cited) return false;
     if (filter.sentiment && asBrandSentiment(r.sentiment) !== filter.sentiment) return false;
     if (competitorRunIds && !competitorRunIds.has(r.id)) return false;
-    if (sourceUrlsByRun && !sourceUrlsByRun.has(r.id)) return false;
     return true;
   });
 
@@ -156,7 +147,6 @@ export async function getAnswerEvidence(
         sentiment: asBrandSentiment(r.sentiment),
         createdAt: r.created_at,
         snippet: snippetById.get(r.id) ?? "",
-        sourceUrls: sourceUrlsByRun?.get(r.id),
       };
     }),
   };

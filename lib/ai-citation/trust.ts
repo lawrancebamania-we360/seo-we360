@@ -75,8 +75,4 @@ export interface EvidenceFilter {
   /** true = only answers that cited the site as a source. */
   cited?: boolean;
   sentiment?: BrandSentiment;
-  /** Only answers with an ai_citation_sources row whose domain matches this
-   *  (Citation Sources tab drill-down: click a domain, see every question
-   *  that cited it). */
-  sourceDomain?: string;
 }
