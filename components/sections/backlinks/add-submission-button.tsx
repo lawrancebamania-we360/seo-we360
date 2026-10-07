@@ -38,7 +38,11 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("form");
-  const [localWebsites, setLocalWebsites] = useState<Website[]>(websites);
+  // Platforms created from this dialog before the page has refreshed. The rest
+  // always come from the `websites` prop, so a website removed from the list
+  // also leaves this picker as soon as the page re-renders.
+  const [addedWebsites, setAddedWebsites] = useState<Website[]>([]);
+  const localWebsites = [...websites, ...addedWebsites.filter((a) => !websites.some((w) => w.id === a.id))];
 
   // Single-submission form state
   const [websiteId, setWebsiteId] = useState(defaultWebsiteId ?? "");
@@ -82,12 +86,13 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
     setPlatformBusy(false);
     if (!r.ok || !r.id) { toast.error(r.error ?? "Could not add that platform."); return; }
     if (!localWebsites.some((w) => w.id === r.id)) {
-      setLocalWebsites((prev) => [...prev, { id: r.id!, domain: r.domain ?? newPlatformName.trim() }]);
+      setAddedWebsites((prev) => [...prev, { id: r.id!, domain: r.domain ?? newPlatformName.trim() }]);
     }
     setWebsiteId(r.id);
     setAddingPlatform(false);
     setNewPlatformName("");
-    toast.success(`${r.domain} added.`);
+    toast.success(r.restored ? `${r.domain} was removed earlier. It is back on the list with its past submissions.` : `${r.domain} added.`);
+    if (r.restored) router.refresh();
   };
 
   const submitSingle = async () => {
@@ -171,7 +176,8 @@ export function AddSubmissionButton({ projectId, websites, members, defaultWebsi
     if (!r.ok) { setCommitError(r.error ?? "Could not import that batch."); return; }
     const skippedNote = r.itemsSkipped ? ` (${r.itemsSkipped} row${r.itemsSkipped === 1 ? "" : "s"} skipped)` : "";
     const websitesNote = r.websitesCreated ? ` across ${r.websitesCreated} new website${r.websitesCreated === 1 ? "" : "s"}` : "";
-    toast.success(`Imported ${r.itemsCreated ?? 0} submission${(r.itemsCreated ?? 0) === 1 ? "" : "s"}${websitesNote}${skippedNote}.`);
+    const restoredNote = r.websitesRestored ? `, and restored ${r.websitesRestored} website${r.websitesRestored === 1 ? "" : "s"} you had removed` : "";
+    toast.success(`Imported ${r.itemsCreated ?? 0} submission${(r.itemsCreated ?? 0) === 1 ? "" : "s"}${websitesNote}${restoredNote}${skippedNote}.`);
     setOpen(false);
     reset();
     router.refresh();

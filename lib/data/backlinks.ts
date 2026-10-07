@@ -7,6 +7,7 @@
 // submissions - see the migration's own comment for the full reasoning).
 
 import { createClient } from "@/lib/supabase/server";
+import { isMissingColumn } from "@/lib/ai-citation/run-state";
 
 export type BacklinkRangeKey =
   | "all" | "yesterday" | "today" | "this_week" | "this_month"
@@ -80,10 +81,17 @@ export interface BacklinkWebsiteSummary {
 
 export async function getBacklinkWebsites(projectId: string, range: BacklinkRange): Promise<BacklinkWebsiteSummary[]> {
   const supabase = await createClient();
-  const { data: websitesData } = await supabase
+  // Removed websites (removed_at set) stay in the table with all their
+  // submissions but are hidden here. Before the migration adds that column the
+  // same read runs without the filter, so the list never goes blank.
+  const live = await supabase
     .from("backlink_websites")
     .select("id, domain")
-    .eq("project_id", projectId);
+    .eq("project_id", projectId)
+    .is("removed_at", null);
+  const { data: websitesData } = live.error && isMissingColumn(live.error.message)
+    ? await supabase.from("backlink_websites").select("id, domain").eq("project_id", projectId)
+    : live;
   const websites = (websitesData ?? []) as { id: string; domain: string }[];
   if (!websites.length) return [];
 
@@ -146,6 +154,40 @@ export async function getBacklinkWebsites(projectId: string, range: BacklinkRang
     });
 }
 
+export interface RemovedBacklinkWebsite {
+  id: string;
+  domain: string;
+  removedAt: string;
+  /** All-time count: the submissions that were kept when the website was removed. */
+  submissionCount: number;
+}
+
+// Websites taken off the list, newest removal first. Empty (not an error)
+// before the migration adds removed_at, since nothing can be removed then.
+export async function getRemovedBacklinkWebsites(projectId: string): Promise<RemovedBacklinkWebsite[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("backlink_websites")
+    .select("id, domain, removed_at")
+    .eq("project_id", projectId)
+    .not("removed_at", "is", null)
+    .order("removed_at", { ascending: false });
+  if (error || !data?.length) return [];
+  const rows = data as { id: string; domain: string; removed_at: string }[];
+
+  // One head-count per website: a plain select of every submission id would
+  // hit the 1000-row default cap on a long-running platform.
+  const counts = await Promise.all(rows.map(async (w) => {
+    const { count } = await supabase
+      .from("backlink_submissions")
+      .select("id", { count: "exact", head: true })
+      .eq("website_id", w.id)
+      .eq("project_id", projectId);
+    return count ?? 0;
+  }));
+  return rows.map((w, i) => ({ id: w.id, domain: w.domain, removedAt: w.removed_at, submissionCount: counts[i] }));
+}
+
 export interface BacklinkSubmissionRow {
   id: string;
   submissionDate: string;
@@ -161,6 +203,8 @@ export interface BacklinkSubmissionRow {
 export interface BacklinkWebsiteDetail {
   id: string;
   domain: string;
+  /** Set when the website was taken off the list; its page still opens by link. */
+  removedAt: string | null;
   submissions: BacklinkSubmissionRow[];
   totalSubmissions: number;
 }
@@ -169,14 +213,17 @@ export async function getBacklinkWebsiteDetail(
   projectId: string, websiteId: string, range: BacklinkRange,
 ): Promise<BacklinkWebsiteDetail | null> {
   const supabase = await createClient();
-  const { data: website } = await supabase
+  const first = await supabase
     .from("backlink_websites")
-    .select("id, domain")
+    .select("id, domain, removed_at")
     .eq("id", websiteId)
     .eq("project_id", projectId)
     .maybeSingle();
+  const { data: website } = first.error && isMissingColumn(first.error.message)
+    ? await supabase.from("backlink_websites").select("id, domain").eq("id", websiteId).eq("project_id", projectId).maybeSingle()
+    : first;
   if (!website) return null;
-  const w = website as { id: string; domain: string };
+  const w = website as { id: string; domain: string; removed_at?: string | null };
 
   // Ticket 26: total is ALL-TIME (ignores the date filter) - the range-scoped
   // list below answers "what happened in this window", the header stat
@@ -212,5 +259,5 @@ export async function getBacklinkWebsiteDetail(
     verificationNote: s.verification_note,
   }));
 
-  return { id: w.id, domain: w.domain, submissions, totalSubmissions: totalSubmissions ?? 0 };
+  return { id: w.id, domain: w.domain, removedAt: w.removed_at ?? null, submissions, totalSubmissions: totalSubmissions ?? 0 };
 }

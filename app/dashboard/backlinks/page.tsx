@@ -1,11 +1,12 @@
 import { getUserContext } from "@/lib/auth/get-user";
-import { getBacklinkWebsites, resolveBacklinkRange } from "@/lib/data/backlinks";
+import { getBacklinkWebsites, getRemovedBacklinkWebsites, resolveBacklinkRange } from "@/lib/data/backlinks";
 import { getTeamMembers } from "@/lib/data/tasks";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { BacklinkDateFilter } from "@/components/sections/backlinks/backlink-date-filter";
 import { BacklinkWebsiteTable } from "@/components/sections/backlinks/backlink-website-table";
 import { AddSubmissionButton } from "@/components/sections/backlinks/add-submission-button";
+import { RemovedWebsitesSection } from "@/components/sections/backlinks/removed-websites-section";
 
 export const metadata = { title: "Backlinks" };
 
@@ -22,8 +23,9 @@ export default async function BacklinksPage({
   const start = params.start ?? "";
   const end = params.end ?? "";
 
-  const [websites, members] = await Promise.all([
+  const [websites, removedWebsites, members] = await Promise.all([
     getBacklinkWebsites(ctx.activeProject.id, resolveBacklinkRange(range, start, end)),
+    getRemovedBacklinkWebsites(ctx.activeProject.id),
     getTeamMembers(),
   ]);
 
@@ -42,7 +44,8 @@ export default async function BacklinksPage({
         }
       />
 
-      <BacklinkWebsiteTable websites={websites} />
+      <BacklinkWebsiteTable websites={websites} projectId={ctx.activeProject.id} canManage={ctx.canManageTeam} />
+      <RemovedWebsitesSection projectId={ctx.activeProject.id} websites={removedWebsites} canManage={ctx.canManageTeam} />
     </div>
   );
 }

@@ -17,6 +17,7 @@ import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { toExternalUrl } from "@/lib/url";
+import { RemoveWebsiteButton } from "@/components/sections/backlinks/website-removal";
 import type { BacklinkWebsiteSummary } from "@/lib/data/backlinks";
 
 type SortKey = "domain" | "submissionCount" | "lastSubmissionTopic" | "lastSubmissionDate" | "lastSubmissionUrl" | "lastSubmissionAssigneeName";
@@ -44,7 +45,11 @@ function compareNullable(a: string | null, b: string | null, dir: number): numbe
   return a.localeCompare(b) * dir;
 }
 
-export function BacklinkWebsiteTable({ websites }: { websites: BacklinkWebsiteSummary[] }) {
+export function BacklinkWebsiteTable({ websites, projectId, canManage }: {
+  websites: BacklinkWebsiteSummary[];
+  projectId: string;
+  canManage: boolean;
+}) {
   const [sortKey, setSortKey] = useState<SortKey>("lastSubmissionDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -115,6 +120,7 @@ export function BacklinkWebsiteTable({ websites }: { websites: BacklinkWebsiteSu
                 </button>
               </th>
             ))}
+            {canManage && <th className="w-10 px-2 py-2.5"><span className="sr-only">Remove</span></th>}
           </tr>
         </thead>
         <tbody>
@@ -153,6 +159,11 @@ export function BacklinkWebsiteTable({ websites }: { websites: BacklinkWebsiteSu
                   "—"
                 )}
               </td>
+              {canManage && (
+                <td className="px-2 py-2.5 text-right">
+                  <RemoveWebsiteButton projectId={projectId} websiteId={w.id} domain={w.domain} />
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

@@ -9,6 +9,7 @@ import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { BacklinkDateFilter } from "@/components/sections/backlinks/backlink-date-filter";
 import { BacklinkSubmissionList } from "@/components/sections/backlinks/backlink-submission-list";
 import { AddSubmissionButton } from "@/components/sections/backlinks/add-submission-button";
+import { RestoreWebsiteButton } from "@/components/sections/backlinks/website-removal";
 
 export default async function BacklinkWebsiteDetailPage({
   params, searchParams,
@@ -47,7 +48,7 @@ export default async function BacklinkWebsiteDetailPage({
               Total submissions: <span className="font-semibold text-foreground">{website.totalSubmissions}</span>
             </span>
             <BacklinkDateFilter range={range} start={start} end={end} />
-            {ctx.canManageTeam && (
+            {ctx.canManageTeam && !website.removedAt && (
               <AddSubmissionButton
                 projectId={ctx.activeProject.id}
                 websites={allWebsites.map((w) => ({ id: w.id, domain: w.domain }))}
@@ -58,6 +59,15 @@ export default async function BacklinkWebsiteDetailPage({
           </div>
         }
       />
+
+      {website.removedAt && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning-300/60 bg-warning-500/5 px-4 py-3">
+          <p className="text-sm text-warning-700 dark:text-warning-400">
+            This website was removed from the Backlinks list. Its submissions are kept below.
+          </p>
+          {ctx.canManageTeam && <RestoreWebsiteButton projectId={ctx.activeProject.id} websiteId={website.id} domain={website.domain} />}
+        </div>
+      )}
 
       <BacklinkSubmissionList submissions={website.submissions} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} />
     </div>

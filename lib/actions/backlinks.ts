@@ -26,6 +26,19 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hostFromUrl, cleanHost, normalizeStoredUrl, toExternalUrl, urlVariants } from "@/lib/url";
+import { isMissingColumn } from "@/lib/ai-citation/run-state";
+
+// A website taken off the list keeps its row and every submission, so the
+// find-or-create paths below must bring it back rather than insert a second
+// row (which the unique (project_id, domain) constraint would reject anyway).
+// Returns true only when it really was removed and is now restored. Before the
+// removed_at column exists nothing can have been removed, so the update's error
+// is ignored.
+async function restoreIfRemoved(admin: ReturnType<typeof createAdminClient>, websiteId: string): Promise<boolean> {
+  const { data, error } = await admin
+    .from("backlink_websites").update({ removed_at: null }).eq("id", websiteId).not("removed_at", "is", null).select("id");
+  return !error && !!data?.length;
+}
 
 const HEADER_MAP: Record<string, string> = {
   "website": "website",
@@ -208,6 +221,8 @@ export interface CommitBacklinksImportResult {
   itemsCreated?: number;
   itemsSkipped?: number;
   websitesCreated?: number;
+  /** Websites that had been removed and came back because the paste named them again. */
+  websitesRestored?: number;
 }
 
 // Ticket 35 (step 2 of 2): the actual write - same find-or-create/dedupe/
@@ -235,6 +250,7 @@ export async function commitBacklinksImport(input: z.infer<typeof CommitInput>):
   let itemsSkipped = 0;
   let itemsCreated = 0;
   let websitesCreated = 0;
+  let websitesRestored = 0;
   const websiteIdCache = new Map<string, string>();
 
   for (const row of rows) {
@@ -248,6 +264,7 @@ export async function commitBacklinksImport(input: z.infer<typeof CommitInput>):
         .from("backlink_websites").select("id").eq("project_id", project_id).eq("domain", domain).maybeSingle();
       if (existing) {
         websiteId = (existing as { id: string }).id;
+        if (await restoreIfRemoved(admin, websiteId)) websitesRestored++;
       } else {
         const { data: created, error: createErr } = await admin
           .from("backlink_websites").insert({ project_id, domain, created_by: user.id }).select("id").single();
@@ -295,7 +312,7 @@ export async function commitBacklinksImport(input: z.infer<typeof CommitInput>):
   }
 
   revalidatePath("/dashboard/backlinks");
-  return { ok: true, itemsCreated, itemsSkipped, websitesCreated };
+  return { ok: true, itemsCreated, itemsSkipped, websitesCreated, websitesRestored };
 }
 
 const AddWebsiteInput = z.object({
@@ -308,6 +325,8 @@ export interface AddBacklinkWebsiteResult {
   error?: string;
   id?: string;
   domain?: string;
+  /** True when this platform had been removed earlier and was brought back. */
+  restored?: boolean;
 }
 
 // Ticket 32: inline "+ Add new platform" inside the Add-submission form's
@@ -332,7 +351,9 @@ export async function addBacklinkWebsite(input: z.infer<typeof AddWebsiteInput>)
     .from("backlink_websites").select("id, domain").eq("project_id", project_id).eq("domain", domain).maybeSingle();
   if (existing) {
     const e = existing as { id: string; domain: string };
-    return { ok: true, id: e.id, domain: e.domain };
+    const restored = await restoreIfRemoved(admin, e.id);
+    if (restored) revalidatePath("/dashboard/backlinks");
+    return { ok: true, id: e.id, domain: e.domain, restored };
   }
 
   const { data: created, error: createErr } = await admin
@@ -342,6 +363,55 @@ export async function addBacklinkWebsite(input: z.infer<typeof AddWebsiteInput>)
 
   revalidatePath("/dashboard/backlinks");
   return { ok: true, id: c.id, domain: c.domain };
+}
+
+const WebsiteIdInput = z.object({
+  project_id: z.string().uuid(),
+  website_id: z.string().uuid(),
+});
+
+// Take a website off the Backlinks list. This only stamps removed_at: the row
+// and every submission logged against it stay in the database (a real delete
+// would cascade through backlink_submissions), so Restore brings it all back.
+// Uses the signed-in client, scoped by project_id, so RLS still applies.
+export async function removeBacklinkWebsite(input: z.infer<typeof WebsiteIdInput>): Promise<{ ok: boolean; error?: string }> {
+  const { project_id, website_id } = WebsiteIdInput.parse(input);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { data, error } = await supabase
+    .from("backlink_websites").update({ removed_at: new Date().toISOString() })
+    .eq("id", website_id).eq("project_id", project_id).select("id");
+  if (error) {
+    return {
+      ok: false,
+      error: isMissingColumn(error.message)
+        ? "Removing a website needs a one-time database update first. Apply the 20261007000001 migration in Supabase, then try again."
+        : "Could not remove that website.",
+    };
+  }
+  if (!data?.length) return { ok: false, error: "That website wasn't found on this project." };
+
+  revalidatePath("/dashboard/backlinks");
+  return { ok: true };
+}
+
+// Put a removed website back on the list, submissions and all.
+export async function restoreBacklinkWebsite(input: z.infer<typeof WebsiteIdInput>): Promise<{ ok: boolean; error?: string }> {
+  const { project_id, website_id } = WebsiteIdInput.parse(input);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { data, error } = await supabase
+    .from("backlink_websites").update({ removed_at: null })
+    .eq("id", website_id).eq("project_id", project_id).select("id");
+  if (error) return { ok: false, error: "Could not restore that website." };
+  if (!data?.length) return { ok: false, error: "That website wasn't found on this project." };
+
+  revalidatePath("/dashboard/backlinks");
+  return { ok: true };
 }
 
 const DeleteSubmissionInput = z.object({
