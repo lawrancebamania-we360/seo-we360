@@ -9,20 +9,25 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { toExternalUrl } from "@/lib/url";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
+import { logPublishToTeamTarget, removePublishTargetLog } from "@/lib/content-pipeline/target-log";
 
 const MIGRATION_NOTICE =
   "This needs a one-time database update first. Apply the 20261019000003 migration in Supabase, then try again.";
 
 type Result = { ok: boolean; error?: string };
 
-async function loadItem(item_id: string): Promise<{ projectId: string; clusterId: string } | null> {
+// content_type is an older column (migration 20260929110001), so this read is
+// safe before 20261019000003 is applied - the publish/unpublish writes below
+// are what surface the migration notice.
+async function loadItem(item_id: string): Promise<{ projectId: string; clusterId: string; contentType: string | null } | null> {
   const supabase = await createClient();
   const { data } = await supabase
-    .from("topic_cluster_items").select("project_id, cluster_id").eq("id", item_id).maybeSingle();
-  const row = data as { project_id: string; cluster_id: string } | null;
-  return row ? { projectId: row.project_id, clusterId: row.cluster_id } : null;
+    .from("topic_cluster_items").select("project_id, cluster_id, content_type").eq("id", item_id).maybeSingle();
+  const row = data as { project_id: string; cluster_id: string; content_type: string | null } | null;
+  return row ? { projectId: row.project_id, clusterId: row.cluster_id, contentType: row.content_type } : null;
 }
 
 const ArtifactInput = z.object({
@@ -98,6 +103,12 @@ export async function markClusterItemPublished(input: z.infer<typeof PublishInpu
     .eq("id", item_id).eq("project_id", item.projectId);
   if (error) return { ok: false, error: isMissingColumn(error.message) ? MIGRATION_NOTICE : "Could not mark that published." };
 
+  // This upload IS Dinesh's "Upload Blogs/Guides to website" target work, so log
+  // it there too. Best-effort: never let a target-log hiccup fail the publish.
+  await logPublishToTeamTarget(createAdminClient(), {
+    projectId: item.projectId, contentType: item.contentType, publishedUrl: url, reportedBy: user.id,
+  });
+
   revalidatePath(`/dashboard/blog-clusters/${item.clusterId}`);
   revalidatePath("/dashboard/to-publish");
   return { ok: true };
@@ -116,11 +127,28 @@ export async function unpublishClusterItem(input: z.infer<typeof UnpublishInput>
   const item = await loadItem(item_id);
   if (!item) return { ok: false, error: "That item wasn't found." };
 
+  // The URL about to be cleared, read before the update so its auto-created
+  // team-target log can be removed. Degrades to null before 20261019000003
+  // (published_url missing) - there'd be nothing to unpublish in that case.
+  let previousUrl: string | null = null;
+  {
+    const { data } = await supabase
+      .from("topic_cluster_items").select("published_url").eq("id", item_id).maybeSingle();
+    previousUrl = (data as { published_url?: string | null } | null)?.published_url ?? null;
+  }
+
   const { error } = await supabase
     .from("topic_cluster_items")
     .update({ published_url: null, published_at: null, published_by: null })
     .eq("id", item_id).eq("project_id", item.projectId);
   if (error) return { ok: false, error: isMissingColumn(error.message) ? MIGRATION_NOTICE : "Could not undo that." };
+
+  // Drop the log this publish created (best-effort), so the undo is symmetric.
+  if (previousUrl) {
+    await removePublishTargetLog(createAdminClient(), {
+      projectId: item.projectId, contentType: item.contentType, publishedUrl: previousUrl,
+    });
+  }
 
   revalidatePath(`/dashboard/blog-clusters/${item.clusterId}`);
   revalidatePath("/dashboard/to-publish");
