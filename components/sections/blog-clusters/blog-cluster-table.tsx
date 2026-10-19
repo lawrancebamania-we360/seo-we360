@@ -10,17 +10,20 @@
 // the whole cluster (or just one brief) to their AI tool of choice without
 // clicking into every row to piece the fields together by hand.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Copy, ExternalLink } from "lucide-react";
+import { Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { liveUrlFromSlug } from "@/lib/url";
 import { ClusterItemAssignee } from "@/components/sections/blog-clusters/cluster-item-assignee";
+import { KindBadge, PublishStateBadge, PageSpec, ArtifactEditor, PublishControl } from "@/components/sections/content-pipeline/item-controls";
+import { CONTENT_KIND_LABEL, type ContentKind } from "@/lib/content-pipeline/content-type";
 import type { BlogClusterItemRow } from "@/lib/data/blog-clusters";
 import type { Member } from "@/components/sections/assignee-picker";
+
+const KIND_ORDER: ContentKind[] = ["blog", "guide", "listicle", "pillar", "other"];
 
 const FUNNEL_TONE: Record<string, string> = {
   tofu: "border-info-300 text-info-700",
@@ -81,7 +84,18 @@ export function BlogClusterTable({ clusterName, items, members, canManage, siteD
   canManage: boolean;
   siteDomain: string;
 }) {
-  const [openItem, setOpenItem] = useState<BlogClusterItemRow | null>(null);
+  const [openItemId, setOpenItemId] = useState<string | null>(null);
+  const [kindFilter, setKindFilter] = useState<ContentKind | "all">("all");
+  // Derive the open row from the live `items` prop (not a stored copy) so it
+  // reflects an artifact/publish change after router.refresh() without reopening.
+  const openItem = items.find((i) => i.id === openItemId) ?? null;
+
+  // Which content kinds actually appear in this cluster, for the filter chips.
+  const presentKinds = useMemo(() => {
+    const set = new Set(items.map((i) => i.kind));
+    return KIND_ORDER.filter((k) => set.has(k));
+  }, [items]);
+  const shown = kindFilter === "all" ? items : items.filter((i) => i.kind === kindFilter);
 
   if (!items.length) {
     return <p className="text-sm text-muted-foreground">No rows in this cluster yet.</p>;
@@ -89,36 +103,46 @@ export function BlogClusterTable({ clusterName, items, members, canManage, siteD
 
   return (
     <>
-      <div className="mb-2.5 flex justify-end">
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+        {presentKinds.length > 1 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <FilterChip active={kindFilter === "all"} onClick={() => setKindFilter("all")}>All ({items.length})</FilterChip>
+            {presentKinds.map((k) => (
+              <FilterChip key={k} active={kindFilter === k} onClick={() => setKindFilter(k)}>
+                {CONTENT_KIND_LABEL[k]} ({items.filter((i) => i.kind === k).length})
+              </FilterChip>
+            ))}
+          </div>
+        ) : <div />}
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="gap-1.5"
-          onClick={() => copyText(formatClusterForCopy(clusterName, items), `Copied all ${items.length} briefs - paste into any LLM to draft them.`)}
+          onClick={() => copyText(formatClusterForCopy(clusterName, shown), `Copied ${shown.length} brief${shown.length === 1 ? "" : "s"} - paste into any LLM to draft them.`)}
         >
-          <Copy className="size-3.5" /> Copy all details
+          <Copy className="size-3.5" /> Copy details
         </Button>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full min-w-[900px] text-sm">
+        <table className="w-full min-w-[960px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
               <th className="px-3 py-2.5 font-semibold">Title</th>
-              <th className="px-3 py-2.5 font-semibold">Category</th>
+              <th className="px-3 py-2.5 font-semibold">Type</th>
+              <th className="px-3 py-2.5 font-semibold">Status</th>
               <th className="px-3 py-2.5 font-semibold">Funnel</th>
-              <th className="px-3 py-2.5 font-semibold">Content type</th>
               <th className="px-3 py-2.5 font-semibold">Primary keyword</th>
               <th className="px-3 py-2.5 font-semibold text-right">Vol/mo</th>
               {canManage && <th className="px-3 py-2.5 font-semibold text-right">Assignee</th>}
             </tr>
           </thead>
           <tbody>
-            {items.map((it) => (
+            {shown.map((it) => (
               <tr
                 key={it.id}
-                onClick={() => setOpenItem(it)}
+                onClick={() => setOpenItemId(it.id)}
                 className="cursor-pointer border-b border-border/60 last:border-0 transition-colors hover:bg-muted/30"
               >
                 <td className="max-w-[320px] px-3 py-2.5 font-medium text-foreground">
@@ -134,9 +158,8 @@ export function BlogClusterTable({ clusterName, items, members, canManage, siteD
                     </button>
                   </div>
                 </td>
-                <td className="max-w-[140px] px-3 py-2.5 text-muted-foreground">
-                  <div className="truncate" title={it.category ?? undefined}>{it.category ?? "—"}</div>
-                </td>
+                <td className="px-3 py-2.5" title={it.contentType ?? undefined}><KindBadge kind={it.kind} /></td>
+                <td className="px-3 py-2.5"><PublishStateBadge state={it.publishState} liveUrl={it.liveUrl} /></td>
                 <td className="px-3 py-2.5">
                   {it.funnelStage ? (
                     <Badge variant="outline" className={cn("text-[10px]", FUNNEL_TONE[it.funnelStage.toLowerCase()] ?? "")}>
@@ -144,7 +167,6 @@ export function BlogClusterTable({ clusterName, items, members, canManage, siteD
                     </Badge>
                   ) : "—"}
                 </td>
-                <td className="max-w-[180px] px-3 py-2.5 text-muted-foreground"><div className="truncate" title={it.contentType ?? undefined}>{it.contentType ?? "—"}</div></td>
                 <td className="max-w-[200px] px-3 py-2.5 text-foreground"><div className="truncate" title={it.targetKeyword ?? undefined}>{it.targetKeyword ?? "—"}</div></td>
                 <td className="px-3 py-2.5 text-right font-mono text-[12.5px] tabular-nums text-foreground">{it.volMo != null ? it.volMo.toLocaleString() : "—"}</td>
                 {canManage && (
@@ -160,7 +182,7 @@ export function BlogClusterTable({ clusterName, items, members, canManage, siteD
         </table>
       </div>
 
-      <Sheet open={!!openItem} onOpenChange={(v) => !v && setOpenItem(null)}>
+      <Sheet open={!!openItem} onOpenChange={(v) => !v && setOpenItemId(null)}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:min-w-[50vw] sm:max-w-2xl lg:max-w-3xl">
           {openItem && (
             <>
@@ -192,6 +214,16 @@ export function BlogClusterTable({ clusterName, items, members, canManage, siteD
                     <Copy className="size-3.5" /> Copy details
                   </Button>
                 </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <PublishStateBadge state={openItem.publishState} liveUrl={openItem.liveUrl} />
+                  <div className="ml-auto">
+                    <PublishControl itemId={openItem.id} state={openItem.publishState} liveUrl={openItem.liveUrl} publishedUrl={openItem.publishedUrl} compact />
+                  </div>
+                </div>
+
+                <PageSpec title={openItem.title} slug={openItem.urlSlug} meta={openItem.metaDescription} siteDomain={siteDomain} />
+                <ArtifactEditor itemId={openItem.id} artifactUrl={openItem.artifactUrl} driveUrl={openItem.artifactDriveUrl} />
 
                 <DetailSection label="Primary keyword">
                   {openItem.targetKeyword ?? "—"} {openItem.volMo != null && <span className="text-muted-foreground">({openItem.volMo.toLocaleString()}/mo)</span>}
@@ -240,17 +272,6 @@ export function BlogClusterTable({ clusterName, items, members, canManage, siteD
                   </DetailSection>
                 )}
 
-                {openItem.metaDescription && <DetailSection label="Meta description">{openItem.metaDescription}</DetailSection>}
-                {openItem.urlSlug && (
-                  <DetailSection label="URL slug">
-                    <span className="inline-flex items-center gap-1.5">
-                      {openItem.urlSlug}
-                      <a href={liveUrlFromSlug(openItem.urlSlug, siteDomain)} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
-                        <ExternalLink className="size-3" />
-                      </a>
-                    </span>
-                  </DetailSection>
-                )}
                 {openItem.primaryCta && <DetailSection label="Primary CTA">{openItem.primaryCta}</DetailSection>}
               </div>
             </>
@@ -258,6 +279,20 @@ export function BlogClusterTable({ clusterName, items, members, canManage, siteD
         </SheetContent>
       </Sheet>
     </>
+  );
+}
+
+function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button" onClick={onClick} aria-pressed={active}
+      className={cn(
+        "cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+        active ? "border-[#5B45E0]/40 bg-[#5B45E0]/10 text-[#5B45E0] dark:text-[#7B62FF]" : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

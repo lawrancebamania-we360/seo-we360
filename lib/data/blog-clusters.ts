@@ -3,8 +3,38 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { buildSitemapIndex, resolveSitemapUrl, toExternalUrl } from "@/lib/url";
+import { isMissingColumn } from "@/lib/ai-citation/run-state";
+import { classifyContentType, type ContentKind, type PublishState } from "@/lib/content-pipeline/content-type";
 import type { UrlTopQuery } from "@/lib/data/url-metrics";
 import type { AnalyticsCompareRange } from "@/lib/data/analytics-range";
+
+// Latest sitemap snapshot for a project (the daily url-metrics cron refreshes
+// it). Used to tell whether a recorded live URL / slug is actually published.
+async function loadSitemapIndex(
+  supabase: Awaited<ReturnType<typeof createClient>>, projectId: string,
+): Promise<ReturnType<typeof buildSitemapIndex>> {
+  const { data } = await supabase
+    .from("url_metrics_runs").select("url_list").eq("project_id", projectId)
+    .order("run_date", { ascending: false }).limit(1).maybeSingle();
+  return buildSitemapIndex((data as { url_list: string[] | null } | null)?.url_list ?? []);
+}
+
+// Where an item sits in the write -> upload -> live flow, resolved the same way
+// everywhere: a page is "live" when its recorded URL (or its planned slug)
+// appears in the latest sitemap snapshot.
+export function resolvePublishState(
+  item: { artifactUrl: string | null; publishedUrl: string | null; urlSlug: string | null },
+  sitemapIndex: ReturnType<typeof buildSitemapIndex>,
+): { state: PublishState; liveUrl: string | null } {
+  const recorded = toExternalUrl(item.publishedUrl);
+  const liveFromRecorded = recorded ? resolveSitemapUrl(sitemapIndex, recorded) : null;
+  const liveFromSlug = item.urlSlug ? resolveSitemapUrl(sitemapIndex, item.urlSlug) : null;
+  const liveUrl = liveFromRecorded ?? liveFromSlug ?? null;
+  if (liveUrl) return { state: "live", liveUrl };
+  if (recorded) return { state: "published_pending", liveUrl: recorded };
+  if (item.artifactUrl) return { state: "ready", liveUrl: null };
+  return { state: "draft", liveUrl: null };
+}
 
 export interface BlogClusterSummary {
   id: string;
@@ -70,6 +100,15 @@ export interface BlogClusterItemRow {
   taskStatus: string | null;
   assigneeId: string | null;
   assigneeName: string | null;
+  // Content pipeline additions.
+  kind: ContentKind;
+  artifactUrl: string | null;
+  artifactDriveUrl: string | null;
+  publishedUrl: string | null;
+  publishedAt: string | null;
+  publishState: PublishState;
+  /** The resolved live URL (sitemap match, else the recorded URL); null until one exists. */
+  liveUrl: string | null;
 }
 
 export interface BlogClusterDetail {
@@ -93,16 +132,22 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
 
   // tasks has three FKs into profiles (created_by, reviewed_by_id, team_member_id) -
   // the embed is ambiguous without naming the exact constraint to join through.
-  const { data: itemsData } = await supabase
-    .from("topic_cluster_items")
-    .select(`
+  // The artifact/publish columns are selected only when they exist (before the
+  // migration the same read runs without them, so the cluster never fails to open).
+  const BASE_COLS = `
       id, position, title, category, funnel_stage, content_type, target_keyword, vol_mo,
       serp_verdict, supporting_keywords, outline, faq_candidates, interlinks_to, interlinks_from,
       meta_description, url_slug, primary_cta, task_id,
-      tasks ( status, team_member_id, profiles!tasks_team_member_id_fkey ( name ) )
-    `)
-    .eq("cluster_id", clusterId)
-    .order("position", { ascending: true });
+      tasks ( status, published_url, team_member_id, profiles!tasks_team_member_id_fkey ( name ) )`;
+  const ARTIFACT_COLS = `artifact_url, artifact_drive_url, published_url, published_at`;
+  const loadItems = (withArtifacts: boolean) =>
+    supabase.from("topic_cluster_items")
+      .select(withArtifacts ? `${BASE_COLS}, ${ARTIFACT_COLS}` : BASE_COLS)
+      .eq("cluster_id", clusterId)
+      .order("position", { ascending: true });
+
+  let itemsRes = await loadItems(true);
+  if (itemsRes.error && isMissingColumn(itemsRes.error.message)) itemsRes = await loadItems(false);
 
   type Row = {
     id: string; position: number; title: string; category: string | null; funnel_stage: string | null;
@@ -112,31 +157,48 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
     interlinks_to: string[] | null; interlinks_from: string[] | null;
     meta_description: string | null; url_slug: string | null; primary_cta: string | null;
     task_id: string | null;
-    tasks: { status: string | null; team_member_id: string | null; profiles: { name: string | null } | null } | null;
+    tasks: { status: string | null; published_url: string | null; team_member_id: string | null; profiles: { name: string | null } | null } | null;
+    artifact_url?: string | null; artifact_drive_url?: string | null; published_url?: string | null; published_at?: string | null;
   };
-  const items = ((itemsData ?? []) as unknown as Row[]).map((r) => ({
-    id: r.id,
-    position: r.position,
-    title: r.title,
-    category: r.category,
-    funnelStage: r.funnel_stage,
-    contentType: r.content_type,
-    targetKeyword: r.target_keyword,
-    volMo: r.vol_mo,
-    serpVerdict: r.serp_verdict,
-    supportingKeywords: r.supporting_keywords ?? [],
-    outline: r.outline ?? [],
-    faqCandidates: r.faq_candidates ?? [],
-    interlinksTo: r.interlinks_to ?? [],
-    interlinksFrom: r.interlinks_from ?? [],
-    metaDescription: r.meta_description,
-    urlSlug: r.url_slug,
-    primaryCta: r.primary_cta,
-    taskId: r.task_id,
-    taskStatus: r.tasks?.status ?? null,
-    assigneeId: r.tasks?.team_member_id ?? null,
-    assigneeName: r.tasks?.profiles?.name ?? null,
-  }));
+  const rawItems = (itemsRes.data ?? []) as unknown as Row[];
+
+  const sitemapIndex = await loadSitemapIndex(supabase, projectId);
+
+  const items = rawItems.map((r) => {
+    const publishedUrl = r.published_url ?? r.tasks?.published_url ?? null;
+    const artifactUrl = r.artifact_url ?? null;
+    const { state, liveUrl } = resolvePublishState({ artifactUrl, publishedUrl, urlSlug: r.url_slug }, sitemapIndex);
+    return {
+      id: r.id,
+      position: r.position,
+      title: r.title,
+      category: r.category,
+      funnelStage: r.funnel_stage,
+      contentType: r.content_type,
+      targetKeyword: r.target_keyword,
+      volMo: r.vol_mo,
+      serpVerdict: r.serp_verdict,
+      supportingKeywords: r.supporting_keywords ?? [],
+      outline: r.outline ?? [],
+      faqCandidates: r.faq_candidates ?? [],
+      interlinksTo: r.interlinks_to ?? [],
+      interlinksFrom: r.interlinks_from ?? [],
+      metaDescription: r.meta_description,
+      urlSlug: r.url_slug,
+      primaryCta: r.primary_cta,
+      taskId: r.task_id,
+      taskStatus: r.tasks?.status ?? null,
+      assigneeId: r.tasks?.team_member_id ?? null,
+      assigneeName: r.tasks?.profiles?.name ?? null,
+      kind: classifyContentType(r.content_type),
+      artifactUrl,
+      artifactDriveUrl: r.artifact_drive_url ?? null,
+      publishedUrl,
+      publishedAt: r.published_at ?? null,
+      publishState: state,
+      liveUrl,
+    };
+  });
 
   return {
     id: c.id,
@@ -145,6 +207,78 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
     source: (c.source as "ai_generated" | "import") ?? "ai_generated",
     items,
   };
+}
+
+// ============================================================================
+// To Publish queue: every planned blog/guide across all clusters that has an
+// artifact attached but isn't live yet - the list Dinesh picks from to upload
+// to the site. "Not live yet" is resolved the same way as everywhere else
+// (recorded URL / slug not in the latest sitemap, and no URL recorded).
+// ============================================================================
+
+export interface PublishQueueRow {
+  id: string;
+  clusterId: string;
+  clusterName: string;
+  title: string;
+  kind: ContentKind;
+  urlSlug: string | null;
+  metaDescription: string | null;
+  targetKeyword: string | null;
+  artifactUrl: string | null;
+  artifactDriveUrl: string | null;
+  assigneeName: string | null;
+}
+
+export async function getPublishQueue(projectId: string): Promise<{ ready: boolean; rows: PublishQueueRow[] }> {
+  const supabase = await createClient();
+  const sel = `
+    id, cluster_id, title, content_type, url_slug, meta_description, target_keyword,
+    artifact_url, artifact_drive_url, published_url,
+    topic_clusters ( cluster_name ),
+    tasks ( published_url, profiles!tasks_team_member_id_fkey ( name ) )`;
+  const res = await supabase
+    .from("topic_cluster_items").select(sel)
+    .eq("project_id", projectId)
+    .not("artifact_url", "is", null);
+  // The artifact columns don't exist until the migration is applied: the queue
+  // page shows the "database update needed" notice rather than an empty list.
+  if (res.error) {
+    if (isMissingColumn(res.error.message)) return { ready: false, rows: [] };
+    return { ready: true, rows: [] };
+  }
+
+  type Row = {
+    id: string; cluster_id: string; title: string; content_type: string | null;
+    url_slug: string | null; meta_description: string | null; target_keyword: string | null;
+    artifact_url: string | null; artifact_drive_url: string | null; published_url: string | null;
+    topic_clusters: { cluster_name: string } | null;
+    tasks: { published_url: string | null; profiles: { name: string | null } | null } | null;
+  };
+  const rows = (res.data ?? []) as unknown as Row[];
+  if (!rows.length) return { ready: true, rows: [] };
+
+  const sitemapIndex = await loadSitemapIndex(supabase, projectId);
+  const out: PublishQueueRow[] = [];
+  for (const r of rows) {
+    const publishedUrl = r.published_url ?? r.tasks?.published_url ?? null;
+    const { state } = resolvePublishState({ artifactUrl: r.artifact_url, publishedUrl, urlSlug: r.url_slug }, sitemapIndex);
+    if (state !== "ready") continue; // already has a URL recorded or is live - not in the queue
+    out.push({
+      id: r.id,
+      clusterId: r.cluster_id,
+      clusterName: r.topic_clusters?.cluster_name ?? "Cluster",
+      title: r.title,
+      kind: classifyContentType(r.content_type),
+      urlSlug: r.url_slug,
+      metaDescription: r.meta_description,
+      targetKeyword: r.target_keyword,
+      artifactUrl: r.artifact_url,
+      artifactDriveUrl: r.artifact_drive_url,
+      assigneeName: r.tasks?.profiles?.name ?? null,
+    });
+  }
+  return { ready: true, rows: out };
 }
 
 // ============================================================================
@@ -214,13 +348,18 @@ export async function getBlogClusterAnalytics(
   if (!cluster) return null;
   const c = cluster as { id: string; cluster_name: string };
 
-  const { data: itemsData } = await supabase
-    .from("topic_cluster_items")
-    .select("id, title, url_slug, task_id, tasks ( published_url )")
-    .eq("cluster_id", clusterId)
-    .order("position", { ascending: true });
-  type ItemRow = { id: string; title: string; url_slug: string | null; task_id: string | null; tasks: { published_url: string | null } | null };
-  const items = (itemsData ?? []) as unknown as ItemRow[];
+  // Prefer the item's own recorded published_url (set from the To Publish queue)
+  // when present, falling back to the linked task's. The item column is only
+  // selected when it exists so this keeps working before the migration.
+  const loadAnalyticsItems = (withPublished: boolean) =>
+    supabase.from("topic_cluster_items")
+      .select(withPublished ? "id, title, url_slug, task_id, published_url, tasks ( published_url )" : "id, title, url_slug, task_id, tasks ( published_url )")
+      .eq("cluster_id", clusterId)
+      .order("position", { ascending: true });
+  let analyticsItemsRes = await loadAnalyticsItems(true);
+  if (analyticsItemsRes.error && isMissingColumn(analyticsItemsRes.error.message)) analyticsItemsRes = await loadAnalyticsItems(false);
+  type ItemRow = { id: string; title: string; url_slug: string | null; task_id: string | null; published_url?: string | null; tasks: { published_url: string | null } | null };
+  const items = (analyticsItemsRes.data ?? []) as unknown as ItemRow[];
   const empty = { id: c.id, clusterName: c.cluster_name, totalCount: items.length, unpublishedCount: items.length, rankingUnavailableCount: 0, connected: true, items: [] };
   if (!items.length) return empty;
 
@@ -240,7 +379,7 @@ export async function getBlogClusterAnalytics(
   // never equal (only 2 of 107 items resolved before this).
   const resolved = new Map<string, string>(); // item.id -> live URL
   for (const it of items) {
-    const publishedUrl = toExternalUrl(it.tasks?.published_url);
+    const publishedUrl = toExternalUrl(it.published_url ?? it.tasks?.published_url);
     if (publishedUrl) { resolved.set(it.id, publishedUrl); continue; }
     if (it.url_slug) {
       const match = resolveSitemapUrl(sitemapIndex, it.url_slug);

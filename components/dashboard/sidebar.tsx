@@ -25,7 +25,7 @@ import Image from "next/image";
 import {
   LayoutDashboard, ListChecks, Search, Swords,
   CalendarRange, Trophy, Users, FolderCog, GitBranch, FileSearch, Network,
-  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, ChevronDown, Link2, Magnet, Handshake, Target,
+  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, ChevronDown, Link2, Magnet, Handshake, Target, Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/dashboard/user-menu";
@@ -63,6 +63,7 @@ const NAV_SECTION: Record<string, string | null> = {
   "/dashboard/competitors": "competitors",
   "/dashboard/sprint":      "sprint",
   "/dashboard/blog-clusters": "sprint", // planned-content grouping - same section as Blog Sprint
+  "/dashboard/to-publish":  null,        // always visible - whoever uploads pages (a member) works from here
   "/dashboard/blog-audit":  "seo_gaps",
   "/dashboard/reports":     null,        // always visible
   "/dashboard/backlinks":   null,        // always visible - standalone link-building log
@@ -94,6 +95,7 @@ const DEFAULT_NAV: NavItem[] = [
   { href: "/dashboard/competitors", label: "Competitors", icon: Swords,        tone: "primary" },
   { href: "/dashboard/sprint",     label: "Blog Sprint", icon: CalendarRange,  tone: "primary" },
   { href: "/dashboard/blog-clusters", label: "Blog Clusters", icon: Network,   tone: "primary" },
+  { href: "/dashboard/to-publish", label: "To Publish",   icon: Upload,        tone: "primary" },
   { href: "/dashboard/blog-audit", label: "Blog audit",  icon: FileSearch,     tone: "primary" },
   { href: "/dashboard/reports",    label: "Reports",     icon: BarChart3,      tone: "primary" },
   { href: "/dashboard/backlinks",  label: "Backlink Submissions",   icon: Link2,          tone: "primary" },
