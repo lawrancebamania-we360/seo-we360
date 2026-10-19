@@ -14,8 +14,11 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { removeTeamTarget, saveTeamTarget } from "@/lib/actions/team-targets";
 import { safely } from "@/lib/team-targets/safely";
-import type { TargetRow } from "@/lib/data/team-targets";
+import type { DashboardTarget } from "@/lib/team-targets/types";
 import type { TargetFrequency } from "@/lib/team-targets/types";
+
+// The fields the add/edit/remove dialogs need; DashboardTarget is a superset.
+type TargetRow = Pick<DashboardTarget, "id" | "task" | "ownerId" | "coOwnerId" | "target" | "frequency" | "ownerName">;
 
 export type MemberOption = { id: string; name: string };
 

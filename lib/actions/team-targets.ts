@@ -15,14 +15,16 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { toExternalUrl } from "@/lib/url";
-import { matchMember, parseTargetPaste, targetKey, type SkippedLine } from "@/lib/team-targets/parse";
+import { toExternalUrl, hostFromUrl } from "@/lib/url";
+import { matchMember, parseTargetPaste, targetKey, parseLogPaste, linkKey, normalizeLogDate, type SkippedLine } from "@/lib/team-targets/parse";
 import { isMissingTable, MIGRATION_NOTICE } from "@/lib/team-targets/db";
-import { currentWeekStart, isMonday } from "@/lib/team-targets/week";
+import { todayIst } from "@/lib/team-targets/week";
 import type { TargetFrequency } from "@/lib/team-targets/types";
 
 type Result = { ok: boolean; error?: string };
-interface Actor { userId: string; isAdmin: boolean }
+// isOwner = super_admin. Only the owner can hand-verify what the AI couldn't,
+// since nearly everyone here is an admin and a second admin is not a real check.
+interface Actor { userId: string; isAdmin: boolean; isOwner: boolean }
 
 const PAGE = "/dashboard/team-targets";
 const FREQUENCIES = ["daily", "weekly", "monthly"] as const;
@@ -42,13 +44,19 @@ async function authorize(projectId: string): Promise<{ actor: Actor } | { error:
   if (access !== true) return { error: "You do not have access to this project." };
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
   const role = (profile as { role?: string } | null)?.role;
-  return { actor: { userId: user.id, isAdmin: role === "admin" || role === "super_admin" } };
+  return { actor: { userId: user.id, isAdmin: role === "admin" || role === "super_admin", isOwner: role === "super_admin" } };
 }
 
 async function authorizeAdmin(projectId: string): Promise<{ actor: Actor } | { error: string }> {
   const r = await authorize(projectId);
   if ("error" in r) return r;
   return r.actor.isAdmin ? r : { error: "Only admins can do this." };
+}
+
+async function authorizeOwner(projectId: string): Promise<{ actor: Actor } | { error: string }> {
+  const r = await authorize(projectId);
+  if ("error" in r) return r;
+  return r.actor.isOwner ? r : { error: "Only the owner can do this." };
 }
 
 // Real, non-client team members: the only people a target can be owned by.
@@ -277,107 +285,320 @@ export async function removeTeamTarget(input: z.infer<typeof RemoveInput>): Prom
   return { ok: true };
 }
 
-// ---- Reporting a week's number -----------------------------------------
+// ---- Logging an achievement (one by one, or bulk) ----------------------
 
-const ReportInput = z.object({
+interface TargetWrite { id: string; owner_id: string | null; co_owner_id: string | null; log_mode: "link" | "count"; removed_at: string | null }
+
+function canLog(actor: Actor, t: TargetWrite): boolean {
+  return actor.isAdmin || actor.userId === t.owner_id || actor.userId === t.co_owner_id;
+}
+
+// The targets a person may log against: their own (and co-owned); admins, all.
+async function loadLoggableTargets(projectId: string, actor: Actor): Promise<{ id: string; task: string; owner_id: string | null; co_owner_id: string | null; log_mode: "link" | "count"; ownerName: string | null }[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("team_targets").select("id, task, owner_id, co_owner_id, log_mode")
+    .eq("project_id", projectId).is("removed_at", null).order("task");
+  const rows = (data ?? []) as { id: string; task: string; owner_id: string | null; co_owner_id: string | null; log_mode: "link" | "count" }[];
+  const mine = actor.isAdmin ? rows : rows.filter((r) => r.owner_id === actor.userId || r.co_owner_id === actor.userId);
+  const ids = [...new Set(mine.map((r) => r.owner_id).filter((x): x is string => !!x))];
+  const names = new Map<string, string>();
+  if (ids.length) {
+    const { data: profs } = await supabase.from("profiles").select("id, name").in("id", ids);
+    for (const p of (profs ?? []) as { id: string; name: string }[]) names.set(p.id, p.name);
+  }
+  return mine.map((r) => ({ ...r, ownerName: r.owner_id ? names.get(r.owner_id) ?? null : null }));
+}
+
+const AddLogInput = z.object({
   project_id: ID,
   target_id: ID,
-  week_start: z.string(),
-  achieved: z.number("Enter the number you completed.").int("Enter a whole number.").min(0, "The number can't be negative.").max(1_000_000, "That number is too large."),
+  log_date: z.string(),
+  link: z.string().trim().max(2000, "That link is too long.").optional(),
+  quantity: z.number().int("Enter a whole number.").min(1, "Enter at least 1.").max(1_000_000, "That number is too large.").optional(),
   note: z.string().trim().max(1000, "The note is too long (1000 characters at most).").optional(),
-  proof_url: z.string().trim().max(2000, "The proof link is too long.").optional(),
 });
 
-export async function reportTeamTargetNumber(input: z.infer<typeof ReportInput>): Promise<Result> {
-  const parsed = ReportInput.safeParse(input);
+export interface AddLogResult { ok: boolean; error?: string; logId?: string; checkable?: boolean; duplicate?: boolean }
+
+export async function addTeamTargetLog(input: z.infer<typeof AddLogInput>): Promise<AddLogResult> {
+  const parsed = AddLogInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
-  const { project_id, target_id, week_start, achieved, note, proof_url } = parsed.data;
+  const { project_id, target_id, log_date, link, quantity, note } = parsed.data;
   const auth = await authorize(project_id);
   if ("error" in auth) return { ok: false, error: auth.error };
   const { actor } = auth;
 
-  if (!isMonday(week_start)) return { ok: false, error: "That is not a valid week." };
-  if (week_start > currentWeekStart()) return { ok: false, error: "You can't report a week that hasn't started yet." };
-
-  // Read with the signed-in client so project access applies a second time.
   const supabase = await createClient();
-  const { data: target, error: targetErr } = await supabase
-    .from("team_targets").select("id, owner_id, co_owner_id, removed_at")
+  const { data: tRow, error: tErr } = await supabase
+    .from("team_targets").select("id, owner_id, co_owner_id, log_mode, removed_at")
     .eq("id", target_id).eq("project_id", project_id).maybeSingle();
-  if (targetErr) return { ok: false, error: isMissingTable(targetErr) ? MIGRATION_NOTICE : "Could not read that target." };
-  const t = target as { owner_id: string | null; co_owner_id: string | null; removed_at: string | null } | null;
+  if (tErr) return { ok: false, error: isMissingTable(tErr) ? MIGRATION_NOTICE : "Could not read that target." };
+  const t = tRow as TargetWrite | null;
   if (!t || t.removed_at) return { ok: false, error: "That target was not found." };
+  if (!canLog(actor, t)) return { ok: false, error: "Only the owner, co-owner or an admin can log this." };
 
-  const involved = actor.userId === t.owner_id || actor.userId === t.co_owner_id;
-  if (!involved && !actor.isAdmin) return { ok: false, error: "Only the owner, the co-owner or an admin can report this number." };
+  const date = normalizeLogDate(log_date);
+  if (!date) return { ok: false, error: "That date is not valid." };
+  if (date > todayIst()) return { ok: false, error: "You can't log a date in the future." };
 
-  // toExternalUrl (not normalizeStoredUrl, which keeps whatever was typed) so
-  // that text which isn't a web address is refused rather than stored as a "link".
-  let proof: string | null = null;
-  if (proof_url) {
-    proof = toExternalUrl(proof_url) ?? null;
-    if (!proof) return { ok: false, error: "That proof link doesn't look like a web address." };
+  let storedLink: string | null = null;
+  let key: string | null = null;
+  let qty = 1;
+  let kind: "count" | null = null;
+
+  if (t.log_mode === "count") {
+    if (quantity == null) return { ok: false, error: "Enter how many you did." };
+    qty = quantity;
+    kind = "count"; // a number can't be AI-checked; the owner verifies it
+    if (link) {
+      storedLink = toExternalUrl(link) ?? null;
+      if (!storedLink) return { ok: false, error: "That proof link doesn't look like a web address." };
+      key = linkKey(link);
+    }
+  } else {
+    if (!link) return { ok: false, error: "Paste the link to what you did." };
+    storedLink = toExternalUrl(link) ?? null;
+    if (!storedLink) return { ok: false, error: "That link doesn't look like a web address." };
+    key = linkKey(link);
   }
 
-  // Re-reporting a week replaces the number and puts it back in the queue to be
-  // verified: a verified figure must never silently change underneath its tick.
   const admin = createAdminClient();
-  const { error } = await admin.from("team_target_entries").upsert(
-    {
-      target_id, project_id, week_start, achieved,
-      note: note || null, proof_url: proof,
-      status: "pending", reported_by: actor.userId, reported_at: new Date().toISOString(),
-      reviewed_by: null, reviewed_at: null, review_note: null,
-    },
-    { onConflict: "target_id,week_start" },
-  );
-  if (error) return { ok: false, error: "Could not save that number." };
+  if (key) {
+    const { data: dup } = await admin.from("team_target_logs").select("id").eq("target_id", target_id).eq("link_key", key).maybeSingle();
+    if (dup) return { ok: false, error: "That link is already logged for this target.", duplicate: true };
+  }
+
+  const { data: created, error } = await admin.from("team_target_logs").insert({
+    target_id, project_id, log_date: date, link: storedLink, link_key: key, quantity: qty,
+    note: note || null, verification_status: "pending", verification_kind: kind, reported_by: actor.userId,
+  }).select("id").single();
+  if (error || !created) return { ok: false, error: "Could not save that." };
+
+  revalidatePath(PAGE);
+  // A link target can be auto-checked; a count log waits for the owner.
+  return { ok: true, logId: (created as { id: string }).id, checkable: t.log_mode === "link" };
+}
+
+// Bulk: parse + match to targets (step 1), then commit the reviewed rows (step 2).
+
+const LogPreviewInput = z.object({
+  project_id: ID,
+  pasted_text: z.string().min(1, "Paste your rows first.").max(200_000, "That paste is too large."),
+});
+
+export interface PreviewLogRow { tempId: string; taskText: string; date: string; link: string; note: string; targetId: string | null }
+export interface LogTargetOption { value: string; label: string }
+export interface PreviewLogsResult { ok: boolean; error?: string; rows?: PreviewLogRow[]; options?: LogTargetOption[]; skipped?: SkippedLine[] }
+
+export async function previewTeamLogsImport(input: z.infer<typeof LogPreviewInput>): Promise<PreviewLogsResult> {
+  const parsed = LogPreviewInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  const { project_id, pasted_text } = parsed.data;
+  const auth = await authorize(project_id);
+  if ("error" in auth) return { ok: false, error: auth.error };
+
+  const { rows, skipped } = parseLogPaste(pasted_text);
+  if (!rows.length) return { ok: false, skipped, error: "No usable rows found. Each row needs a Task, a Date and a Link." };
+
+  const targets = await loadLoggableTargets(project_id, auth.actor);
+  const options: LogTargetOption[] = targets.map((t) => ({ value: t.id, label: t.ownerName ? `${t.task} - ${t.ownerName}` : t.task }));
+  const byName = new Map<string, string[]>();
+  for (const t of targets) { const k = t.task.trim().toLowerCase(); byName.set(k, [...(byName.get(k) ?? []), t.id]); }
+
+  const preview = rows.map((r, i): PreviewLogRow => {
+    const hits = byName.get(r.taskText.trim().toLowerCase()) ?? [];
+    return { tempId: `log-${i}`, taskText: r.taskText, date: r.date, link: r.link, note: r.note, targetId: hits.length === 1 ? hits[0] : null };
+  });
+  return { ok: true, rows: preview, options, skipped };
+}
+
+const LogCommitInput = z.object({
+  project_id: ID,
+  rows: z.array(z.object({
+    target_id: ID,
+    log_date: z.string(),
+    link: z.string().trim().min(1).max(2000),
+    note: z.string().trim().max(1000).optional(),
+  })).min(1, "There is nothing to import.").max(500, "Import at most 500 rows at a time."),
+});
+
+export interface CommitLogsResult { ok: boolean; error?: string; created?: number; skipped?: number; logIds?: string[] }
+
+export async function commitTeamLogsImport(input: z.infer<typeof LogCommitInput>): Promise<CommitLogsResult> {
+  const parsed = LogCommitInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  const { project_id, rows } = parsed.data;
+  const auth = await authorize(project_id);
+  if ("error" in auth) return { ok: false, error: auth.error };
+
+  const loggable = await loadLoggableTargets(project_id, auth.actor);
+  const byId = new Map(loggable.map((t) => [t.id, t]));
+  const admin = createAdminClient();
+  let created = 0, skipped = 0;
+  const logIds: string[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const row of rows) {
+    const t = byId.get(row.target_id);
+    if (!t) { skipped++; continue; }                   // not a target this person may log against
+    const date = normalizeLogDate(row.log_date);
+    const storedLink = toExternalUrl(row.link);
+    const key = linkKey(row.link);
+    if (!date || date > todayIst() || !storedLink || !key) { skipped++; continue; }
+    if (seenKeys.has(`${row.target_id}|${key}`)) { skipped++; continue; }  // duplicate within this paste
+    seenKeys.add(`${row.target_id}|${key}`);
+
+    const { data: dup } = await admin.from("team_target_logs").select("id").eq("target_id", row.target_id).eq("link_key", key).maybeSingle();
+    if (dup) { skipped++; continue; }
+
+    const kind = t.log_mode === "count" ? "count" : null;
+    const { data: ins, error } = await admin.from("team_target_logs").insert({
+      target_id: row.target_id, project_id, log_date: date, link: storedLink, link_key: key, quantity: 1,
+      note: row.note || null, verification_status: "pending", verification_kind: kind, reported_by: auth.actor.userId,
+    }).select("id").single();
+    if (error || !ins) { skipped++; continue; }
+    created++;
+    if (t.log_mode === "link") logIds.push((ins as { id: string }).id);  // these can be AI-checked
+  }
+
+  revalidatePath(PAGE);
+  return { ok: true, created, skipped, logIds };
+}
+
+// ---- AI verification + owner manual verify -----------------------------
+
+const LogIdInput = z.object({ project_id: ID, log_id: ID });
+
+interface LogWithTarget {
+  id: string; link: string | null; link_key: string | null; verification_status: string; reported_by: string | null;
+  target: { owner_id: string | null; co_owner_id: string | null; log_mode: "link" | "count"; task: string } | null;
+}
+
+async function loadLog(projectId: string, logId: string): Promise<{ log?: LogWithTarget; error?: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("team_target_logs")
+    .select("id, link, link_key, verification_status, reported_by, target:team_targets(owner_id, co_owner_id, log_mode, task)")
+    .eq("id", logId).eq("project_id", projectId).maybeSingle();
+  if (error) return { error: isMissingTable(error) ? MIGRATION_NOTICE : "Could not read that log." };
+  if (!data) return { error: "That log was not found." };
+  return { log: data as unknown as LogWithTarget };
+}
+
+export interface VerifyLogResult { ok: boolean; error?: string; status?: string; reason?: string }
+
+// Open the link and decide: our own site -> is the page live; a third-party site
+// -> fetch it and let the platform LLM judge whether it is real and on-topic. A
+// blocked/login-walled page is "unreachable" (couldn't check), never "not found".
+export async function verifyTeamTargetLog(input: z.infer<typeof LogIdInput>): Promise<VerifyLogResult> {
+  const parsed = LogIdInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  const { project_id, log_id } = parsed.data;
+  const auth = await authorize(project_id);
+  if ("error" in auth) return { ok: false, error: auth.error };
+
+  const { log, error } = await loadLog(project_id, log_id);
+  if (error) return { ok: false, error };
+  const l = log!;
+  if (!l.target) return { ok: false, error: "That target was not found." };
+  if (!canLog(auth.actor, { id: "", owner_id: l.target.owner_id, co_owner_id: l.target.co_owner_id, log_mode: l.target.log_mode, removed_at: null }))
+    return { ok: false, error: "Only the owner, co-owner or an admin can check this." };
+  if (l.target.log_mode === "count" || !l.link) return { ok: false, error: "This one has no link to check. The owner verifies it by hand." };
+
+  const task = l.target.task;
+  const linkHost = hostFromUrl(l.link);
+  let ownDomain = "";
+  {
+    const supabase = await createClient();
+    const { data: proj } = await supabase.from("projects").select("domain").eq("id", project_id).maybeSingle();
+    ownDomain = hostFromUrl((proj as { domain?: string } | null)?.domain ?? "");
+  }
+  const isOwn = !!ownDomain && (linkHost === ownDomain || linkHost.endsWith(`.${ownDomain}`));
+
+  let status: VerifyLogResult["status"];
+  let reason: string;
+  let kind: "own_site" | "third_party";
+  try {
+    const { fetchPage } = await import("@/lib/seo-skills/fetch");
+    const page = await fetchPage(l.link, 12000);
+    if (isOwn) {
+      kind = "own_site";
+      if (page.statusCode >= 400) { status = "not_found"; reason = `The page returned HTTP ${page.statusCode}.`; }
+      else { status = "ai_verified"; reason = "The page is live on our site."; }
+    } else {
+      kind = "third_party";
+      if (page.statusCode >= 400) { status = "not_found"; reason = `The page returned HTTP ${page.statusCode}.`; }
+      else {
+        const body = page.$("body").text().replace(/\s+/g, " ").trim().slice(0, 6000);
+        if (body.length < 200) {
+          status = "unreachable";
+          reason = "The page loaded but returned almost no readable text (likely a login wall or needs JavaScript). Check it by hand.";
+        } else {
+          const { callPlatformLLM } = await import("@/lib/ai/platform-llm");
+          const result = await callPlatformLLM({
+            model: "sonnet", jsonMode: true, maxTokens: 300,
+            prompt: `Someone logged this live page as proof of the task "${task}". Below is the visible text scraped from it. Decide whether the page is a real published page that substantively relates to that task (not a 404, a parked page, or an unrelated page).\n\nReply with ONLY this JSON: {"real": boolean, "note": "one short sentence"}\n\nPage text:\n"""\n${body}\n"""`,
+          });
+          const parsedLlm = JSON.parse(result.text) as { real?: boolean; note?: string };
+          status = parsedLlm.real ? "ai_verified" : "mismatch";
+          reason = parsedLlm.note?.trim() || (parsedLlm.real ? "Confirmed by AI." : "The page does not appear to match this task.");
+        }
+      }
+    }
+  } catch (e) {
+    kind = isOwn ? "own_site" : "third_party";
+    status = "unreachable";
+    reason = `Could not fetch the link (${e instanceof Error ? e.message : "unknown error"}). Check it by hand.`;
+  }
+
+  const admin = createAdminClient();
+  await admin.from("team_target_logs")
+    .update({ verification_status: status, verification_reason: reason, verification_kind: kind, checked_at: new Date().toISOString() })
+    .eq("id", log_id).eq("project_id", project_id);
+
+  revalidatePath(PAGE);
+  return { ok: true, status, reason };
+}
+
+// The owner (super_admin) hand-verifies what the AI couldn't (count logs, or a
+// link the AI couldn't reach) - never a log they reported themselves.
+export async function ownerVerifyTeamTargetLog(input: z.infer<typeof LogIdInput>): Promise<Result> {
+  const parsed = LogIdInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  const { project_id, log_id } = parsed.data;
+  const auth = await authorizeOwner(project_id);
+  if ("error" in auth) return { ok: false, error: auth.error };
+
+  const { log, error } = await loadLog(project_id, log_id);
+  if (error) return { ok: false, error };
+  const l = log!;
+  if (l.reported_by === auth.actor.userId) return { ok: false, error: "You can't verify something you logged yourself." };
+  if (l.verification_status === "ai_verified" || l.verification_status === "owner_verified") return { ok: false, error: "This is already verified." };
+
+  const admin = createAdminClient();
+  await admin.from("team_target_logs")
+    .update({ verification_status: "owner_verified", verified_by: auth.actor.userId, verified_at: new Date().toISOString() })
+    .eq("id", log_id).eq("project_id", project_id);
 
   revalidatePath(PAGE);
   return { ok: true };
 }
 
-// ---- Verifying ---------------------------------------------------------
-
-const ReviewInput = z.object({
-  project_id: ID,
-  entry_id: ID,
-  decision: z.enum(["verify", "send_back"]),
-  note: z.string().trim().max(1000, "The note is too long (1000 characters at most).").optional(),
-});
-
-export async function reviewTeamTargetEntry(input: z.infer<typeof ReviewInput>): Promise<Result> {
-  const parsed = ReviewInput.safeParse(input);
+// Remove a miskeyed log (the person who logged it, or an admin).
+export async function deleteTeamTargetLog(input: z.infer<typeof LogIdInput>): Promise<Result> {
+  const parsed = LogIdInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
-  const { project_id, entry_id, decision, note } = parsed.data;
-  const auth = await authorizeAdmin(project_id);
+  const { project_id, log_id } = parsed.data;
+  const auth = await authorize(project_id);
   if ("error" in auth) return { ok: false, error: auth.error };
-  const { actor } = auth;
 
-  if (decision === "send_back" && !note) return { ok: false, error: "Say what needs fixing so they know what to change." };
-
-  const supabase = await createClient();
-  const { data: entry, error: readErr } = await supabase
-    .from("team_target_entries").select("id, status, reported_by")
-    .eq("id", entry_id).eq("project_id", project_id).maybeSingle();
-  if (readErr) return { ok: false, error: isMissingTable(readErr) ? MIGRATION_NOTICE : "Could not read that number." };
-  const e = entry as { status: string; reported_by: string | null } | null;
-  if (!e) return { ok: false, error: "That number was not found." };
-  if (e.status !== "pending") return { ok: false, error: "That number has already been reviewed." };
-  if (e.reported_by === actor.userId) return { ok: false, error: "You can't verify a number you reported yourself. Ask another admin." };
+  const { log, error } = await loadLog(project_id, log_id);
+  if (error) return { ok: false, error };
+  if (log!.reported_by !== auth.actor.userId && !auth.actor.isAdmin) return { ok: false, error: "Only the person who logged it, or an admin, can remove it." };
 
   const admin = createAdminClient();
-  const { data, error } = await admin.from("team_target_entries")
-    .update({
-      status: decision === "verify" ? "verified" : "sent_back",
-      reviewed_by: actor.userId,
-      reviewed_at: new Date().toISOString(),
-      review_note: decision === "send_back" ? note : null,
-    })
-    .eq("id", entry_id).eq("project_id", project_id).eq("status", "pending").select("id");
-  if (error) return { ok: false, error: "Could not save that review." };
-  if (!data?.length) return { ok: false, error: "That number changed while you were reviewing it. Refresh and look again." };
-
+  await admin.from("team_target_logs").delete().eq("id", log_id).eq("project_id", project_id);
   revalidatePath(PAGE);
   return { ok: true };
 }

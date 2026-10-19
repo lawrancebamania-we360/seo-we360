@@ -24,9 +24,9 @@ const NONE = "__none__";
 type View = "paste" | "review";
 interface ReviewRow extends PreviewTargetRow { skip: boolean; owner: string; coOwner: string }
 
-export function ImportTargetsButton({ projectId, members }: { projectId: string; members: MemberOption[] }) {
+// Controlled dialog (always open while mounted) so a parent menu can own it.
+export function ImportTargetsDialog({ projectId, members, onClose }: { projectId: string; members: MemberOption[]; onClose: () => void }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("paste");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,7 +38,7 @@ export function ImportTargetsButton({ projectId, members }: { projectId: string;
   const coOwnerItems = [{ value: NONE, label: "No co-owner" }, ...ownerItems];
 
   const reset = () => { setView("paste"); setText(""); setError(null); setRows([]); setSkipped([]); };
-  const close = () => { if (!busy) { setOpen(false); reset(); } };
+  const close = () => { if (!busy) { reset(); onClose(); } };
   const patch = (tempId: string, change: Partial<ReviewRow>) =>
     setRows((prev) => prev.map((r) => (r.tempId === tempId ? { ...r, ...change } : r)));
 
@@ -80,17 +80,13 @@ export function ImportTargetsButton({ projectId, members }: { projectId: string;
       r.skipped ? `${r.skipped} skipped` : null,
     ].filter(Boolean);
     toast.success(`Targets imported: ${parts.join(", ") || "nothing changed"}.`);
-    setOpen(false);
     reset();
+    onClose();
     router.refresh();
   };
 
   return (
-    <>
-      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setOpen(true)}>
-        <FileUp className="size-3.5" /> Import targets
-      </Button>
-      <Dialog open={open} onOpenChange={(v) => { if (!v) close(); else setOpen(true); }}>
+      <Dialog open onOpenChange={(v) => { if (!v) close(); }}>
         <DialogContent className={view === "review" ? "sm:max-w-[920px]" : "sm:max-w-[560px]"}>
           {view === "paste" && (
             <>
@@ -182,6 +178,18 @@ export function ImportTargetsButton({ projectId, members }: { projectId: string;
           )}
         </DialogContent>
       </Dialog>
+  );
+}
+
+// Thin button wrapper, kept for any direct use.
+export function ImportTargetsButton({ projectId, members }: { projectId: string; members: MemberOption[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setOpen(true)}>
+        <FileUp className="size-3.5" /> Import targets
+      </Button>
+      {open && <ImportTargetsDialog projectId={projectId} members={members} onClose={() => setOpen(false)} />}
     </>
   );
 }

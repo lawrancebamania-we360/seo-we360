@@ -129,3 +129,83 @@ export function matchMember(raw: string, members: MemberLite[]): string | null {
 export function targetKey(task: string, ownerId: string): string {
   return `${task.replace(/\s+/g, " ").trim().toLowerCase()}|${ownerId}`;
 }
+
+// ---- Bulk log import -----------------------------------------------------
+
+/** A day-first (30-09-2026) or ISO date -> YYYY-MM-DD, or null. Day-first is
+ *  checked explicitly because JS's Date parses dd-mm-yyyy as an invalid month. */
+export function normalizeLogDate(v: string): string | null {
+  const t = (v ?? "").trim();
+  const dayFirst = t.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dayFirst) {
+    const d = Number(dayFirst[1]), m = Number(dayFirst[2]), y = Number(dayFirst[3]);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      if (!Number.isNaN(dt.getTime())) return dt.toISOString().slice(0, 10);
+    }
+    return null;
+  }
+  const dt = new Date(t);
+  return Number.isNaN(dt.getTime()) ? null : dt.toISOString().slice(0, 10);
+}
+
+export interface ParsedLogRow { taskText: string; date: string; link: string; note: string }
+
+const LOG_HEADER: Record<string, keyof ParsedLogRow | "ignore"> = {
+  "task": "taskText", "target": "taskText",
+  "date": "date", "submission date": "date", "log date": "date",
+  "link": "link", "url": "link", "submission link": "link",
+  "note": "note", "notes": "note",
+};
+
+/**
+ * Parse pasted achievement rows (Task, Date, Link, Note). The header row is
+ * optional: without one, cells are read in that order. Each row is matched to a
+ * target later; here we only split and normalize the date.
+ */
+export function parseLogPaste(pasted: string): { rows: ParsedLogRow[]; skipped: SkippedLine[] } {
+  const lines = pasted.replace(/\r\n/g, "\n").split("\n");
+  const rows: ParsedLogRow[] = [];
+  const skipped: SkippedLine[] = [];
+  let order: (keyof ParsedLogRow | "ignore")[] = ["taskText", "date", "link", "note"];
+  let first = true;
+
+  lines.forEach((raw, i) => {
+    if (!raw.trim()) return;
+    const cells = (raw.includes("\t") ? raw.split("\t") : raw.split(/\s{2,}/)).map((c) => c.trim());
+    if (first) {
+      first = false;
+      const named = cells.map((c) => LOG_HEADER[c.toLowerCase().replace(/\s+/g, " ")]);
+      if (named.includes("taskText") && named.includes("link")) { order = named.map((n) => n ?? "ignore"); return; }
+    }
+    const get = (k: keyof ParsedLogRow): string => { const idx = order.indexOf(k); return idx >= 0 ? (cells[idx] ?? "").trim() : ""; };
+    const taskText = get("taskText").replace(/\s+/g, " ");
+    const rawDate = get("date");
+    const link = get("link");
+    const date = normalizeLogDate(rawDate);
+    const fail = (reason: string) => skipped.push({ line: i + 1, text: raw.trim().slice(0, 120), reason });
+    if (!taskText) return fail("No task");
+    if (!link) return fail("No link");
+    if (!date) return fail(`Date "${rawDate}" is not a date (use DD-MM-YYYY or YYYY-MM-DD)`);
+    rows.push({ taskText, date, link, note: get("note") });
+  });
+  return { rows, skipped };
+}
+
+/** Normalized key for de-duping a link within a target: host + path, lowercased. */
+export function linkKey(url: string): string | null {
+  const t = (url ?? "").trim();
+  if (!t) return null;
+  let candidate = t;
+  if (!/^https?:\/\//i.test(candidate)) {
+    if (/^(javascript|data|vbscript|file|blob|about):/i.test(candidate)) return null;
+    candidate = `https://${candidate.replace(/^\/+/, "")}`;
+  }
+  try {
+    const u = new URL(candidate);
+    if (!u.hostname.includes(".")) return null;
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
+    const path = u.pathname.replace(/\/+$/, "");
+    return `${host}${path}`.toLowerCase();
+  } catch { return null; }
+}
