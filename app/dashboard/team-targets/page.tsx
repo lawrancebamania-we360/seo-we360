@@ -70,7 +70,7 @@ export default async function TeamTargetsPage({
             <div className="lg:col-span-5"><CompletionByPersonChart people={dashboard.people} /></div>
             <div className="lg:col-span-7"><BurnupChart points={dashboard.burnup} title={burnTitle} /></div>
           </div>
-          <TargetsTable targets={dashboard.targets} projectId={project.id} isAdmin={isAdmin} isOwner={isOwner} currentUserId={ctx.userId} />
+          <TargetsTable targets={dashboard.targets} projectId={project.id} isAdmin={isAdmin} isOwner={isOwner} currentUserId={ctx.userId} ended={dashboard.ended} />
         </>
       )}
 

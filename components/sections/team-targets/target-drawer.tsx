@@ -16,6 +16,7 @@ import { formatDay } from "@/lib/format-datetime";
 import { FREQUENCY_LABEL, isVerified } from "@/lib/team-targets/types";
 import { safely } from "@/lib/team-targets/safely";
 import { deleteTeamTargetLog, ownerVerifyTeamTargetLog, verifyTeamTargetLog } from "@/lib/actions/team-targets";
+import { AddLogDialog } from "@/components/sections/team-targets/add-log-dialog";
 import type { DashboardTarget, TargetLog } from "@/lib/team-targets/types";
 import { fmtNum, VerificationBadge } from "@/components/sections/team-targets/ui";
 
@@ -65,6 +66,19 @@ export function TargetDrawer({
             </div>
           ))}
         </div>
+
+        {canLog && (
+          <div className="px-4 pb-3">
+            <AddLogDialog
+              projectId={projectId}
+              targets={[{ id: target.id, task: target.task, ownerName: target.ownerName, logMode: target.logMode }]}
+              defaultTargetId={target.id}
+              triggerLabel="Log a task"
+              triggerVariant="outline"
+              triggerClassName="w-full justify-center"
+            />
+          </div>
+        )}
 
         <div className="border-t border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {logs.length} logged this period

@@ -17,6 +17,18 @@ export function fmtPct(fraction: number | null): string {
   if (fraction == null) return "-";
   return `${Math.round(fraction * 100)}%`;
 }
+/** Floor, not round, so 99.6% reads "99%" (not a premature "100%"). */
+export function fmtPctFloor(ratio: number | null): string {
+  if (ratio == null) return "-";
+  return `${Math.floor(ratio * 100)}%`;
+}
+/** First name only for the table. Pass `disambiguate` to append a last initial
+ *  (used only when two people share a first name). */
+export function firstName(full: string, disambiguate = false): string {
+  const parts = full.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  return disambiguate ? `${parts[0]} ${parts[parts.length - 1][0]}.` : parts[0];
+}
 
 const STATUS_META: Record<TargetStatus, { label: string; icon: typeof Check; cls: string }> = {
   ahead:      { label: "Ahead",       icon: TrendingUp,   cls: "border-success-300/60 bg-success-500/10 text-success-700 dark:text-success-400" },
@@ -61,33 +73,43 @@ export function VerificationBadge({ status, className }: { status: LogVerificati
 }
 
 /**
- * The layered progress bar used in the table and the person chart: neutral track
- * (= full-period goal), purple verified fill, a hatched amber awaiting segment
- * stacked after it, and a dark vertical pace tick at expected-to-date.
+ * The progress bar used everywhere on this page. Fills from the LEFT with the
+ * verified-done share; an awaiting (logged-but-unchecked) share is hatched and
+ * sits AFTER the done fill, never solid. At 0% the bar is a plain empty track
+ * (no mid-bar pace tick, which used to read as a half-fill). Turns green once
+ * done reaches the goal. `value` is done/expected (may exceed 1); null = no goal.
  */
 export function ProgressBar({
-  completion, awaitingFraction = 0, pace, className,
+  value, awaitingFraction = 0, strong = false, className, ariaLabel,
 }: {
-  completion: number | null;   // verified done / expected (0..1, may exceed 1)
-  awaitingFraction?: number;    // awaiting / expected (0..1)
-  pace: number | null;          // expected-to-date / expected (0..1)
+  value: number | null;
+  awaitingFraction?: number;
+  strong?: boolean;          // stronger track for group summary rows
   className?: string;
+  ariaLabel?: string;
 }) {
-  if (completion == null) {
-    return <div className={cn("h-2 rounded-full bg-muted", className)} aria-hidden />;
+  const track = strong ? "bg-slate-300 dark:bg-white/15" : "bg-slate-200 dark:bg-white/10";
+  if (value == null) {
+    return <div className={cn("h-2 rounded-full", track, className)} aria-hidden />;
   }
-  const done = Math.min(1, Math.max(0, completion));
-  const awaiting = Math.min(1 - done, Math.max(0, awaitingFraction));
+  const done = Math.min(1, Math.max(0, value));
+  const complete = value >= 1;
+  const awaiting = complete ? 0 : Math.min(1 - done, Math.max(0, awaitingFraction));
   return (
-    <div className={cn("relative h-2 overflow-hidden rounded-full bg-muted", className)} role="img"
-      aria-label={`${Math.round(completion * 100)}% done${pace != null ? `, pace ${Math.round(pace * 100)}%` : ""}`}>
-      <div className={cn("absolute inset-y-0 left-0 rounded-full", BRAND_BG)} style={{ width: `${done * 100}%` }} />
+    <div
+      className={cn("relative h-2 overflow-hidden rounded-full ring-1 ring-inset ring-black/5 dark:ring-white/10", track, className)}
+      role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(done * 100)} aria-label={ariaLabel}
+    >
+      {done > 0 && (
+        <div
+          className={cn("absolute inset-y-0 left-0 rounded-full transition-[width] duration-150",
+            complete ? "bg-success-500 dark:bg-success-400" : BRAND_BG)}
+          style={{ width: `${done * 100}%` }}
+        />
+      )}
       {awaiting > 0 && (
         <div className="absolute inset-y-0" title="Awaiting verification"
-          style={{ left: `${done * 100}%`, width: `${awaiting * 100}%`, backgroundImage: "repeating-linear-gradient(45deg, rgba(245,158,11,0.5) 0 3px, transparent 3px 6px)" }} />
-      )}
-      {pace != null && pace > 0 && pace <= 1 && (
-        <div className="absolute inset-y-0 w-0.5 bg-foreground/80" style={{ left: `calc(${Math.min(1, pace) * 100}% - 1px)` }} title={`Pace: should be at ${Math.round(pace * 100)}%`} />
+          style={{ left: `${done * 100}%`, width: `${awaiting * 100}%`, backgroundImage: "repeating-linear-gradient(45deg, rgba(123,98,255,0.5) 0 4px, transparent 4px 8px)" }} />
       )}
     </div>
   );

@@ -6,7 +6,7 @@ import { AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/ui-helpers";
-import { fmtPct, ProgressBar } from "@/components/sections/team-targets/ui";
+import { fmtPct, firstName, ProgressBar } from "@/components/sections/team-targets/ui";
 import type { PersonRollup } from "@/lib/team-targets/types";
 
 export function CompletionByPersonChart({ people }: { people: PersonRollup[] }) {
@@ -29,9 +29,9 @@ export function CompletionByPersonChart({ people }: { people: PersonRollup[] }) 
           <div key={p.personId} className="flex items-center gap-2.5">
             <div className="flex w-28 min-w-0 shrink-0 items-center gap-1.5">
               <Avatar className="size-5 shrink-0"><AvatarFallback className="text-[9px]">{initials(p.name)}</AvatarFallback></Avatar>
-              <span className="truncate text-xs text-foreground" title={p.name}>{p.name}</span>
+              <span className="truncate text-xs text-foreground" title={p.name}>{firstName(p.name)}</span>
             </div>
-            <ProgressBar completion={p.completion} pace={p.paceCompletion} className="flex-1" />
+            <ProgressBar value={p.completion} className="flex-1" />
             <div className="flex w-16 shrink-0 items-center justify-end gap-1">
               <span className="font-mono text-xs tabular-nums text-foreground">{fmtPct(p.completion)}</span>
               {p.failed > 0 && <AlertTriangle className="size-3 text-error-600" aria-label={`${p.failed} failed`} />}

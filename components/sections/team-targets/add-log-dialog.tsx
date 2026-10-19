@@ -27,7 +27,17 @@ type View = "form" | "paste" | "review";
 interface ReviewRow extends PreviewLogRow { skip: boolean }
 const todayLocal = () => new Date().toLocaleDateString("en-CA");
 
-export function AddLogDialog({ projectId, targets }: { projectId: string; targets: LoggableTarget[] }) {
+export function AddLogDialog({
+  projectId, targets, defaultTargetId, triggerLabel = "Log a task", triggerVariant = "brand", triggerClassName,
+}: {
+  projectId: string;
+  targets: LoggableTarget[];
+  /** Preselect this target (used when opened from a target's drawer). */
+  defaultTargetId?: string;
+  triggerLabel?: string;
+  triggerVariant?: "brand" | "outline";
+  triggerClassName?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("form");
@@ -35,7 +45,7 @@ export function AddLogDialog({ projectId, targets }: { projectId: string; target
   const [error, setError] = useState<string | null>(null);
 
   // single form
-  const [targetId, setTargetId] = useState("");
+  const [targetId, setTargetId] = useState(defaultTargetId ?? "");
   const [date, setDate] = useState(todayLocal());
   const [link, setLink] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -51,9 +61,10 @@ export function AddLogDialog({ projectId, targets }: { projectId: string; target
   const targetItems = targets.map((t) => ({ value: t.id, label: t.ownerName ? `${t.task} - ${t.ownerName}` : t.task }));
 
   const reset = () => {
-    setView("form"); setError(null); setTargetId(""); setDate(todayLocal());
+    setView("form"); setError(null); setTargetId(defaultTargetId ?? ""); setDate(todayLocal());
     setLink(""); setQuantity(""); setNote(""); setText(""); setRows([]); setOptions([]);
   };
+  const allowBulk = targets.length > 1;  // bulk is pointless when logging one known target
   const close = () => { if (!busy) { setOpen(false); reset(); } };
 
   const formValid = targetId && date && (isCount ? /^\d+$/.test(quantity.trim()) && Number(quantity) > 0 : link.trim().length > 0);
@@ -104,8 +115,8 @@ export function AddLogDialog({ projectId, targets }: { projectId: string; target
 
   return (
     <>
-      <Button size="sm" variant="brand" className="gap-1.5" onClick={() => setOpen(true)} disabled={!targets.length}>
-        <Plus className="size-3.5" /> Add
+      <Button size="sm" variant={triggerVariant} className={`gap-1.5 ${triggerClassName ?? ""}`} onClick={() => setOpen(true)} disabled={!targets.length}>
+        <Plus className="size-3.5" /> {triggerLabel}
       </Button>
       <Dialog open={open} onOpenChange={(v) => { if (!v) close(); else setOpen(true); }}>
         <DialogContent className={view === "review" ? "sm:max-w-[760px]" : "sm:max-w-[460px]"}>
@@ -142,8 +153,8 @@ export function AddLogDialog({ projectId, targets }: { projectId: string; target
                 {isCount && <p className="text-[11px] text-muted-foreground">Counts can&apos;t be checked by AI, so the owner verifies this one.</p>}
                 {error && <p className="text-xs text-error-600">{error}</p>}
               </div>
-              <DialogFooter className="sm:justify-between">
-                <button type="button" onClick={() => { setView("paste"); setError(null); }} className="text-xs font-medium text-muted-foreground hover:text-foreground">Bulk import</button>
+              <DialogFooter className={allowBulk ? "sm:justify-between" : undefined}>
+                {allowBulk && <button type="button" onClick={() => { setView("paste"); setError(null); }} className="text-xs font-medium text-muted-foreground hover:text-foreground">Bulk import</button>}
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" onClick={close} disabled={busy}>Cancel</Button>
                   <Button variant="brand" onClick={submitOne} disabled={!formValid || busy} className="gap-1.5">

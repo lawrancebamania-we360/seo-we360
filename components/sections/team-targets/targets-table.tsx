@@ -1,38 +1,50 @@
 "use client";
 
-// Team Targets: the all-targets table, grouped by owner (this doubles as the
-// per-person view). Status tabs narrow it; clicking a row opens that target's
-// drawer. Verified "done" only; awaiting and failed sit beside it, never inside
-// the progress bar.
+// Team Targets: the all-targets board, grouped by owner (this is the per-person
+// view too). Built on ONE css-grid column template shared by the header, the
+// person summary rows, and the child target rows, so everything lines up and the
+// column gaps are even. Each row has exactly one progress bar. A person's summary
+// row carries their totals + one bar + a status chip right next to the name, so
+// you see where everyone stands without expanding. Groups are expanded by
+// default; clicking a target row opens its drawer.
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, Clock } from "lucide-react";
+import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { initials } from "@/lib/ui-helpers";
-import { isBehindStatus, type TargetStatus } from "@/lib/team-targets/period";
+import { isBehindStatus, targetStatus, type TargetStatus } from "@/lib/team-targets/period";
 import { FREQUENCY_LABEL } from "@/lib/team-targets/types";
-import { fmtNum, fmtPct, ProgressBar, StatusChip } from "@/components/sections/team-targets/ui";
+import { fmtNum, fmtPctFloor, firstName, ProgressBar, StatusChip } from "@/components/sections/team-targets/ui";
 import { TargetDrawer } from "@/components/sections/team-targets/target-drawer";
 import type { DashboardTarget } from "@/lib/team-targets/types";
 
 type Filter = "all" | "behind" | "on_track" | "ahead";
-const STATUS_SEVERITY: Record<TargetStatus, number> = { missed: 0, far_behind: 1, behind: 2, short: 3, not_due: 4, na: 5, on_track: 6, met: 7, ahead: 8 };
 const inFilter = (s: TargetStatus, f: Filter) =>
   f === "all" ? true : f === "behind" ? isBehindStatus(s) : f === "on_track" ? s === "on_track" : s === "ahead" || s === "met";
 
+// The single source of truth for column widths. Header, group and child rows all
+// use this exact template, so cells can never drift out of alignment.
+const GRID: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(240px,1fr) 80px 80px 88px 80px 168px 112px",
+  columnGap: 16,
+  alignItems: "center",
+};
+
 export function TargetsTable({
-  targets, projectId, isAdmin, isOwner, currentUserId,
+  targets, projectId, isAdmin, isOwner, currentUserId, ended,
 }: {
   targets: DashboardTarget[];
   projectId: string;
   isAdmin: boolean;
   isOwner: boolean;
   currentUserId: string;
+  ended: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});   // default: all open
   const [drawer, setDrawer] = useState<DashboardTarget | null>(null);
 
   const counts = useMemo(() => ({
@@ -41,6 +53,26 @@ export function TargetsTable({
     on_track: targets.filter((t) => t.status === "on_track").length,
     ahead: targets.filter((t) => t.status === "ahead" || t.status === "met").length,
   }), [targets]);
+
+  // First name only; add a last initial only when two owners share a first name.
+  const nameFor = useMemo(() => {
+    const firstCounts = new Map<string, number>();
+    for (const t of targets) {
+      if (!t.ownerName) continue;
+      const f = t.ownerName.trim().split(/\s+/)[0].toLowerCase();
+      firstCounts.set(f, (firstCounts.get(f) ?? 0) + (firstCounts.has(f) ? 0 : 1));
+    }
+    // Count distinct owners per first name.
+    const seen = new Map<string, Set<string>>();
+    for (const t of targets) {
+      if (!t.ownerId || !t.ownerName) continue;
+      const f = t.ownerName.trim().split(/\s+/)[0].toLowerCase();
+      const set = seen.get(f) ?? new Set<string>();
+      set.add(t.ownerId);
+      seen.set(f, set);
+    }
+    return (name: string) => firstName(name, (seen.get(name.trim().split(/\s+/)[0].toLowerCase())?.size ?? 1) > 1);
+  }, [targets]);
 
   const groups = useMemo(() => {
     const visible = targets.filter((t) => inFilter(t.status, filter));
@@ -54,8 +86,10 @@ export function TargetsTable({
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [targets, filter]);
 
-  const isOpen = (key: string) => openGroups[key] ?? true;
-  const toggle = (key: string) => setOpenGroups((p) => ({ ...p, [key]: !isOpen(key) }));
+  const isOpen = (key: string) => !collapsed[key];
+  const toggle = (key: string) => setCollapsed((p) => ({ ...p, [key]: !p[key] ? true : false }));
+  const allOpen = groups.every((g) => isOpen(g.key));
+  const setAll = (collapse: boolean) => setCollapsed(Object.fromEntries(groups.map((g) => [g.key, collapse])));
 
   if (!targets.length) {
     return <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">No targets in this view.</Card>;
@@ -72,52 +106,78 @@ export function TargetsTable({
     <Card className="gap-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground">Targets <span className="font-normal text-muted-foreground">· {targets.length}</span></h3>
-        <div className="flex flex-wrap gap-1">
-          {TABS.map((t) => (
-            <button key={t.key} type="button" onClick={() => setFilter(t.key)} aria-pressed={filter === t.key}
-              className={cn("cursor-pointer rounded-md border px-2 py-1 text-xs font-medium transition-colors",
-                filter === t.key ? "border-[#5B45E0]/40 bg-[#5B45E0]/10 text-[#5B45E0] dark:text-[#7B62FF]" : "border-border text-muted-foreground hover:bg-muted hover:text-foreground")}>
-              {t.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <Legend />
+          <button type="button" onClick={() => setAll(allOpen)} className="rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+            {allOpen ? "Collapse all" : "Expand all"}
+          </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1">
+        {TABS.map((t) => (
+          <button key={t.key} type="button" onClick={() => setFilter(t.key)} aria-pressed={filter === t.key}
+            className={cn("cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+              filter === t.key ? "border-[#5B45E0]/40 bg-[#5B45E0]/10 text-[#5B45E0] dark:text-[#7B62FF]" : "border-border text-muted-foreground hover:bg-muted hover:text-foreground")}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {groups.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-foreground">No targets match this filter.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                <th className="px-3 py-2 font-semibold">Target</th>
-                <th className="px-3 py-2 text-right font-semibold">Expected</th>
-                <th className="px-3 py-2 text-right font-semibold">Done</th>
-                <th className="px-3 py-2 text-right font-semibold">Awaiting</th>
-                <th className="px-3 py-2 text-right font-semibold">Left</th>
-                <th className="px-3 py-2 font-semibold">Progress</th>
-                <th className="px-3 py-2 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((g) => {
-                const open = isOpen(g.key);
-                const comp = mean(g.rows.map((r) => r.completion));
-                const pace = mean(g.rows.map((r) => r.paceCompletion));
-                const worst = g.rows.map((r) => r.status).sort((a, b) => STATUS_SEVERITY[a] - STATUS_SEVERITY[b])[0] ?? "na";
-                const awaiting = g.rows.reduce((a, r) => a + r.awaiting, 0);
-                const failed = g.rows.reduce((a, r) => a + r.failed, 0);
-                return (
-                  <GroupBlock key={g.key} name={g.name} open={open} onToggle={() => toggle(g.key)}
-                    comp={comp} pace={pace} worst={worst} awaiting={awaiting} failed={failed} count={g.rows.length}>
-                    {open && g.rows.map((row) => (
-                      <TargetRow key={row.id} row={row} onOpen={() => setDrawer(row)} />
-                    ))}
-                  </GroupBlock>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="min-w-[940px]">
+            {/* Header */}
+            <div style={GRID} className="border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div>Target</div>
+              <div className="text-right">Expected</div>
+              <div className="text-right">Done</div>
+              <div className="text-right">Awaiting</div>
+              <div className="text-right">Left</div>
+              <div>Progress</div>
+              <div>Status</div>
+            </div>
+
+            {groups.map((g) => {
+              const open = isOpen(g.key);
+              const sum = (f: (r: DashboardTarget) => number) => g.rows.reduce((a, r) => a + f(r), 0);
+              const expected = sum((r) => r.expectedPeriod);
+              const done = sum((r) => r.doneVerified);
+              const awaiting = sum((r) => r.awaiting);
+              const left = sum((r) => r.remaining);
+              const expToDate = sum((r) => r.expectedToDate);
+              const ratio = expected > 0 ? done / expected : null;
+              const gStatus = targetStatus(done, expected, expToDate, ended);
+              return (
+                <div key={g.key}>
+                  {/* Group summary row (also the expand/collapse toggle) */}
+                  <button type="button" onClick={() => toggle(g.key)} aria-expanded={open}
+                    style={GRID} className="w-full border-t border-border bg-muted/50 px-4 py-2.5 text-left transition-colors hover:bg-muted/70">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {open ? <ChevronDown className="size-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
+                      <Avatar className="size-6 shrink-0"><AvatarFallback className="text-[9px]">{initials(g.name)}</AvatarFallback></Avatar>
+                      <span className="shrink-0 text-sm font-semibold text-foreground">{nameFor(g.name)}</span>
+                      <StatusChip status={gStatus} className="shrink-0" />
+                      <span className="truncate text-xs text-muted-foreground">{g.rows.length} target{g.rows.length === 1 ? "" : "s"}</span>
+                    </div>
+                    <Num v={expected} />
+                    <Num v={done} strong />
+                    <Num v={awaiting} amber={awaiting > 0} />
+                    <Num v={left} strong />
+                    <ProgressCell ratio={ratio} awaitingFraction={expected > 0 ? awaiting / expected : 0} strong />
+                    <div />{/* status lives next to the name */}
+                  </button>
+
+                  {/* Child target rows */}
+                  {open && g.rows.map((row) => (
+                    <TargetRow key={row.id} row={row} onOpen={() => setDrawer(row)} />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -126,66 +186,60 @@ export function TargetsTable({
   );
 }
 
-function mean(xs: (number | null)[]): number {
-  const v = xs.filter((x): x is number => x != null);
-  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
+function Legend() {
+  return (
+    <div className="hidden items-center gap-3 text-[11px] text-muted-foreground sm:flex">
+      <span className="inline-flex items-center gap-1"><span className="inline-block size-2.5 rounded-sm bg-[#5B45E0] dark:bg-[#7B62FF]" /> Verified</span>
+      <span className="inline-flex items-center gap-1"><span className="inline-block size-2.5 rounded-sm" style={{ backgroundImage: "repeating-linear-gradient(45deg, rgba(123,98,255,0.5) 0 3px, transparent 3px 6px)" }} /> Awaiting</span>
+    </div>
+  );
 }
 
-function GroupBlock({
-  name, open, onToggle, comp, pace, worst, awaiting, failed, count, children,
-}: {
-  name: string; open: boolean; onToggle: () => void; comp: number; pace: number;
-  worst: TargetStatus; awaiting: number; failed: number; count: number; children: React.ReactNode;
-}) {
+function Num({ v, strong, amber }: { v: number; strong?: boolean; amber?: boolean }) {
   return (
-    <>
-      <tr className="border-b border-border/60 bg-muted/20">
-        <td colSpan={7} className="px-3 py-2">
-          <button type="button" onClick={onToggle} className="flex w-full items-center gap-2 text-left">
-            {open ? <ChevronDown className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
-            <Avatar className="size-5"><AvatarFallback className="text-[9px]">{initials(name)}</AvatarFallback></Avatar>
-            <span className="text-sm font-semibold text-foreground">{name}</span>
-            <span className="text-xs text-muted-foreground">{count} target{count === 1 ? "" : "s"}</span>
-            <ProgressBar completion={comp} pace={pace} className="ml-2 hidden w-24 sm:block" />
-            <span className="hidden font-mono text-xs tabular-nums text-foreground sm:inline">{fmtPct(comp)}</span>
-            <span className="ml-auto flex items-center gap-2 text-[11px]">
-              {awaiting > 0 && <span className="inline-flex items-center gap-1 text-warning-700 dark:text-warning-400"><Clock className="size-3" />{fmtNum(awaiting)}</span>}
-              {failed > 0 && <span className="inline-flex items-center gap-1 text-error-700 dark:text-error-400"><AlertTriangle className="size-3" />{fmtNum(failed)}</span>}
-              <StatusChip status={worst} />
-            </span>
-          </button>
-        </td>
-      </tr>
-      {children}
-    </>
+    <div className={cn("text-right font-mono text-[13px] tabular-nums",
+      amber ? "text-warning-700 dark:text-warning-400" : strong ? "font-medium text-foreground" : "text-muted-foreground")}>
+      {fmtNum(v)}
+    </div>
+  );
+}
+
+function ProgressCell({ ratio, awaitingFraction, strong, label }: { ratio: number | null; awaitingFraction: number; strong?: boolean; label?: string }) {
+  const complete = ratio != null && ratio >= 1;
+  return (
+    <div className="flex items-center gap-2">
+      <ProgressBar value={ratio} awaitingFraction={awaitingFraction} strong={strong} className="flex-1" ariaLabel={label} />
+      <span className="flex w-11 shrink-0 items-center justify-end gap-0.5 font-mono text-xs tabular-nums text-foreground">
+        {complete && <Check className="size-3 text-success-600" />}{fmtPctFloor(ratio)}
+      </span>
+    </div>
   );
 }
 
 function TargetRow({ row, onOpen }: { row: DashboardTarget; onOpen: () => void }) {
+  const ratio = row.expectedPeriod > 0 ? row.doneVerified / row.expectedPeriod : null;
   const awaitFrac = row.expectedPeriod > 0 ? row.awaiting / row.expectedPeriod : 0;
+  const cadence = `${row.target} / ${FREQUENCY_LABEL[row.frequency].replace("per ", "")}`;
   return (
-    <tr className="cursor-pointer border-b border-border/60 last:border-0 transition-colors hover:bg-muted/30" onClick={onOpen}>
-      <td className="px-3 py-2.5">
-        <div className="font-medium text-foreground">{row.task}</div>
-        <div className="text-[11px] text-muted-foreground">
-          <span className="font-mono">{row.target} / {FREQUENCY_LABEL[row.frequency].replace("per ", "")}</span>
-          {row.coOwnerName && <span> · with {row.coOwnerName}</span>}
+    <div
+      role="button" tabIndex={0} onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+      style={GRID}
+      className="cursor-pointer border-t border-border/60 px-4 py-2.5 transition-colors hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#5B45E0]/60"
+    >
+      <div className="relative min-w-0 pl-[46px]">
+        <span className="absolute left-[11px] top-[-10px] bottom-[-10px] w-px bg-border" aria-hidden />
+        <div className="truncate text-[13px] font-medium text-foreground" title={row.task}>{row.task}</div>
+        <div className="truncate text-[11px] text-muted-foreground">
+          <span className="font-mono">{cadence}</span>{row.coOwnerName && <span> · with {row.coOwnerName}</span>}
         </div>
-      </td>
-      <td className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">{row.expectedPeriod ? fmtNum(row.expectedPeriod) : "-"}</td>
-      <td className="px-3 py-2.5 text-right font-mono font-semibold tabular-nums text-foreground">{fmtNum(row.doneVerified)}</td>
-      <td className="px-3 py-2.5 text-right">
-        {row.awaiting > 0 ? <span className="font-mono tabular-nums text-warning-700 dark:text-warning-400">{fmtNum(row.awaiting)}</span> : <span className="text-muted-foreground">-</span>}
-        {row.failed > 0 && <div className="font-mono text-[11px] tabular-nums text-error-700 dark:text-error-400">{fmtNum(row.failed)} failed</div>}
-      </td>
-      <td className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">{row.remaining ? fmtNum(row.remaining) : "-"}</td>
-      <td className="px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          <ProgressBar completion={row.completion} awaitingFraction={awaitFrac} pace={row.paceCompletion} className="w-24" />
-          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{fmtPct(row.completion)}</span>
-        </div>
-      </td>
-      <td className="px-3 py-2.5"><StatusChip status={row.status} /></td>
-    </tr>
+      </div>
+      <Num v={row.expectedPeriod} />
+      <Num v={row.doneVerified} strong />
+      <Num v={row.awaiting} amber={row.awaiting > 0} />
+      <Num v={row.remaining} />
+      <ProgressCell ratio={ratio} awaitingFraction={awaitFrac} label={`${row.task}: ${row.doneVerified} of ${row.expectedPeriod} verified`} />
+      <div><StatusChip status={row.status} /></div>
+    </div>
   );
 }

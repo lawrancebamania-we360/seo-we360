@@ -34,7 +34,7 @@ export function KpiTiles({
       {/* Completion (hero) */}
       <Tile label="Completion" className="col-span-2 sm:col-span-3 lg:col-span-1">
         <div className="font-mono text-3xl font-semibold tabular-nums text-foreground">{fmtPct(totals.completion)}</div>
-        <ProgressBar completion={totals.completion} pace={totals.paceCompletion} className="my-1.5" />
+        <ProgressBar value={totals.completion} className="my-1.5" />
         <div className="text-[11.5px] text-muted-foreground">
           {ended ? "Final result"
             : `Pace ${fmtPct(totals.paceCompletion)} · ${gap >= 0 ? `${gap} pts ahead` : `${Math.abs(gap)} pts behind`}`}
