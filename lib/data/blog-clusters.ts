@@ -22,20 +22,36 @@ async function loadSitemapIndex(
   return buildSitemapIndex((data as { url_list: string[] | null } | null)?.url_list ?? []);
 }
 
-// Where an item sits in the write -> upload -> live flow, resolved the same way
-// everywhere: a page is "live" when its recorded URL (or its planned slug)
-// appears in the latest sitemap snapshot.
+// Where an item sits in the write -> upload -> live flow. A page is "live" when
+// its recorded URL, its linked Sprint task's URL, or its planned slug appears in
+// the latest sitemap snapshot.
+//
+// `publishedUrl` is the URL recorded ON THIS ITEM by "Mark published" in the
+// content pipeline - the one signal that means "an uploader has pushed this".
+// `taskPublishedUrl` (a linked Sprint task's URL) and the slug only tell us the
+// page exists on the web; they do NOT mean the pipeline work is done.
+//
+// Key rule: a draft attached with nothing marked-published on the item yet is
+// pending UPLOAD work - it belongs in the To Publish queue EVEN WHEN the page is
+// already live (we're updating an existing page). So "ready" wins over slug/task
+// liveness; it clears only once someone records the live URL here.
 export function resolvePublishState(
-  item: { artifactUrl: string | null; publishedUrl: string | null; urlSlug: string | null },
+  item: { artifactUrl: string | null; publishedUrl: string | null; urlSlug: string | null; taskPublishedUrl?: string | null },
   sitemapIndex: ReturnType<typeof buildSitemapIndex>,
 ): { state: PublishState; liveUrl: string | null } {
-  const recorded = toExternalUrl(item.publishedUrl);
+  const ownRecorded = toExternalUrl(item.publishedUrl);
+  const recorded = ownRecorded ?? toExternalUrl(item.taskPublishedUrl ?? null);
   const liveFromRecorded = recorded ? resolveSitemapUrl(sitemapIndex, recorded) : null;
   const liveFromSlug = item.urlSlug ? resolveSitemapUrl(sitemapIndex, item.urlSlug) : null;
   const liveUrl = liveFromRecorded ?? liveFromSlug ?? null;
+
+  // 1. Draft attached but not marked published here -> upload work to do, even
+  //    for an already-live page we're enhancing.
+  if (item.artifactUrl && !ownRecorded) return { state: "ready", liveUrl };
+  // 2. Published (here or via its task): Live once crawled, else pending.
   if (liveUrl) return { state: "live", liveUrl };
   if (recorded) return { state: "published_pending", liveUrl: recorded };
-  if (item.artifactUrl) return { state: "ready", liveUrl: null };
+  // 3. Nothing attached, nothing recorded, not on the web.
   return { state: "draft", liveUrl: null };
 }
 
@@ -177,9 +193,14 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
   const sitemapIndex = await loadSitemapIndex(supabase, projectId);
 
   const items = rawItems.map((r) => {
-    const publishedUrl = r.published_url ?? r.tasks?.published_url ?? null;
+    const ownPublished = r.published_url ?? null;
+    const taskPublished = r.tasks?.published_url ?? null;
+    const publishedUrl = ownPublished ?? taskPublished; // merged, for display
     const artifactUrl = r.artifact_url ?? null;
-    const { state, liveUrl } = resolvePublishState({ artifactUrl, publishedUrl, urlSlug: r.url_slug }, sitemapIndex);
+    const { state, liveUrl } = resolvePublishState(
+      { artifactUrl, publishedUrl: ownPublished, urlSlug: r.url_slug, taskPublishedUrl: taskPublished },
+      sitemapIndex,
+    );
     return {
       id: r.id,
       position: r.position,
@@ -285,9 +306,11 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
 
   const out: PublishQueueRow[] = [];
   for (const r of rows) {
-    const publishedUrl = r.published_url ?? r.tasks?.published_url ?? null;
-    const { state } = resolvePublishState({ artifactUrl: r.artifact_url, publishedUrl, urlSlug: r.url_slug }, sitemapIndex);
-    if (state !== "ready") continue; // already has a URL recorded or is live - not in the queue
+    const { state } = resolvePublishState(
+      { artifactUrl: r.artifact_url, publishedUrl: r.published_url ?? null, urlSlug: r.url_slug, taskPublishedUrl: r.tasks?.published_url ?? null },
+      sitemapIndex,
+    );
+    if (state !== "ready") continue; // only drafts not yet marked published here
     out.push({
       id: r.id,
       clusterId: r.cluster_id,
