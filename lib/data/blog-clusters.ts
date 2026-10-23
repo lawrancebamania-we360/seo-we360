@@ -139,7 +139,7 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
       serp_verdict, supporting_keywords, outline, faq_candidates, interlinks_to, interlinks_from,
       meta_description, url_slug, primary_cta, task_id,
       tasks ( status, published_url, team_member_id, profiles!tasks_team_member_id_fkey ( name ) )`;
-  const ARTIFACT_COLS = `artifact_url, artifact_drive_url, published_url, published_at`;
+  const ARTIFACT_COLS = `artifact_url, artifact_drive_url, published_url, published_at, content_kind`;
   const loadItems = (withArtifacts: boolean) =>
     supabase.from("topic_cluster_items")
       .select(withArtifacts ? `${BASE_COLS}, ${ARTIFACT_COLS}` : BASE_COLS)
@@ -159,6 +159,7 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
     task_id: string | null;
     tasks: { status: string | null; published_url: string | null; team_member_id: string | null; profiles: { name: string | null } | null } | null;
     artifact_url?: string | null; artifact_drive_url?: string | null; published_url?: string | null; published_at?: string | null;
+    content_kind?: string | null;
   };
   const rawItems = (itemsRes.data ?? []) as unknown as Row[];
 
@@ -190,7 +191,8 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
       taskStatus: r.tasks?.status ?? null,
       assigneeId: r.tasks?.team_member_id ?? null,
       assigneeName: r.tasks?.profiles?.name ?? null,
-      kind: classifyContentType(r.content_type),
+      // Explicit team-set tag wins; fall back to inference from content_type.
+      kind: (r.content_kind as ContentKind | null) ?? classifyContentType(r.content_type),
       artifactUrl,
       artifactDriveUrl: r.artifact_drive_url ?? null,
       publishedUrl,
@@ -233,7 +235,7 @@ export interface PublishQueueRow {
 export async function getPublishQueue(projectId: string): Promise<{ ready: boolean; rows: PublishQueueRow[] }> {
   const supabase = await createClient();
   const sel = `
-    id, cluster_id, title, content_type, url_slug, meta_description, target_keyword,
+    id, cluster_id, title, content_type, content_kind, url_slug, meta_description, target_keyword,
     artifact_url, artifact_drive_url, published_url,
     topic_clusters ( cluster_name ),
     tasks ( published_url, profiles!tasks_team_member_id_fkey ( name ) )`;
@@ -249,7 +251,7 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
   }
 
   type Row = {
-    id: string; cluster_id: string; title: string; content_type: string | null;
+    id: string; cluster_id: string; title: string; content_type: string | null; content_kind: string | null;
     url_slug: string | null; meta_description: string | null; target_keyword: string | null;
     artifact_url: string | null; artifact_drive_url: string | null; published_url: string | null;
     topic_clusters: { cluster_name: string } | null;
@@ -269,7 +271,7 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
       clusterId: r.cluster_id,
       clusterName: r.topic_clusters?.cluster_name ?? "Cluster",
       title: r.title,
-      kind: classifyContentType(r.content_type),
+      kind: (r.content_kind as ContentKind | null) ?? classifyContentType(r.content_type),
       urlSlug: r.url_slug,
       metaDescription: r.meta_description,
       targetKeyword: r.target_keyword,

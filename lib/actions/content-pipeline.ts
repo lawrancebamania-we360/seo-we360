@@ -25,6 +25,37 @@ async function loadItem(item_id: string): Promise<{ projectId: string; clusterId
   return row ? { projectId: row.project_id, clusterId: row.cluster_id } : null;
 }
 
+const KINDS = ["blog", "guide", "listicle", "pillar"] as const;
+const KindInput = z.object({
+  project_id: z.string().uuid(),
+  item_ids: z.array(z.string().uuid()).min(1).max(500),
+  kind: z.enum(KINDS),
+});
+
+// Tag one or many planned items with their real kind (Blog / Guide / ...). The
+// import's "Content type" column is an SEO-planning taxonomy, not blog-vs-guide,
+// so the team sets this explicitly and it overrides the inferred kind. Bulk by
+// passing several item_ids; the cluster table selects rows and sets them at once.
+export async function setClusterItemsKind(input: z.infer<typeof KindInput>): Promise<Result & { updated?: number }> {
+  const parsed = KindInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Pick a type and at least one item." };
+  const { project_id, item_ids, kind } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { data, error } = await supabase
+    .from("topic_cluster_items").update({ content_kind: kind })
+    .eq("project_id", project_id).in("id", item_ids).select("id, cluster_id");
+  if (error) return { ok: false, error: isMissingColumn(error.message) ? MIGRATION_NOTICE : "Could not set the type." };
+
+  const rows = (data ?? []) as { id: string; cluster_id: string }[];
+  for (const c of new Set(rows.map((r) => r.cluster_id))) revalidatePath(`/dashboard/blog-clusters/${c}`);
+  revalidatePath("/dashboard/to-publish");
+  return { ok: true, updated: rows.length };
+}
+
 const ArtifactInput = z.object({
   item_id: z.string().uuid(),
   artifact_url: z.string().trim().max(2000).optional(),

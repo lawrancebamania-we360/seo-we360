@@ -6,6 +6,11 @@
 
 export type ContentKind = "blog" | "guide" | "listicle" | "pillar" | "other";
 
+// The kinds a person can explicitly tag an item with ("other" is only an
+// inferred fallback, never a choice).
+export type TaggableKind = "blog" | "guide" | "listicle" | "pillar";
+export const TAGGABLE_KINDS: TaggableKind[] = ["blog", "guide", "listicle", "pillar"];
+
 export const CONTENT_KIND_LABEL: Record<ContentKind, string> = {
   blog: "Blogs",
   guide: "Guides",

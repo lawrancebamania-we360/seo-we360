@@ -17,8 +17,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ClusterItemAssignee } from "@/components/sections/blog-clusters/cluster-item-assignee";
-import { KindBadge, PublishStateBadge, PageSpec, ArtifactEditor, PublishControl } from "@/components/sections/content-pipeline/item-controls";
+import { KindSelect, BulkKindBar, PublishStateBadge, PageSpec, ArtifactEditor, PublishControl } from "@/components/sections/content-pipeline/item-controls";
 import { CONTENT_KIND_LABEL, type ContentKind } from "@/lib/content-pipeline/content-type";
 import type { BlogClusterItemRow } from "@/lib/data/blog-clusters";
 import type { Member } from "@/components/sections/assignee-picker";
@@ -77,15 +78,17 @@ async function copyText(text: string, successMessage: string) {
   }
 }
 
-export function BlogClusterTable({ clusterName, items, members, canManage, siteDomain }: {
+export function BlogClusterTable({ clusterName, items, projectId, members, canManage, siteDomain }: {
   clusterName: string;
   items: BlogClusterItemRow[];
+  projectId: string;
   members: Member[];
   canManage: boolean;
   siteDomain: string;
 }) {
   const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [kindFilter, setKindFilter] = useState<ContentKind | "all">("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   // Derive the open row from the live `items` prop (not a stored copy) so it
   // reflects an artifact/publish change after router.refresh() without reopening.
   const openItem = items.find((i) => i.id === openItemId) ?? null;
@@ -96,6 +99,16 @@ export function BlogClusterTable({ clusterName, items, members, canManage, siteD
     return KIND_ORDER.filter((k) => set.has(k));
   }, [items]);
   const shown = kindFilter === "all" ? items : items.filter((i) => i.kind === kindFilter);
+
+  const toggleOne = (id: string) => setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const allShownSelected = shown.length > 0 && shown.every((i) => selected.has(i.id));
+  const toggleAll = () => setSelected((prev) => {
+    const n = new Set(prev);
+    if (shown.every((i) => n.has(i.id))) shown.forEach((i) => n.delete(i.id));
+    else shown.forEach((i) => n.add(i.id));
+    return n;
+  });
+  const selectedIds = [...selected];
 
   if (!items.length) {
     return <p className="text-sm text-muted-foreground">No rows in this cluster yet.</p>;
@@ -125,10 +138,17 @@ export function BlogClusterTable({ clusterName, items, members, canManage, siteD
         </Button>
       </div>
 
+      {selectedIds.length > 0 && (
+        <div className="mb-2.5">
+          <BulkKindBar projectId={projectId} itemIds={selectedIds} onDone={() => setSelected(new Set())} />
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-xl border border-border">
         <table className="w-full min-w-[960px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+              <th className="w-8 px-3 py-2.5"><Checkbox checked={allShownSelected} onCheckedChange={toggleAll} aria-label="Select all shown" /></th>
               <th className="px-3 py-2.5 font-semibold">Title</th>
               <th className="px-3 py-2.5 font-semibold">Type</th>
               <th className="px-3 py-2.5 font-semibold">Status</th>
@@ -143,8 +163,11 @@ export function BlogClusterTable({ clusterName, items, members, canManage, siteD
               <tr
                 key={it.id}
                 onClick={() => setOpenItemId(it.id)}
-                className="cursor-pointer border-b border-border/60 last:border-0 transition-colors hover:bg-muted/30"
+                className={cn("cursor-pointer border-b border-border/60 last:border-0 transition-colors hover:bg-muted/30", selected.has(it.id) && "bg-[#5B45E0]/5")}
               >
+                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox checked={selected.has(it.id)} onCheckedChange={() => toggleOne(it.id)} aria-label={`Select ${it.title}`} />
+                </td>
                 <td className="max-w-[320px] px-3 py-2.5 font-medium text-foreground">
                   <div className="flex items-center gap-1.5">
                     <div className="min-w-0 flex-1 truncate" title={it.title}>{it.title}</div>
@@ -158,7 +181,9 @@ export function BlogClusterTable({ clusterName, items, members, canManage, siteD
                     </button>
                   </div>
                 </td>
-                <td className="px-3 py-2.5" title={it.contentType ?? undefined}><KindBadge kind={it.kind} /></td>
+                <td className="px-3 py-2.5" title={it.contentType ?? undefined} onClick={(e) => e.stopPropagation()}>
+                  <KindSelect projectId={projectId} itemId={it.id} kind={it.kind} />
+                </td>
                 <td className="px-3 py-2.5"><PublishStateBadge state={it.publishState} liveUrl={it.liveUrl} /></td>
                 <td className="px-3 py-2.5">
                   {it.funnelStage ? (

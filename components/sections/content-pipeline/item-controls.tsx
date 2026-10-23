@@ -8,15 +8,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Copy, ExternalLink, Loader2, Paperclip, Upload, Image as ImageIcon } from "lucide-react";
+import { Check, ChevronDown, Copy, ExternalLink, Loader2, Paperclip, Upload, Image as ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { liveUrlFromSlug, toExternalUrl } from "@/lib/url";
-import { setClusterItemArtifact, markClusterItemPublished, unpublishClusterItem } from "@/lib/actions/content-pipeline";
-import { PUBLISH_STATE_LABEL, CONTENT_KIND_LABEL, type PublishState, type ContentKind } from "@/lib/content-pipeline/content-type";
+import { setClusterItemArtifact, markClusterItemPublished, unpublishClusterItem, setClusterItemsKind } from "@/lib/actions/content-pipeline";
+import { PUBLISH_STATE_LABEL, CONTENT_KIND_LABEL, TAGGABLE_KINDS, type PublishState, type ContentKind, type TaggableKind } from "@/lib/content-pipeline/content-type";
+
+const shortKind = (k: ContentKind) => CONTENT_KIND_LABEL[k].replace(/s$/, "");
 
 const STATE_TONE: Record<PublishState, string> = {
   draft: "border-border text-muted-foreground",
@@ -46,7 +49,81 @@ const KIND_TONE: Record<ContentKind, string> = {
   other: "border-border text-muted-foreground",
 };
 export function KindBadge({ kind }: { kind: ContentKind }) {
-  return <Badge variant="outline" className={cn("text-[10px]", KIND_TONE[kind])}>{CONTENT_KIND_LABEL[kind].replace(/s$/, "")}</Badge>;
+  return <Badge variant="outline" className={cn("text-[10px]", KIND_TONE[kind])}>{shortKind(kind)}</Badge>;
+}
+
+// Clickable type tag: the team sets an item's real kind (Blog / Guide / ...),
+// which overrides the inferred one. Used inline in the cluster table.
+export function KindSelect({ projectId, itemId, kind }: { projectId: string; itemId: string; kind: ContentKind }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  const pick = async (k: TaggableKind) => {
+    if (busy || k === kind) return;
+    setBusy(true);
+    try {
+      const r = await setClusterItemsKind({ project_id: projectId, item_ids: [itemId], kind: k });
+      if (!r.ok) { toast.error(r.error ?? "Could not set the type."); return; }
+      toast.success(`Set to ${shortKind(k)}.`);
+      router.refresh();
+    } catch { toast.error("Something went wrong. Try again."); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button" disabled={busy} onClick={(e) => e.stopPropagation()}
+            className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors hover:brightness-95", KIND_TONE[kind])}
+            title="Set the content type"
+          >
+            {busy ? <Loader2 className="size-2.5 animate-spin" /> : null}
+            {shortKind(kind)} <ChevronDown className="size-2.5 opacity-60" />
+          </button>
+        }
+      />
+      <DropdownMenuContent align="start">
+        {TAGGABLE_KINDS.map((k) => (
+          <DropdownMenuItem key={k} onClick={(e) => { e.stopPropagation(); pick(k); }} className="gap-6 text-[13px]">
+            {shortKind(k)} {k === kind && <Check className="ml-auto size-3.5" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+// The bulk bar shown above the cluster table when rows are selected.
+export function BulkKindBar({ projectId, itemIds, onDone }: { projectId: string; itemIds: string[]; onDone: () => void }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  const apply = async (k: TaggableKind) => {
+    if (busy || !itemIds.length) return;
+    setBusy(true);
+    try {
+      const r = await setClusterItemsKind({ project_id: projectId, item_ids: itemIds, kind: k });
+      if (!r.ok) { toast.error(r.error ?? "Could not set the type."); return; }
+      toast.success(`Set ${r.updated ?? itemIds.length} item${(r.updated ?? itemIds.length) === 1 ? "" : "s"} to ${shortKind(k)}.`);
+      onDone();
+      router.refresh();
+    } catch { toast.error("Something went wrong. Try again."); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-[#5B45E0]/30 bg-[#5B45E0]/5 px-2.5 py-1.5">
+      <span className="text-xs font-medium text-foreground">{itemIds.length} selected</span>
+      <span className="text-xs text-muted-foreground">Set type:</span>
+      {TAGGABLE_KINDS.map((k) => (
+        <Button key={k} type="button" size="sm" variant="outline" disabled={busy} onClick={() => apply(k)} className="h-7 px-2 text-xs">
+          {busy ? <Loader2 className="size-3 animate-spin" /> : null} {shortKind(k)}
+        </Button>
+      ))}
+    </div>
+  );
 }
 
 async function copy(text: string, msg: string) {
