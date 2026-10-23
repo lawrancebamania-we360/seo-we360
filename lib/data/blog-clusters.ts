@@ -4,7 +4,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildSitemapIndex, resolveSitemapUrl, toExternalUrl } from "@/lib/url";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
-import { classifyContentType, type ContentKind, type PublishState } from "@/lib/content-pipeline/content-type";
+import type { ContentKind, ClusterKind, PublishState } from "@/lib/content-pipeline/content-type";
+
+// A cluster's kind as a safe ClusterKind (defaults to blog for an unknown/empty value).
+const asClusterKind = (v: string | null | undefined): ClusterKind => (v === "guide" ? "guide" : "blog");
 import type { UrlTopQuery } from "@/lib/data/url-metrics";
 import type { AnalyticsCompareRange } from "@/lib/data/analytics-range";
 
@@ -40,6 +43,7 @@ export interface BlogClusterSummary {
   id: string;
   clusterName: string;
   source: "ai_generated" | "import";
+  kind: ClusterKind;
   itemCount: number;
   assignedCount: number;
   createdAt: string;
@@ -47,12 +51,16 @@ export interface BlogClusterSummary {
 
 export async function getBlogClusters(projectId: string): Promise<BlogClusterSummary[]> {
   const supabase = await createClient();
-  const { data: clusters } = await supabase
-    .from("topic_clusters")
-    .select("id, cluster_name, source, created_at")
-    .eq("project_id", projectId)
-    .order("created_at", { ascending: false });
-  const rows = (clusters ?? []) as Array<{ id: string; cluster_name: string; source: string; created_at: string }>;
+  // `kind` only exists after its migration; fall back to the base columns (and
+  // default every cluster to blog) before it's applied.
+  const loadClusters = (withKind: boolean) =>
+    supabase.from("topic_clusters")
+      .select(withKind ? "id, cluster_name, source, kind, created_at" : "id, cluster_name, source, created_at")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false });
+  let clustersRes = await loadClusters(true);
+  if (clustersRes.error && isMissingColumn(clustersRes.error.message)) clustersRes = await loadClusters(false);
+  const rows = (clustersRes.data ?? []) as unknown as Array<{ id: string; cluster_name: string; source: string; kind?: string | null; created_at: string }>;
   if (!rows.length) return [];
 
   const { data: items } = await supabase
@@ -72,6 +80,7 @@ export async function getBlogClusters(projectId: string): Promise<BlogClusterSum
     id: r.id,
     clusterName: r.cluster_name,
     source: (r.source as "ai_generated" | "import") ?? "ai_generated",
+    kind: asClusterKind(r.kind),
     itemCount: countByCluster.get(r.id)?.total ?? 0,
     assignedCount: countByCluster.get(r.id)?.assigned ?? 0,
     createdAt: r.created_at,
@@ -116,19 +125,21 @@ export interface BlogClusterDetail {
   clusterName: string;
   pillarTitle: string;
   source: "ai_generated" | "import";
+  kind: ClusterKind;
   items: BlogClusterItemRow[];
 }
 
 export async function getBlogClusterDetail(projectId: string, clusterId: string): Promise<BlogClusterDetail | null> {
   const supabase = await createClient();
-  const { data: cluster } = await supabase
-    .from("topic_clusters")
-    .select("id, cluster_name, pillar_title, source")
-    .eq("id", clusterId)
-    .eq("project_id", projectId)
-    .maybeSingle();
-  if (!cluster) return null;
-  const c = cluster as { id: string; cluster_name: string; pillar_title: string; source: string };
+  const loadCluster = (withKind: boolean) =>
+    supabase.from("topic_clusters")
+      .select(withKind ? "id, cluster_name, pillar_title, source, kind" : "id, cluster_name, pillar_title, source")
+      .eq("id", clusterId).eq("project_id", projectId).maybeSingle();
+  let clusterRes = await loadCluster(true);
+  if (clusterRes.error && isMissingColumn(clusterRes.error.message)) clusterRes = await loadCluster(false);
+  if (!clusterRes.data) return null;
+  const c = clusterRes.data as unknown as { id: string; cluster_name: string; pillar_title: string; source: string; kind?: string | null };
+  const clusterKind = asClusterKind(c.kind);
 
   // tasks has three FKs into profiles (created_by, reviewed_by_id, team_member_id) -
   // the embed is ambiguous without naming the exact constraint to join through.
@@ -191,8 +202,8 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
       taskStatus: r.tasks?.status ?? null,
       assigneeId: r.tasks?.team_member_id ?? null,
       assigneeName: r.tasks?.profiles?.name ?? null,
-      // Explicit team-set tag wins; fall back to inference from content_type.
-      kind: (r.content_kind as ContentKind | null) ?? classifyContentType(r.content_type),
+      // Per-post override wins; otherwise the post is whatever the cluster is.
+      kind: (r.content_kind as ContentKind | null) ?? clusterKind,
       artifactUrl,
       artifactDriveUrl: r.artifact_drive_url ?? null,
       publishedUrl,
@@ -207,6 +218,7 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
     clusterName: c.cluster_name,
     pillarTitle: c.pillar_title,
     source: (c.source as "ai_generated" | "import") ?? "ai_generated",
+    kind: clusterKind,
     items,
   };
 }
@@ -261,6 +273,16 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
   if (!rows.length) return { ready: true, rows: [] };
 
   const sitemapIndex = await loadSitemapIndex(supabase, projectId);
+
+  // A post's blog/guide defaults to its cluster's kind. Fetched separately so a
+  // not-yet-applied cluster.kind column can't break the whole queue read.
+  const clusterIds = [...new Set(rows.map((r) => r.cluster_id))];
+  const kindByCluster = new Map<string, ClusterKind>();
+  if (clusterIds.length) {
+    const kres = await supabase.from("topic_clusters").select("id, kind").in("id", clusterIds);
+    if (!kres.error) for (const k of (kres.data ?? []) as { id: string; kind: string | null }[]) kindByCluster.set(k.id, asClusterKind(k.kind));
+  }
+
   const out: PublishQueueRow[] = [];
   for (const r of rows) {
     const publishedUrl = r.published_url ?? r.tasks?.published_url ?? null;
@@ -271,7 +293,7 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
       clusterId: r.cluster_id,
       clusterName: r.topic_clusters?.cluster_name ?? "Cluster",
       title: r.title,
-      kind: (r.content_kind as ContentKind | null) ?? classifyContentType(r.content_type),
+      kind: (r.content_kind as ContentKind | null) ?? kindByCluster.get(r.cluster_id) ?? "blog",
       urlSlug: r.url_slug,
       metaDescription: r.meta_description,
       targetKeyword: r.target_keyword,

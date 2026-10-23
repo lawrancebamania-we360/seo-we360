@@ -16,8 +16,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { liveUrlFromSlug, toExternalUrl } from "@/lib/url";
-import { setClusterItemArtifact, markClusterItemPublished, unpublishClusterItem, setClusterItemsKind } from "@/lib/actions/content-pipeline";
-import { PUBLISH_STATE_LABEL, CONTENT_KIND_LABEL, TAGGABLE_KINDS, type PublishState, type ContentKind, type TaggableKind } from "@/lib/content-pipeline/content-type";
+import { setClusterItemArtifact, markClusterItemPublished, unpublishClusterItem, setClusterItemsKind, setClusterKind } from "@/lib/actions/content-pipeline";
+import { PUBLISH_STATE_LABEL, CONTENT_KIND_LABEL, TAGGABLE_KINDS, CLUSTER_KIND_LABEL, CLUSTER_KINDS, type PublishState, type ContentKind, type TaggableKind, type ClusterKind } from "@/lib/content-pipeline/content-type";
 
 const shortKind = (k: ContentKind) => CONTENT_KIND_LABEL[k].replace(/s$/, "");
 
@@ -88,6 +88,59 @@ export function KindSelect({ projectId, itemId, kind }: { projectId: string; ite
         {TAGGABLE_KINDS.map((k) => (
           <DropdownMenuItem key={k} onClick={(e) => { e.stopPropagation(); pick(k); }} className="gap-6 text-[13px]">
             {shortKind(k)} {k === kind && <Check className="ml-auto size-3.5" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+const CLUSTER_TONE: Record<ClusterKind, string> = {
+  blog: "border-info-300 text-info-700 dark:text-info-400",
+  guide: "border-[#7B62FF]/40 text-[#5B45E0] dark:text-[#7B62FF] bg-[#5B45E0]/5",
+};
+
+export function ClusterKindBadge({ kind }: { kind: ClusterKind }) {
+  return <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium", CLUSTER_TONE[kind])}>{CLUSTER_KIND_LABEL[kind]}</span>;
+}
+
+// Switch a whole cluster between Blog and Guide, from its card. stopPropagation
+// everywhere because the card itself is a link into the cluster.
+export function ClusterKindSelect({ projectId, clusterId, kind }: { projectId: string; clusterId: string; kind: ClusterKind }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  const pick = async (k: ClusterKind) => {
+    if (busy || k === kind) return;
+    setBusy(true);
+    try {
+      const r = await setClusterKind({ project_id: projectId, cluster_id: clusterId, kind: k });
+      if (!r.ok) { toast.error(r.error ?? "Could not set the type."); return; }
+      toast.success(`Cluster set to ${CLUSTER_KIND_LABEL[k]}.`);
+      router.refresh();
+    } catch { toast.error("Something went wrong. Try again."); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button" disabled={busy}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors hover:brightness-95", CLUSTER_TONE[kind])}
+            title="Set whether this is a Blog or Guide cluster"
+          >
+            {busy ? <Loader2 className="size-2.5 animate-spin" /> : null}
+            {CLUSTER_KIND_LABEL[kind]} <ChevronDown className="size-2.5 opacity-60" />
+          </button>
+        }
+      />
+      <DropdownMenuContent align="end">
+        {CLUSTER_KINDS.map((k) => (
+          <DropdownMenuItem key={k} onClick={(e) => { e.preventDefault(); e.stopPropagation(); pick(k); }} className="gap-6 text-[13px]">
+            {CLUSTER_KIND_LABEL[k]} {k === kind && <Check className="ml-auto size-3.5" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

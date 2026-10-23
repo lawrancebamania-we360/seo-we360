@@ -25,6 +25,34 @@ async function loadItem(item_id: string): Promise<{ projectId: string; clusterId
   return row ? { projectId: row.project_id, clusterId: row.cluster_id } : null;
 }
 
+const ClusterKindInput = z.object({
+  project_id: z.string().uuid(),
+  cluster_id: z.string().uuid(),
+  kind: z.enum(["blog", "guide"]),
+});
+
+// Switch a whole cluster between Blog and Guide (guides have a separate URL
+// section). Every post inherits this unless it has a per-post override.
+export async function setClusterKind(input: z.infer<typeof ClusterKindInput>): Promise<Result> {
+  const parsed = ClusterKindInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Pick Blog or Guide." };
+  const { project_id, cluster_id, kind } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { data, error } = await supabase
+    .from("topic_clusters").update({ kind }).eq("id", cluster_id).eq("project_id", project_id).select("id");
+  if (error) return { ok: false, error: isMissingColumn(error.message) ? "This needs a one-time database update first. Apply the 20261023000001 migration in Supabase, then try again." : "Could not set the cluster type." };
+  if (!data?.length) return { ok: false, error: "That cluster wasn't found." };
+
+  revalidatePath("/dashboard/blog-clusters");
+  revalidatePath(`/dashboard/blog-clusters/${cluster_id}`);
+  revalidatePath("/dashboard/to-publish");
+  return { ok: true };
+}
+
 const KINDS = ["blog", "guide", "listicle", "pillar"] as const;
 const KindInput = z.object({
   project_id: z.string().uuid(),

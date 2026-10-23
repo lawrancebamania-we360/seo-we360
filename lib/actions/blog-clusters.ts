@@ -24,6 +24,9 @@ const ImportInput = z.object({
   project_id: z.string().uuid(),
   cluster_name: z.string().trim().min(1).max(160),
   pasted_text: z.string().min(1),
+  // Whether this is a Blog cluster or a Guide cluster (guides have a separate
+  // URL section). Optional so an old caller still works; defaults to blog.
+  kind: z.enum(["blog", "guide"]).optional(),
 });
 
 export interface ImportClusterResult {
@@ -144,7 +147,7 @@ function parsePastedRows(pastedText: string): { rows: ParsedRow[]; skipped: numb
 }
 
 export async function importClusterPaste(input: z.infer<typeof ImportInput>): Promise<ImportClusterResult> {
-  const { project_id, cluster_name, pasted_text } = ImportInput.parse(input);
+  const { project_id, cluster_name, pasted_text, kind } = ImportInput.parse(input);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not authenticated." };
@@ -185,6 +188,9 @@ export async function importClusterPaste(input: z.infer<typeof ImportInput>): Pr
       .single();
     if (createErr || !created) return { ok: false, error: createErr?.message ?? "Could not create the cluster." };
     clusterId = (created as { id: string }).id;
+    // Set Blog/Guide separately so a not-yet-applied `kind` column can't break
+    // the import (the cluster just defaults to blog until the migration lands).
+    if (kind && kind !== "blog") await supabase.from("topic_clusters").update({ kind }).eq("id", clusterId).eq("project_id", project_id);
   }
 
   const itemRows = rows.map((r, i) => ({

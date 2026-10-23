@@ -11,6 +11,12 @@ export type ContentKind = "blog" | "guide" | "listicle" | "pillar" | "other";
 export type TaggableKind = "blog" | "guide" | "listicle" | "pillar";
 export const TAGGABLE_KINDS: TaggableKind[] = ["blog", "guide", "listicle", "pillar"];
 
+// A whole cluster is a Blog cluster or a Guide cluster (guides have their own
+// URL section). Posts inherit this unless a per-post override is set.
+export type ClusterKind = "blog" | "guide";
+export const CLUSTER_KINDS: ClusterKind[] = ["blog", "guide"];
+export const CLUSTER_KIND_LABEL: Record<ClusterKind, string> = { blog: "Blog", guide: "Guide" };
+
 export const CONTENT_KIND_LABEL: Record<ContentKind, string> = {
   blog: "Blogs",
   guide: "Guides",

@@ -11,13 +11,16 @@ import { toast } from "sonner";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Combobox } from "@/components/ui/combobox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { importClusterPaste } from "@/lib/actions/blog-clusters";
+import { CLUSTER_KIND_LABEL, CLUSTER_KINDS, type ClusterKind } from "@/lib/content-pipeline/content-type";
 
 export function NewClusterButton({ projectId }: { projectId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [clusterName, setClusterName] = useState("");
+  const [kind, setKind] = useState<ClusterKind>("blog");
   const [pasted, setPasted] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,12 +29,12 @@ export function NewClusterButton({ projectId }: { projectId: string }) {
     if (!clusterName.trim() || !pasted.trim() || busy) return;
     setBusy(true);
     setError(null);
-    const r = await importClusterPaste({ project_id: projectId, cluster_name: clusterName.trim(), pasted_text: pasted });
+    const r = await importClusterPaste({ project_id: projectId, cluster_name: clusterName.trim(), pasted_text: pasted, kind });
     setBusy(false);
     if (!r.ok || !r.clusterId) { setError(r.error ?? "Could not import that cluster."); return; }
     toast.success(`Imported ${r.itemsCreated ?? 0} post${(r.itemsCreated ?? 0) === 1 ? "" : "s"}${r.itemsSkipped ? ` (${r.itemsSkipped} row${r.itemsSkipped === 1 ? "" : "s"} skipped - missing a title)` : ""}.`);
     setOpen(false);
-    setClusterName(""); setPasted("");
+    setClusterName(""); setPasted(""); setKind("blog");
     router.push(`/dashboard/blog-clusters/${r.clusterId}`);
   };
 
@@ -45,14 +48,26 @@ export function NewClusterButton({ projectId }: { projectId: string }) {
           <DialogHeader>
             <DialogTitle>Paste a cluster from your planning sheet</DialogTitle>
             <DialogDescription>
-              Select the header row + every data row in your sheet, copy, and paste below. Columns are matched by name, so order doesn't matter.
+              Select the header row + every data row in your sheet, copy, and paste below. Columns are matched by name, so order does not matter.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="cluster-name">Cluster name</label>
-              <Input id="cluster-name" value={clusterName} onChange={(e) => setClusterName(e.target.value)}
-                placeholder="e.g. Workforce Analytics" maxLength={160} />
+            <div className="grid grid-cols-[1fr_140px] gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="cluster-name">Cluster name</label>
+                <Input id="cluster-name" value={clusterName} onChange={(e) => setClusterName(e.target.value)}
+                  placeholder="e.g. Workforce Analytics" maxLength={160} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="cluster-kind">Type</label>
+                <Combobox
+                  id="cluster-kind"
+                  items={CLUSTER_KINDS.map((k) => ({ value: k, label: CLUSTER_KIND_LABEL[k] }))}
+                  value={kind}
+                  onValueChange={(v) => setKind(v as ClusterKind)}
+                  className="w-full"
+                />
+              </div>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="cluster-paste">Pasted rows</label>
