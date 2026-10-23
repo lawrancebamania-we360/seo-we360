@@ -117,9 +117,16 @@ export async function setClusterItemArtifact(input: z.infer<typeof ArtifactInput
   const item = await loadItem(item_id);
   if (!item) return { ok: false, error: "That item wasn't found." };
 
+  // Attaching a draft means there's an update to push - send the item back to
+  // the To Publish queue by clearing any "marked published" URL, even if the
+  // page is already live (we're updating an existing page). It leaves the queue
+  // again once someone records the live URL. Drive-only saves don't re-queue.
+  const update: Record<string, unknown> = { artifact_url: artifact, artifact_drive_url: drive };
+  if (artifact) { update.published_url = null; update.published_at = null; update.published_by = null; }
+
   const { error } = await supabase
     .from("topic_cluster_items")
-    .update({ artifact_url: artifact, artifact_drive_url: drive })
+    .update(update)
     .eq("id", item_id).eq("project_id", item.projectId);
   if (error) return { ok: false, error: isMissingColumn(error.message) ? MIGRATION_NOTICE : "Could not save that artifact." };
 
