@@ -129,8 +129,16 @@ export async function runUrlMetricsTick(admin: SupabaseClient, opts: { budgetMs:
       await sleep(150);
     }
   } finally {
-    if (idx >= tasksTotal) await persist("completed");
-    else if (sinceLastPersist > 0) await persist();
+    if (idx >= tasksTotal) {
+      await persist("completed");
+      // The day's sitemap snapshot is now final: credit any planned blog/guide
+      // that is live to its writer's and Dinesh's Team Targets. Best-effort and
+      // deduped - it must never fail the metrics run.
+      try {
+        const { creditLiveContentToTargets } = await import("@/lib/content-pipeline/credit-live-targets");
+        await creditLiveContentToTargets(admin, PROJECT_ID, run.url_list ?? [], new Date());
+      } catch { /* best-effort */ }
+    } else if (sinceLastPersist > 0) await persist();
   }
 
   return {
