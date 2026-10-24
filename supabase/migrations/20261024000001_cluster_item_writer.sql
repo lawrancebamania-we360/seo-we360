@@ -75,7 +75,7 @@ begin
     ('we360.ai/guide/productivity-tracking', 'Namrata'),
     ('we360.ai/guide/productivity-metrics', 'Namrata'),
     ('we360.ai/guide/how-to-measure-employee-productivity', 'Namrata'),
-    ('we360.ai/guide/employee-productivity-roi". Read the answers carefully — they may request clarification, changes, or that you not proceed — and follow what they actually say.', 'Namrata')
+    ('we360.ai/guide/employee-productivity-roi', 'Namrata')
   ) as t(slug, owner_name) loop
     select id into v_writer from public.profiles
       where lower(split_part(name, ' ', 1)) = lower(r.owner_name) and role <> 'client' limit 1;
