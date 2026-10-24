@@ -8,7 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FEED_PLATFORMS } from "@/lib/content-distribution/platforms";
 import { fetchPlatformPosts } from "@/lib/content-distribution/feeds";
-import { ingestDetectedPost } from "@/lib/content-distribution/ingest";
+import { ingestDetectedPostsBatch, type BatchPost } from "@/lib/content-distribution/ingest";
 
 const WE360_DOMAIN = "we360.ai";
 const FALLBACK_PROJECT = "11111111-1111-4111-8111-000000000001";
@@ -35,26 +35,34 @@ export async function runContentDistributionSync(admin: SupabaseClient, now: Dat
   const projectId = await resolveProjectId(admin);
   const owners = await resolveOwners(admin, [...new Set(FEED_PLATFORMS.map((p) => p.ownerFirstName))]);
 
-  const results: PlatformResult[] = [];
-  for (const platform of FEED_PLATFORMS) {
+  // Fetch every feed in parallel - the whole step takes about as long as the
+  // single slowest feed, not the sum (fetchPlatformPosts never throws).
+  const fetched = await Promise.all(FEED_PLATFORMS.map(async (platform) => ({ platform, posts: await fetchPlatformPosts(platform) })));
+
+  // Flatten to one batch, remembering which platform each post came from so the
+  // summary can still break the counts down.
+  const posts: BatchPost[] = [];
+  const platformOf: string[] = [];
+  for (const { platform, posts: ps } of fetched) {
     const ownerId = owners.get(platform.ownerFirstName.toLowerCase()) ?? null;
-    let subs = 0, credits = 0, ok = true;
-    try {
-      const posts = await fetchPlatformPosts(platform);
-      for (const post of posts) {
-        const r = await ingestDetectedPost(admin, {
-          projectId, websiteDomain: platform.websiteDomain, ownerId, target: platform.target,
-          url: post.url, title: post.title, publishedDate: post.publishedDate, now,
-        });
-        if (r.submissionNew) subs++;
-        if (r.creditNew) credits++;
-      }
-      results.push({ platform: platform.label, owner: platform.ownerFirstName, posts: posts.length, submissionsNew: subs, creditsNew: credits, ok: posts.length > 0 || true });
-    } catch {
-      ok = false;
-      results.push({ platform: platform.label, owner: platform.ownerFirstName, posts: 0, submissionsNew: subs, creditsNew: credits, ok });
+    for (const p of ps) {
+      posts.push({ websiteDomain: platform.websiteDomain, ownerId, target: platform.target, url: p.url, title: p.title, publishedDate: p.publishedDate });
+      platformOf.push(platform.label);
     }
   }
+
+  const ingested = await ingestDetectedPostsBatch(admin, projectId, posts, now);
+
+  const agg = new Map<string, PlatformResult>();
+  for (const { platform, posts: ps } of fetched) {
+    agg.set(platform.label, { platform: platform.label, owner: platform.ownerFirstName, posts: ps.length, submissionsNew: 0, creditsNew: 0, ok: true });
+  }
+  ingested.forEach((r, i) => {
+    const a = agg.get(platformOf[i])!;
+    if (r.submissionNew) a.submissionsNew++;
+    if (r.creditNew) a.creditsNew++;
+  });
+  const results = [...agg.values()];
 
   return {
     ran_at: now.toISOString(), projectId, platforms: results,
