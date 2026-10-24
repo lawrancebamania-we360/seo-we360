@@ -44,7 +44,7 @@ export function TargetsTable({
   ended: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});   // default: all open
+  const [openKeys, setOpenKeys] = useState<Record<string, boolean>>({});   // default: all collapsed
   const [drawer, setDrawer] = useState<DashboardTarget | null>(null);
 
   const counts = useMemo(() => ({
@@ -86,10 +86,10 @@ export function TargetsTable({
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [targets, filter]);
 
-  const isOpen = (key: string) => !collapsed[key];
-  const toggle = (key: string) => setCollapsed((p) => ({ ...p, [key]: !p[key] ? true : false }));
-  const allOpen = groups.every((g) => isOpen(g.key));
-  const setAll = (collapse: boolean) => setCollapsed(Object.fromEntries(groups.map((g) => [g.key, collapse])));
+  const isOpen = (key: string) => !!openKeys[key];
+  const toggle = (key: string) => setOpenKeys((p) => ({ ...p, [key]: !p[key] }));
+  const allOpen = groups.length > 0 && groups.every((g) => isOpen(g.key));
+  const setAll = (open: boolean) => setOpenKeys(Object.fromEntries(groups.map((g) => [g.key, open])));
 
   if (!targets.length) {
     return <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">No targets in this view.</Card>;
@@ -108,7 +108,7 @@ export function TargetsTable({
         <h3 className="text-sm font-semibold text-foreground">Targets <span className="font-normal text-muted-foreground">· {targets.length}</span></h3>
         <div className="flex flex-wrap items-center gap-2">
           <Legend />
-          <button type="button" onClick={() => setAll(allOpen)} className="rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+          <button type="button" onClick={() => setAll(!allOpen)} className="rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
             {allOpen ? "Collapse all" : "Expand all"}
           </button>
         </div>
