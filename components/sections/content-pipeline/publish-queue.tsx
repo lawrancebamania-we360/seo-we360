@@ -6,9 +6,9 @@
 // the page can be created and the images grabbed in one place, then marked
 // published with its live URL.
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown, Copy, ExternalLink, Image as ImageIcon, Paperclip } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Copy, ExternalLink, Image as ImageIcon, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,8 @@ export function PublishQueue({ rows, siteDomain }: { rows: PublishQueueRow[]; si
   const [kindFilter, setKindFilter] = useState<ContentKind | "all">("all");
   const [sortKey, setSortKey] = useState<SortKey>("cluster");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
+  const toggleRow = (id: string) => setOpenRows((p) => ({ ...p, [id]: !p[id] }));
 
   const presentKinds = useMemo(() => {
     const set = new Set(rows.map((r) => r.kind));
@@ -99,12 +101,21 @@ export function PublishQueue({ rows, siteDomain }: { rows: PublishQueueRow[]; si
               const draft = toExternalUrl(r.artifactUrl);
               const drive = toExternalUrl(r.artifactDriveUrl);
               const slugHref = r.urlSlug ? liveUrlFromSlug(r.urlSlug, siteDomain ?? "") : undefined;
+              const open = !!openRows[r.id];
               return (
-                <tr key={r.id} className="border-b border-border/60 align-top last:border-0 transition-colors hover:bg-muted/20">
+                <Fragment key={r.id}>
+                <tr className="border-b border-border/60 align-top transition-colors hover:bg-muted/20 data-[open=true]:border-transparent" data-open={open}>
                   <td className="max-w-[360px] px-3 py-2.5">
                     <div className="flex items-start gap-1.5">
+                      <button
+                        type="button" onClick={() => toggleRow(r.id)}
+                        aria-expanded={open} title={open ? "Hide details" : "Show title & description"}
+                        className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                      </button>
                       <div className="min-w-0">
-                        <div className="font-medium text-foreground">{r.title}</div>
+                        <button type="button" onClick={() => toggleRow(r.id)} className="block text-left font-medium text-foreground hover:underline">{r.title}</button>
                         {r.urlSlug && (
                           <div className="flex items-center gap-1 text-[11.5px] text-muted-foreground">
                             <span className="truncate font-mono">{r.urlSlug}</span>
@@ -136,6 +147,19 @@ export function PublishQueue({ rows, siteDomain }: { rows: PublishQueueRow[]; si
                     </div>
                   </td>
                 </tr>
+                {open && (
+                  <tr className="border-b border-border/60">
+                    <td colSpan={6} className="px-3 pb-3.5 pt-0">
+                      <div className="ml-6 space-y-2.5 rounded-lg border border-border bg-muted/30 p-3.5">
+                        <Detail label="Title">{r.title}</Detail>
+                        <Detail label="Description">{r.metaDescription || <span className="text-muted-foreground">No description set.</span>}</Detail>
+                        {r.targetKeyword && <Detail label="Target keyword">{r.targetKeyword}</Detail>}
+                        {r.urlSlug && <Detail label="Slug"><span className="font-mono text-[12.5px]">{r.urlSlug}</span></Detail>}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
           </tbody>
@@ -155,6 +179,15 @@ function SortHead({ k, label, sortKey, sortDir, onSort, className }: {
         {sortKey === k ? (sortDir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />) : <ArrowUpDown className="size-3 opacity-40" />}
       </button>
     </th>
+  );
+}
+
+function Detail({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[88px_1fr] gap-2 text-[13px] sm:gap-3">
+      <div className="pt-px text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="min-w-0 whitespace-pre-wrap break-words text-foreground">{children}</div>
+    </div>
   );
 }
 
