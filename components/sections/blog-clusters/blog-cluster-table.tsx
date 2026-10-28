@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ClusterItemAssignee } from "@/components/sections/blog-clusters/cluster-item-assignee";
 import { KindSelect, BulkKindBar, PublishStateBadge, PageSpec, ArtifactEditor, PublishControl } from "@/components/sections/content-pipeline/item-controls";
+import { ToolEditor } from "@/components/sections/content-pipeline/tool-editor";
 import { CONTENT_KIND_LABEL, type ContentKind } from "@/lib/content-pipeline/content-type";
 import type { BlogClusterItemRow } from "@/lib/data/blog-clusters";
 import type { Member } from "@/components/sections/assignee-picker";
@@ -249,6 +250,7 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
 
                 <PageSpec title={openItem.title} slug={openItem.urlSlug} meta={openItem.metaDescription} siteDomain={siteDomain} />
                 <ArtifactEditor itemId={openItem.id} artifactUrl={openItem.artifactUrl} driveUrl={openItem.artifactDriveUrl} />
+                <ToolEditor projectId={projectId} itemId={openItem.id} tool={openItem.tool} />
 
                 <DetailSection label="Primary keyword">
                   {openItem.targetKeyword ?? "—"} {openItem.volMo != null && <span className="text-muted-foreground">({openItem.volMo.toLocaleString()}/mo)</span>}

@@ -95,7 +95,7 @@ export interface RunBatchSpec {
 
 // A missing-table Postgres error (42P01) must not break the run. Detect it so we
 // can no-op silently pre-migration while still surfacing real write failures.
-function isMissingTable(message: string | undefined): boolean {
+export function isMissingTable(message: string | undefined): boolean {
   return !!message && (/relation .* does not exist/i.test(message) || /schema cache/i.test(message) || /could not find the table/i.test(message));
 }
 

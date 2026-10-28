@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { buildSitemapIndex, resolveSitemapUrl, toExternalUrl } from "@/lib/url";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
 import type { ContentKind, ClusterKind, PublishState } from "@/lib/content-pipeline/content-type";
+import type { ContentTool } from "@/lib/content-pipeline/tool";
 
 // A cluster's kind as a safe ClusterKind (defaults to blog for an unknown/empty value).
 const asClusterKind = (v: string | null | undefined): ClusterKind => (v === "guide" ? "guide" : "blog");
@@ -134,6 +135,8 @@ export interface BlogClusterItemRow {
   publishState: PublishState;
   /** The resolved live URL (sitemap match, else the recorded URL); null until one exists. */
   liveUrl: string | null;
+  /** The attached calculator/tool, if any (null until the content_tools migration is applied). */
+  tool: ContentTool | null;
 }
 
 export interface BlogClusterDetail {
@@ -167,14 +170,21 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
       meta_description, url_slug, primary_cta, task_id,
       tasks ( status, published_url, team_member_id, profiles!tasks_team_member_id_fkey ( name ) )`;
   const ARTIFACT_COLS = `artifact_url, artifact_drive_url, published_url, published_at, content_kind`;
-  const loadItems = (withArtifacts: boolean) =>
+  // The calculator/tool embed (content_tools migration 20261028000001). Selected
+  // only at the top tier so the cluster still opens before the migration is applied.
+  const TOOL_COLS = `tool:content_tools ( id, name, content, inputs, output, formula, bundle_path, bundle_name, embed_url )`;
+  // tier 2: base + artifacts + tool · tier 1: base + artifacts · tier 0: base only
+  const loadItems = (tier: 0 | 1 | 2) =>
     supabase.from("topic_cluster_items")
-      .select(withArtifacts ? `${BASE_COLS}, ${ARTIFACT_COLS}` : BASE_COLS)
+      .select(tier === 2 ? `${BASE_COLS}, ${ARTIFACT_COLS}, ${TOOL_COLS}` : tier === 1 ? `${BASE_COLS}, ${ARTIFACT_COLS}` : BASE_COLS)
       .eq("cluster_id", clusterId)
       .order("position", { ascending: true });
 
-  let itemsRes = await loadItems(true);
-  if (itemsRes.error && isMissingColumn(itemsRes.error.message)) itemsRes = await loadItems(false);
+  // The tool embed is best-effort: any error there (missing table pre-migration,
+  // or an embed quirk) falls back to the known-good artifact read, then the base.
+  let itemsRes = await loadItems(2);
+  if (itemsRes.error) itemsRes = await loadItems(1);
+  if (itemsRes.error && isMissingColumn(itemsRes.error.message)) itemsRes = await loadItems(0);
 
   type Row = {
     id: string; position: number; title: string; category: string | null; funnel_stage: string | null;
@@ -187,6 +197,10 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
     tasks: { status: string | null; published_url: string | null; team_member_id: string | null; profiles: { name: string | null } | null } | null;
     artifact_url?: string | null; artifact_drive_url?: string | null; published_url?: string | null; published_at?: string | null;
     content_kind?: string | null;
+    tool?: {
+      id: string; name: string; content: string | null; inputs: string | null; output: string | null;
+      formula: string | null; bundle_path: string | null; bundle_name: string | null; embed_url: string | null;
+    } | null;
   };
   const rawItems = (itemsRes.data ?? []) as unknown as Row[];
 
@@ -231,6 +245,13 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
       publishedAt: r.published_at ?? null,
       publishState: state,
       liveUrl,
+      tool: r.tool
+        ? {
+            id: r.tool.id, name: r.tool.name, content: r.tool.content, inputs: r.tool.inputs,
+            output: r.tool.output, formula: r.tool.formula, bundlePath: r.tool.bundle_path,
+            bundleName: r.tool.bundle_name, embedUrl: r.tool.embed_url,
+          }
+        : null,
     };
   });
 
@@ -263,21 +284,26 @@ export interface PublishQueueRow {
   artifactUrl: string | null;
   artifactDriveUrl: string | null;
   assigneeName: string | null;
+  /** The attached calculator/tool, if any (null until the content_tools migration is applied). */
+  tool: ContentTool | null;
 }
 
 export async function getPublishQueue(projectId: string): Promise<{ ready: boolean; rows: PublishQueueRow[] }> {
   const supabase = await createClient();
-  const sel = `
+  const BASE = `
     id, cluster_id, title, content_type, content_kind, url_slug, meta_description, target_keyword,
     artifact_url, artifact_drive_url, published_url,
     topic_clusters ( cluster_name ),
     tasks ( published_url, profiles!tasks_team_member_id_fkey ( name ) )`;
-  const res = await supabase
-    .from("topic_cluster_items").select(sel)
-    .eq("project_id", projectId)
-    .not("artifact_url", "is", null);
-  // The artifact columns don't exist until the migration is applied: the queue
-  // page shows the "database update needed" notice rather than an empty list.
+  const TOOL = `tool:content_tools ( id, name, content, inputs, output, formula, bundle_path, bundle_name, embed_url )`;
+  const query = (withTool: boolean) =>
+    supabase.from("topic_cluster_items").select(withTool ? `${BASE}, ${TOOL}` : BASE)
+      .eq("project_id", projectId).not("artifact_url", "is", null);
+  // The tool embed doesn't resolve until the content_tools migration is applied -
+  // fall back to the tool-less read so the queue still works. The artifact columns
+  // not existing is the real "database update needed" case for this page.
+  let res = await query(true);
+  if (res.error) res = await query(false);
   if (res.error) {
     if (isMissingColumn(res.error.message)) return { ready: false, rows: [] };
     return { ready: true, rows: [] };
@@ -289,6 +315,10 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
     artifact_url: string | null; artifact_drive_url: string | null; published_url: string | null;
     topic_clusters: { cluster_name: string } | null;
     tasks: { published_url: string | null; profiles: { name: string | null } | null } | null;
+    tool?: {
+      id: string; name: string; content: string | null; inputs: string | null; output: string | null;
+      formula: string | null; bundle_path: string | null; bundle_name: string | null; embed_url: string | null;
+    } | null;
   };
   const rows = (res.data ?? []) as unknown as Row[];
   if (!rows.length) return { ready: true, rows: [] };
@@ -323,6 +353,13 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
       artifactUrl: r.artifact_url,
       artifactDriveUrl: r.artifact_drive_url,
       assigneeName: r.tasks?.profiles?.name ?? null,
+      tool: r.tool
+        ? {
+            id: r.tool.id, name: r.tool.name, content: r.tool.content, inputs: r.tool.inputs,
+            output: r.tool.output, formula: r.tool.formula, bundlePath: r.tool.bundle_path,
+            bundleName: r.tool.bundle_name, embedUrl: r.tool.embed_url,
+          }
+        : null,
     });
   }
   return { ready: true, rows: out };

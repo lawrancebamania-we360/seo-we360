@@ -8,11 +8,12 @@
 
 import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Copy, ExternalLink, Image as ImageIcon, Paperclip } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Copy, Download, ExternalLink, FileArchive, Image as ImageIcon, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { liveUrlFromSlug, toExternalUrl } from "@/lib/url";
+import { signBundleUrl } from "@/lib/actions/content-tools";
 import { KindBadge, PublishControl } from "@/components/sections/content-pipeline/item-controls";
 import { CONTENT_KIND_LABEL, type ContentKind } from "@/lib/content-pipeline/content-type";
 import type { PublishQueueRow } from "@/lib/data/blog-clusters";
@@ -25,6 +26,12 @@ function cmp(a: string | null, b: string | null, dir: number): number {
   if (!a) return 1;
   if (!b) return -1;
   return a.localeCompare(b) * dir;
+}
+
+async function downloadBundle(path: string) {
+  const url = await signBundleUrl(path);
+  if (!url) { toast.error("Couldn't get the download link."); return; }
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 async function copySpec(r: PublishQueueRow) {
@@ -155,6 +162,28 @@ export function PublishQueue({ rows, siteDomain }: { rows: PublishQueueRow[]; si
                         <Detail label="Description">{r.metaDescription || <span className="text-muted-foreground">No description set.</span>}</Detail>
                         {r.targetKeyword && <Detail label="Target keyword">{r.targetKeyword}</Detail>}
                         {r.urlSlug && <Detail label="Slug"><span className="font-mono text-[12.5px]">{r.urlSlug}</span></Detail>}
+                        {r.tool && (
+                          <Detail label="Calculator">
+                            <div className="space-y-1">
+                              <div className="font-medium">{r.tool.name}</div>
+                              {r.tool.inputs && <div className="text-[12.5px] text-muted-foreground"><span className="font-semibold">Inputs:</span> {r.tool.inputs}</div>}
+                              {r.tool.output && <div className="text-[12.5px] text-muted-foreground"><span className="font-semibold">Output:</span> {r.tool.output}</div>}
+                              {r.tool.formula && <div className="text-[12.5px] text-muted-foreground"><span className="font-semibold">Formula:</span> {r.tool.formula}</div>}
+                              <div className="flex flex-wrap items-center gap-3 pt-0.5 text-[12.5px]">
+                                {r.tool.bundlePath && (
+                                  <button type="button" onClick={() => downloadBundle(r.tool!.bundlePath!)} className="inline-flex items-center gap-1.5 text-foreground hover:underline">
+                                    <FileArchive className="size-3.5 text-muted-foreground" /> <span className="truncate max-w-[200px]">{r.tool.bundleName ?? "HTML bundle"}</span> <Download className="size-3 text-muted-foreground" />
+                                  </button>
+                                )}
+                                {toExternalUrl(r.tool.embedUrl) && (
+                                  <a href={toExternalUrl(r.tool.embedUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-foreground hover:underline">
+                                    <ExternalLink className="size-3.5 text-muted-foreground" /> External
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </Detail>
+                        )}
                       </div>
                     </td>
                   </tr>
