@@ -40,7 +40,7 @@ async function copySpec(r: PublishQueueRow) {
   catch { toast.error("Couldn't copy."); }
 }
 
-export function PublishQueue({ rows, siteDomain }: { rows: PublishQueueRow[]; siteDomain: string | null }) {
+export function PublishQueue({ rows, siteDomain, hideChips }: { rows: PublishQueueRow[]; siteDomain: string | null; hideChips?: boolean }) {
   const [kindFilter, setKindFilter] = useState<ContentKind | "all">("all");
   const [sortKey, setSortKey] = useState<SortKey>("cluster");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -80,7 +80,7 @@ export function PublishQueue({ rows, siteDomain }: { rows: PublishQueueRow[]; si
 
   return (
     <div className="space-y-3">
-      {presentKinds.length > 1 && (
+      {!hideChips && presentKinds.length > 1 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <Chip active={kindFilter === "all"} onClick={() => setKindFilter("all")}>All ({rows.length})</Chip>
           {presentKinds.map((k) => (

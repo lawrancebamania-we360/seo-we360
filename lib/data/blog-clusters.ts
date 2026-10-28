@@ -366,6 +366,89 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
 }
 
 // ============================================================================
+// Calculators overview: the whole content_tools library for a project, each with
+// its maker and the posts it's attached to - the combined view behind the
+// "Calculators" filter on the To Publish page.
+// ============================================================================
+
+export interface ToolUsage {
+  itemId: string;
+  title: string;
+  kind: ContentKind;
+  clusterId: string;
+  clusterName: string;
+  publishState: PublishState;
+  liveUrl: string | null;
+}
+
+export interface ToolOverviewRow extends ContentTool {
+  createdByName: string | null;
+  createdAt: string | null;
+  usedOn: ToolUsage[];
+}
+
+export async function getContentToolsOverview(projectId: string): Promise<{ ready: boolean; tools: ToolOverviewRow[] }> {
+  const supabase = await createClient();
+  const { data: toolData, error } = await supabase
+    .from("content_tools")
+    .select("id, name, content, inputs, output, formula, bundle_path, bundle_name, embed_url, created_by, created_at")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false });
+  // No content_tools table yet -> the page shows a "database update needed" notice.
+  if (error) return { ready: false, tools: [] };
+
+  type TRow = {
+    id: string; name: string; content: string | null; inputs: string | null; output: string | null; formula: string | null;
+    bundle_path: string | null; bundle_name: string | null; embed_url: string | null; created_by: string | null; created_at: string | null;
+  };
+  const toolRows = (toolData ?? []) as TRow[];
+  if (!toolRows.length) return { ready: true, tools: [] };
+
+  // Maker names.
+  const creatorIds = [...new Set(toolRows.map((t) => t.created_by).filter((v): v is string => !!v))];
+  const nameById = new Map<string, string>();
+  if (creatorIds.length) {
+    const { data: profs } = await supabase.from("profiles").select("id, name").in("id", creatorIds);
+    for (const p of (profs ?? []) as { id: string; name: string | null }[]) if (p.name) nameById.set(p.id, p.name);
+  }
+
+  // Which posts use each tool, with their live/publish state.
+  type IRow = {
+    id: string; title: string; content_kind: string | null; cluster_id: string; tool_id: string;
+    url_slug: string | null; published_url: string | null; artifact_url: string | null;
+    topic_clusters: { cluster_name: string | null; kind: string | null } | null;
+    tasks: { published_url: string | null } | null;
+  };
+  const { data: itemData } = await supabase
+    .from("topic_cluster_items")
+    .select("id, title, content_kind, cluster_id, tool_id, url_slug, published_url, artifact_url, topic_clusters(cluster_name, kind), tasks(published_url)")
+    .in("tool_id", toolRows.map((t) => t.id));
+  const items = (itemData ?? []) as unknown as IRow[];
+
+  const sitemapIndex = await loadSitemapIndex(supabase, projectId);
+  const usageByTool = new Map<string, ToolUsage[]>();
+  for (const it of items) {
+    const { state, liveUrl } = resolvePublishState(
+      { artifactUrl: it.artifact_url, publishedUrl: it.published_url, urlSlug: it.url_slug, taskPublishedUrl: it.tasks?.published_url ?? null },
+      sitemapIndex,
+    );
+    const kind = (it.content_kind as ContentKind | null) ?? asClusterKind(it.topic_clusters?.kind);
+    const arr = usageByTool.get(it.tool_id) ?? [];
+    arr.push({ itemId: it.id, title: it.title, kind, clusterId: it.cluster_id, clusterName: it.topic_clusters?.cluster_name ?? "Cluster", publishState: state, liveUrl });
+    usageByTool.set(it.tool_id, arr);
+  }
+
+  const tools: ToolOverviewRow[] = toolRows.map((t) => ({
+    id: t.id, name: t.name, content: t.content, inputs: t.inputs, output: t.output, formula: t.formula,
+    bundlePath: t.bundle_path, bundleName: t.bundle_name, embedUrl: t.embed_url,
+    createdByName: t.created_by ? (nameById.get(t.created_by) ?? null) : null,
+    createdAt: t.created_at,
+    usedOn: usageByTool.get(t.id) ?? [],
+  }));
+  return { ready: true, tools };
+}
+
+// ============================================================================
 // Analytics Ticket 8-9: Blog Clusters' ranking view - only posts confirmed
 // LIVE, each joined against its own GSC numbers, LIVE (not the cached
 // url_metrics snapshot table - that only stores fixed 30/60/90-day windows,
