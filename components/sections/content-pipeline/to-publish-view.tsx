@@ -13,7 +13,8 @@ import type { PublishQueueRow, ToolOverviewRow } from "@/lib/data/blog-clusters"
 
 type View = "all" | "blog" | "guide" | "calculators";
 
-export function ToPublishView({ rows, tools, toolsReady, siteDomain }: {
+export function ToPublishView({ projectId, rows, tools, toolsReady, siteDomain }: {
+  projectId: string;
   rows: PublishQueueRow[];
   tools: ToolOverviewRow[];
   toolsReady: boolean;
@@ -36,7 +37,7 @@ export function ToPublishView({ rows, tools, toolsReady, siteDomain }: {
 
       {view === "calculators" ? (
         toolsReady ? (
-          <CalculatorsTable tools={tools} />
+          <CalculatorsTable projectId={projectId} tools={tools} />
         ) : (
           <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">
             This needs a one-time database update first. Apply the 20261028000001 migration in Supabase, then calculators show up here.

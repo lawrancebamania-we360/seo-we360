@@ -2,18 +2,21 @@
 
 // Calculators combined view (the "Calculators" filter on the To Publish page).
 // Every tool in the project's library, who made it, and which guides/blogs use
-// it. Read-only here - tools are authored from each post's drawer in Blog
-// Clusters. Rows expand to the full spec + the list of posts using the tool.
+// it. Each row can be edited here (spec + .zip bundle) as well as from the post's
+// drawer in Blog Clusters. Rows expand to the full spec + the posts using the tool.
 
 import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Calculator, ChevronDown, ChevronRight, Download, ExternalLink, FileArchive } from "lucide-react";
+import { Calculator, ChevronDown, ChevronRight, Download, ExternalLink, FileArchive, Pencil, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import { toExternalUrl } from "@/lib/url";
 import { signBundleUrl } from "@/lib/actions/content-tools";
+import { ToolEditDialog } from "@/components/sections/content-pipeline/tool-edit-dialog";
 import type { ToolOverviewRow } from "@/lib/data/blog-clusters";
 
 async function downloadBundle(path: string) {
@@ -22,9 +25,11 @@ async function downloadBundle(path: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-export function CalculatorsTable({ tools }: { tools: ToolOverviewRow[] }) {
+export function CalculatorsTable({ projectId, tools }: { projectId: string; tools: ToolOverviewRow[] }) {
+  const router = useRouter();
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
   const [q, setQ] = useState("");
+  const [editing, setEditing] = useState<ToolOverviewRow | null>(null);
   const toggle = (id: string) => setOpenRows((p) => ({ ...p, [id]: !p[id] }));
   const usedCount = useMemo(() => tools.filter((t) => t.usedOn.length > 0).length, [tools]);
   const shown = tools.filter((t) => matchesQuery(q, t.name, t.output, t.inputs, t.formula, t.createdByName, t.usedOn.map((u) => u.title).join(" ")));
@@ -55,6 +60,7 @@ export function CalculatorsTable({ tools }: { tools: ToolOverviewRow[] }) {
               <th className="px-3 py-2.5 font-semibold">Bundle</th>
               <th className="px-3 py-2.5 font-semibold">Used on</th>
               <th className="px-3 py-2.5 font-semibold">Made by</th>
+              <th className="px-3 py-2.5 text-right font-semibold"><span className="sr-only">Edit</span></th>
             </tr>
           </thead>
           <tbody>
@@ -83,16 +89,23 @@ export function CalculatorsTable({ tools }: { tools: ToolOverviewRow[] }) {
                         </button>
                       ) : toExternalUrl(t.embedUrl) ? (
                         <a href={toExternalUrl(t.embedUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[12.5px] text-foreground hover:underline"><ExternalLink className="size-3.5 text-muted-foreground" /> External</a>
-                      ) : <span className="text-[12.5px] text-muted-foreground">—</span>}
+                      ) : (
+                        <button type="button" onClick={() => setEditing(t)} className="inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground hover:text-foreground hover:underline" title="Upload an HTML bundle (.zip) for this calculator">
+                          <Upload className="size-3.5" /> Add .zip
+                        </button>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 text-[12.5px] text-muted-foreground">
                       {t.usedOn.length === 0 ? <span className="text-muted-foreground/70">Not attached</span> : `${t.usedOn.length} post${t.usedOn.length === 1 ? "" : "s"}`}
                     </td>
                     <td className="px-3 py-2.5 text-[12.5px] text-muted-foreground">{t.createdByName ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <Button type="button" size="sm" variant="outline" onClick={() => setEditing(t)} className="h-7 gap-1.5 text-xs"><Pencil className="size-3" /> Edit</Button>
+                    </td>
                   </tr>
                   {open && (
                     <tr className="border-b border-border/60">
-                      <td colSpan={5} className="px-3 pb-3.5 pt-0">
+                      <td colSpan={6} className="px-3 pb-3.5 pt-0">
                         <div className="ml-6 space-y-2.5 rounded-lg border border-border bg-muted/30 p-3.5">
                           <Detail label="Content">{t.content || <Dash />}</Detail>
                           <Detail label="Inputs">{t.inputs || <Dash />}</Detail>
@@ -122,6 +135,15 @@ export function CalculatorsTable({ tools }: { tools: ToolOverviewRow[] }) {
           </tbody>
         </table>
       </div>
+      )}
+
+      {editing && (
+        <ToolEditDialog
+          projectId={projectId}
+          tool={editing}
+          onClose={() => setEditing(null)}
+          onDone={() => { setEditing(null); router.refresh(); }}
+        />
       )}
     </div>
   );

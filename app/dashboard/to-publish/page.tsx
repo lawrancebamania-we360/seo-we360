@@ -26,7 +26,7 @@ export default async function ToPublishPage() {
       />
 
       {ready ? (
-        <ToPublishView rows={rows} tools={toolsRes.tools} toolsReady={toolsRes.ready} siteDomain={ctx.activeProject.domain} />
+        <ToPublishView projectId={ctx.activeProject.id} rows={rows} tools={toolsRes.tools} toolsReady={toolsRes.ready} siteDomain={ctx.activeProject.domain} />
       ) : (
         <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">
           This needs a one-time database update first. Apply the 20261019000003 migration in Supabase, then this queue goes live.

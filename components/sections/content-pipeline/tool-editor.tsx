@@ -257,7 +257,7 @@ function ToolDialog({ projectId, itemId, editing, attachedIds, onClose, onDone }
   );
 }
 
-function ToolForm({ spec, set, file, pickFile, fileRef, currentBundle }: {
+export function ToolForm({ spec, set, file, pickFile, fileRef, currentBundle }: {
   spec: ContentToolSpec; set: (k: keyof ContentToolSpec, v: string) => void;
   file: File | null; pickFile: (f: File | null) => void; fileRef: React.RefObject<HTMLInputElement | null>; currentBundle: string | null;
 }) {
