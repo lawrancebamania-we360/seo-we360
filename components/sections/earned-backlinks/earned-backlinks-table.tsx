@@ -146,7 +146,7 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage }
                 </a>
               </td>
               <td className="px-3 py-2.5">
-                <EarnedBacklinkActions projectId={projectId} backlinkId={b.id} assignedTo={b.assignedTo} members={members} canManage={canManage} />
+                <EarnedBacklinkActions projectId={projectId} backlink={b} members={members} canManage={canManage} />
               </td>
               <td className={`px-3 py-2.5 text-right font-mono text-[12.5px] tabular-nums ${b.isFree ? "text-success-strong font-semibold" : "text-muted-foreground"}`}>
                 {formatCost(b)}

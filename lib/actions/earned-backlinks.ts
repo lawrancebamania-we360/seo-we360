@@ -119,6 +119,65 @@ export async function addEarnedBacklink(input: z.infer<typeof AddInput>): Promis
   return { ok: true };
 }
 
+// ---- Edit a single row ------------------------------------------------
+
+const UpdateInput = z.object({
+  project_id: z.string().uuid(),
+  backlink_id: z.string().uuid(),
+  website: z.string().trim().min(1),
+  acquired_date: z.string().min(1),
+  domain_rating: z.string().optional(),
+  backlink_url: z.string().trim().min(1),
+  assigned_to: z.string().uuid().nullable().optional(),
+  is_free: z.boolean().optional(),
+  amount_paid: z.string().optional(),
+  currency: z.enum(["USD", "INR"]).optional(),
+});
+
+export async function updateEarnedBacklink(input: z.infer<typeof UpdateInput>): Promise<AddEarnedBacklinkResult> {
+  const { project_id, backlink_id, website, acquired_date, domain_rating, backlink_url, assigned_to, is_free, amount_paid, currency } = UpdateInput.parse(input);
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const date = normalizeDate(acquired_date);
+  if (!date) return { ok: false, error: "Invalid date." };
+
+  const admin = createAdminClient();
+
+  // Same dedupe guard as add, but exclude this row itself.
+  const { data: dup } = await admin
+    .from("earned_backlinks")
+    .select("id")
+    .eq("project_id", project_id)
+    .eq("website", website)
+    .eq("acquired_date", date)
+    .in("backlink_url", urlVariants(backlink_url))
+    .neq("id", backlink_id)
+    .limit(1)
+    .maybeSingle();
+  if (dup) return { ok: false, error: "Another logged backlink already has this exact website, date, and link.", duplicate: true };
+
+  const { error } = await admin
+    .from("earned_backlinks")
+    .update({
+      website,
+      acquired_date: date,
+      domain_rating: parseDr(domain_rating),
+      backlink_url: normalizeStoredUrl(backlink_url) ?? backlink_url,
+      assigned_to: assigned_to ?? null,
+      is_free: is_free ?? false,
+      amount_paid: is_free ? null : parseAmount(amount_paid),
+      currency: currency ?? "USD",
+    })
+    .eq("id", backlink_id)
+    .eq("project_id", project_id);
+  if (error) return { ok: false, error: "Could not save your changes." };
+
+  revalidatePath("/dashboard/link-building");
+  return { ok: true };
+}
+
 // ---- Bulk paste: parse-only preview, then a separate commit ----------
 
 const HEADER_MAP: Record<string, string> = {

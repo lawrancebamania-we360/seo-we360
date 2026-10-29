@@ -9,29 +9,33 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Trash2, User } from "lucide-react";
+import { Loader2, Pencil, Trash2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { initials } from "@/lib/ui-helpers";
 import { deleteEarnedBacklink, assignEarnedBacklink } from "@/lib/actions/earned-backlinks";
+import { EditEarnedBacklinkDialog } from "@/components/sections/earned-backlinks/edit-earned-backlink-dialog";
+import type { EarnedBacklinkRow } from "@/lib/data/earned-backlinks";
 import type { Member } from "@/components/sections/assignee-picker";
 
 export function EarnedBacklinkActions({
-  projectId, backlinkId, assignedTo, members, canManage,
+  projectId, backlink, members, canManage,
 }: {
   projectId: string;
-  backlinkId: string;
-  assignedTo: string | null;
+  backlink: EarnedBacklinkRow;
   members: Member[];
   canManage: boolean;
 }) {
   const router = useRouter();
+  const backlinkId = backlink.id;
+  const assignedTo = backlink.assignedTo;
   const [assignOpen, setAssignOpen] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const currentAssignee = members.find((m) => m.id === assignedTo) ?? null;
 
@@ -123,9 +127,23 @@ export function EarnedBacklinkActions({
         </PopoverContent>
       </Popover>
 
+      <Button variant="ghost" size="icon-sm" onClick={() => setEditOpen(true)} title="Edit this backlink">
+        <Pencil className="size-3.5 text-muted-foreground" />
+      </Button>
+
       <Button variant="ghost" size="icon-sm" onClick={() => setConfirmingDelete(true)} title="Delete this backlink">
         <Trash2 className="size-3.5 text-muted-foreground" />
       </Button>
+
+      {editOpen && (
+        <EditEarnedBacklinkDialog
+          open
+          onOpenChange={setEditOpen}
+          projectId={projectId}
+          backlink={backlink}
+          members={members}
+        />
+      )}
     </div>
   );
 }
