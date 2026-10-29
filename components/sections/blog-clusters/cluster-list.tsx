@@ -11,6 +11,7 @@ import { Network } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import { cn } from "@/lib/utils";
 import { ClusterKindBadge, ClusterKindSelect } from "@/components/sections/content-pipeline/item-controls";
 import { CLUSTER_KIND_LABEL, CLUSTER_KINDS, type ClusterKind } from "@/lib/content-pipeline/content-type";
@@ -18,9 +19,10 @@ import type { BlogClusterSummary } from "@/lib/data/blog-clusters";
 
 export function ClusterList({ clusters, projectId, canManage }: { clusters: BlogClusterSummary[]; projectId: string; canManage: boolean }) {
   const [filter, setFilter] = useState<ClusterKind | "all">("all");
+  const [q, setQ] = useState("");
 
   const present = useMemo(() => CLUSTER_KINDS.filter((k) => clusters.some((c) => c.kind === k)), [clusters]);
-  const shown = filter === "all" ? clusters : clusters.filter((c) => c.kind === filter);
+  const shown = clusters.filter((c) => (filter === "all" || c.kind === filter) && matchesQuery(q, c.clusterName));
 
   if (clusters.length === 0) {
     return (
@@ -36,17 +38,25 @@ export function ClusterList({ clusters, projectId, canManage }: { clusters: Blog
 
   return (
     <div className="space-y-4">
-      {present.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Chip active={filter === "all"} onClick={() => setFilter("all")}>All ({clusters.length})</Chip>
-          {present.map((k) => (
-            <Chip key={k} active={filter === k} onClick={() => setFilter(k)}>
-              {CLUSTER_KIND_LABEL[k]}s ({clusters.filter((c) => c.kind === k).length})
-            </Chip>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {present.length > 1 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Chip active={filter === "all"} onClick={() => setFilter("all")}>All ({clusters.length})</Chip>
+            {present.map((k) => (
+              <Chip key={k} active={filter === k} onClick={() => setFilter(k)}>
+                {CLUSTER_KIND_LABEL[k]}s ({clusters.filter((c) => c.kind === k).length})
+              </Chip>
+            ))}
+          </div>
+        ) : <div />}
+        <SearchBox value={q} onChange={setQ} placeholder="Search clusters..." className="w-full sm:w-64" />
+      </div>
 
+      {shown.length === 0 ? (
+        <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">
+          No clusters match {q.trim() ? <>&ldquo;{q}&rdquo;</> : "that filter"}.
+        </Card>
+      ) : (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {shown.map((c) => (
           <Link key={c.id} href={`/dashboard/blog-clusters/${c.id}`}>
@@ -71,6 +81,7 @@ export function ClusterList({ clusters, projectId, canManage }: { clusters: Blog
           </Link>
         ))}
       </div>
+      )}
     </div>
   );
 }

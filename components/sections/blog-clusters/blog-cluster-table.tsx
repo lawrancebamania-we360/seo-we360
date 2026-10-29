@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import { ClusterItemAssignee } from "@/components/sections/blog-clusters/cluster-item-assignee";
 import { KindSelect, BulkKindBar, PublishStateBadge, PageSpec, ArtifactEditor, PublishControl } from "@/components/sections/content-pipeline/item-controls";
 import { ToolEditor } from "@/components/sections/content-pipeline/tool-editor";
@@ -89,6 +90,7 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
 }) {
   const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [kindFilter, setKindFilter] = useState<ContentKind | "all">("all");
+  const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Derive the open row from the live `items` prop (not a stored copy) so it
   // reflects an artifact/publish change after router.refresh() without reopening.
@@ -99,7 +101,7 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
     const set = new Set(items.map((i) => i.kind));
     return KIND_ORDER.filter((k) => set.has(k));
   }, [items]);
-  const shown = kindFilter === "all" ? items : items.filter((i) => i.kind === kindFilter);
+  const shown = items.filter((i) => (kindFilter === "all" || i.kind === kindFilter) && matchesQuery(q, i.title, i.targetKeyword, i.urlSlug, i.contentType, i.assigneeName));
 
   const toggleOne = (id: string) => setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const allShownSelected = shown.length > 0 && shown.every((i) => selected.has(i.id));
@@ -128,15 +130,18 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
             ))}
           </div>
         ) : <div />}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => copyText(formatClusterForCopy(clusterName, shown), `Copied ${shown.length} brief${shown.length === 1 ? "" : "s"} - paste into any LLM to draft them.`)}
-        >
-          <Copy className="size-3.5" /> Copy details
-        </Button>
+        <div className="flex items-center gap-2">
+          <SearchBox value={q} onChange={setQ} placeholder="Search posts..." className="w-full sm:w-64" />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 shrink-0"
+            onClick={() => copyText(formatClusterForCopy(clusterName, shown), `Copied ${shown.length} brief${shown.length === 1 ? "" : "s"} - paste into any LLM to draft them.`)}
+          >
+            <Copy className="size-3.5" /> Copy details
+          </Button>
+        </div>
       </div>
 
       {selectedIds.length > 0 && (
@@ -160,6 +165,13 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
             </tr>
           </thead>
           <tbody>
+            {shown.length === 0 && (
+              <tr>
+                <td colSpan={canManage ? 8 : 7} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                  No posts match {q.trim() ? `"${q}"` : "that filter"}.
+                </td>
+              </tr>
+            )}
             {shown.map((it) => (
               <tr
                 key={it.id}

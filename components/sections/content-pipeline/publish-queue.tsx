@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { liveUrlFromSlug, toExternalUrl } from "@/lib/url";
 import { signBundleUrl } from "@/lib/actions/content-tools";
+import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import { KindBadge, PublishControl } from "@/components/sections/content-pipeline/item-controls";
 import { CONTENT_KIND_LABEL, type ContentKind } from "@/lib/content-pipeline/content-type";
 import type { PublishQueueRow } from "@/lib/data/blog-clusters";
@@ -42,6 +43,7 @@ async function copySpec(r: PublishQueueRow) {
 
 export function PublishQueue({ rows, siteDomain, hideChips }: { rows: PublishQueueRow[]; siteDomain: string | null; hideChips?: boolean }) {
   const [kindFilter, setKindFilter] = useState<ContentKind | "all">("all");
+  const [q, setQ] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("cluster");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
@@ -54,7 +56,7 @@ export function PublishQueue({ rows, siteDomain, hideChips }: { rows: PublishQue
 
   const shown = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
-    const base = kindFilter === "all" ? rows : rows.filter((r) => r.kind === kindFilter);
+    const base = rows.filter((r) => (kindFilter === "all" || r.kind === kindFilter) && matchesQuery(q, r.title, r.clusterName, r.targetKeyword, r.urlSlug, r.assigneeName));
     return [...base].sort((a, b) => {
       let p = 0;
       if (sortKey === "title") p = cmp(a.title, b.title, dir);
@@ -63,7 +65,7 @@ export function PublishQueue({ rows, siteDomain, hideChips }: { rows: PublishQue
       else p = cmp(a.assigneeName, b.assigneeName, dir);
       return p !== 0 ? p : a.title.localeCompare(b.title);
     });
-  }, [rows, kindFilter, sortKey, sortDir]);
+  }, [rows, kindFilter, q, sortKey, sortDir]);
 
   const toggleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -80,17 +82,25 @@ export function PublishQueue({ rows, siteDomain, hideChips }: { rows: PublishQue
 
   return (
     <div className="space-y-3">
-      {!hideChips && presentKinds.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Chip active={kindFilter === "all"} onClick={() => setKindFilter("all")}>All ({rows.length})</Chip>
-          {presentKinds.map((k) => (
-            <Chip key={k} active={kindFilter === k} onClick={() => setKindFilter(k)}>
-              {CONTENT_KIND_LABEL[k]} ({rows.filter((r) => r.kind === k).length})
-            </Chip>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {!hideChips && presentKinds.length > 1 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Chip active={kindFilter === "all"} onClick={() => setKindFilter("all")}>All ({rows.length})</Chip>
+            {presentKinds.map((k) => (
+              <Chip key={k} active={kindFilter === k} onClick={() => setKindFilter(k)}>
+                {CONTENT_KIND_LABEL[k]} ({rows.filter((r) => r.kind === k).length})
+              </Chip>
+            ))}
+          </div>
+        ) : <div />}
+        <SearchBox value={q} onChange={setQ} placeholder="Search title, cluster, keyword..." className="w-full sm:w-72" />
+      </div>
 
+      {shown.length === 0 ? (
+        <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">
+          Nothing matches {q.trim() ? <>&ldquo;{q}&rdquo;</> : "that filter"}.
+        </Card>
+      ) : (
       <div className="overflow-x-auto rounded-xl border border-border">
         <table className="w-full min-w-[920px] text-sm">
           <thead>
@@ -194,6 +204,7 @@ export function PublishQueue({ rows, siteDomain, hideChips }: { rows: PublishQue
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
