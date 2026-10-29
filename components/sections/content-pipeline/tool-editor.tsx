@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Calculator, Download, ExternalLink, FileArchive, Loader2, Pencil, RefreshCw, Upload, X } from "lucide-react";
+import { Calculator, Download, ExternalLink, FileArchive, Loader2, Pencil, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { createClient } from "@/lib/supabase/client";
 import { toExternalUrl } from "@/lib/url";
-import { TOOL_BUNDLE_BUCKET, TOOL_BUNDLE_MAX_BYTES, EMPTY_TOOL_SPEC, type ContentTool, type ContentToolSpec } from "@/lib/content-pipeline/tool";
+import { TOOL_BUNDLE_BUCKET, TOOL_BUNDLE_MAX_BYTES, MAX_TOOLS_PER_ITEM, EMPTY_TOOL_SPEC, type ContentTool, type ContentToolSpec } from "@/lib/content-pipeline/tool";
 import { listContentTools, createContentTool, updateContentTool, attachToolToItem, detachToolFromItem, signBundleUrl } from "@/lib/actions/content-tools";
 
 async function download(path: string) {
@@ -37,62 +37,68 @@ function SpecLine({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-export function ToolEditor({ projectId, itemId, tool }: { projectId: string; itemId: string; tool: ContentTool | null }) {
+export function ToolEditor({ projectId, itemId, tools }: { projectId: string; itemId: string; tools: ContentTool[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ContentTool | null>(null); // edit this tool's spec vs. add/attach
-  const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
+  const atCap = tools.length >= MAX_TOOLS_PER_ITEM;
   const openAdd = () => { setEditing(null); setOpen(true); };
-  const openEdit = () => { setEditing(tool); setOpen(true); };
+  const openEdit = (tool: ContentTool) => { setEditing(tool); setOpen(true); };
 
-  const remove = async () => {
-    if (busy) return;
-    setBusy(true);
+  const remove = async (tool: ContentTool) => {
+    if (busyId) return;
+    setBusyId(tool.id);
     try {
-      const r = await detachToolFromItem({ item_id: itemId });
+      const r = await detachToolFromItem({ item_id: itemId, tool_id: tool.id });
       if (!r.ok) { toast.error(r.error ?? "Could not remove the tool."); return; }
       toast.success("Calculator removed from this post. The tool is still in your library.");
       router.refresh();
     } catch { toast.error("Something went wrong. Try again."); }
-    finally { setBusy(false); }
+    finally { setBusyId(null); }
   };
 
   return (
     <div className="rounded-lg border p-3">
       <div className="mb-1.5 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-          <Calculator className="size-3.5" /> Calculator / Tool
+          <Calculator className="size-3.5" /> Calculators
+          {tools.length > 0 && <span className="text-muted-foreground/70">({tools.length}/{MAX_TOOLS_PER_ITEM})</span>}
         </div>
-        {!tool && <button type="button" onClick={openAdd} className="text-[11px] font-medium text-[#5B45E0] hover:underline dark:text-[#7B62FF]">Add</button>}
+        {!atCap && <button type="button" onClick={openAdd} className="text-[11px] font-medium text-[#5B45E0] hover:underline dark:text-[#7B62FF]">Add</button>}
       </div>
 
-      {tool ? (
+      {tools.length > 0 ? (
         <div className="space-y-2.5">
-          <div className="text-[13px] font-medium text-foreground">{tool.name}</div>
-          <div className="space-y-1.5">
-            <SpecLine label="Content" value={tool.content} />
-            <SpecLine label="Inputs" value={tool.inputs} />
-            <SpecLine label="Output" value={tool.output} />
-            <SpecLine label="Formula" value={tool.formula} />
-          </div>
-          <div className="flex flex-wrap items-center gap-3 pt-0.5 text-[12.5px]">
-            {tool.bundlePath && (
-              <button type="button" onClick={() => download(tool.bundlePath!)} className="inline-flex items-center gap-1.5 text-foreground hover:underline">
-                <FileArchive className="size-3.5 text-muted-foreground" /> <span className="truncate max-w-[200px]">{tool.bundleName ?? "HTML bundle"}</span> <Download className="size-3 text-muted-foreground" />
-              </button>
-            )}
-            {toExternalUrl(tool.embedUrl) && (
-              <a href={toExternalUrl(tool.embedUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-foreground hover:underline">
-                <ExternalLink className="size-3.5 text-muted-foreground" /> External
-              </a>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <Button type="button" size="sm" variant="outline" onClick={openEdit} className="h-7 gap-1.5 text-xs"><Pencil className="size-3" /> Edit</Button>
-            <Button type="button" size="sm" variant="outline" onClick={openAdd} className="h-7 gap-1.5 text-xs"><RefreshCw className="size-3" /> Change</Button>
-            <Button type="button" size="sm" variant="ghost" onClick={remove} disabled={busy} className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-error-600">{busy ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3" />} Remove</Button>
-          </div>
+          {tools.map((tool) => (
+            <div key={tool.id} className="space-y-2 rounded-md border border-border/70 p-2.5">
+              <div className="text-[13px] font-medium text-foreground">{tool.name}</div>
+              <div className="space-y-1.5">
+                <SpecLine label="Content" value={tool.content} />
+                <SpecLine label="Inputs" value={tool.inputs} />
+                <SpecLine label="Output" value={tool.output} />
+                <SpecLine label="Formula" value={tool.formula} />
+              </div>
+              <div className="flex flex-wrap items-center gap-3 pt-0.5 text-[12.5px]">
+                {tool.bundlePath && (
+                  <button type="button" onClick={() => download(tool.bundlePath!)} className="inline-flex items-center gap-1.5 text-foreground hover:underline">
+                    <FileArchive className="size-3.5 text-muted-foreground" /> <span className="truncate max-w-[200px]">{tool.bundleName ?? "HTML bundle"}</span> <Download className="size-3 text-muted-foreground" />
+                  </button>
+                )}
+                {toExternalUrl(tool.embedUrl) && (
+                  <a href={toExternalUrl(tool.embedUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-foreground hover:underline">
+                    <ExternalLink className="size-3.5 text-muted-foreground" /> External
+                  </a>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Button type="button" size="sm" variant="outline" onClick={() => openEdit(tool)} className="h-7 gap-1.5 text-xs"><Pencil className="size-3" /> Edit</Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => remove(tool)} disabled={busyId === tool.id} className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-error-600">{busyId === tool.id ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3" />} Remove</Button>
+              </div>
+            </div>
+          ))}
+          {atCap && <p className="text-[11.5px] text-muted-foreground">Up to {MAX_TOOLS_PER_ITEM} calculators per post — remove one to add another.</p>}
         </div>
       ) : (
         <p className="text-[13px] text-muted-foreground">No calculator yet. Attach an existing tool or create a new one with its inputs, output, formula and HTML bundle.</p>
@@ -100,7 +106,7 @@ export function ToolEditor({ projectId, itemId, tool }: { projectId: string; ite
 
       {open && (
         <ToolDialog
-          projectId={projectId} itemId={itemId} editing={editing}
+          projectId={projectId} itemId={itemId} editing={editing} attachedIds={tools.map((t) => t.id)}
           onClose={() => setOpen(false)}
           onDone={() => { setOpen(false); router.refresh(); }}
         />
@@ -109,13 +115,14 @@ export function ToolEditor({ projectId, itemId, tool }: { projectId: string; ite
   );
 }
 
-function ToolDialog({ projectId, itemId, editing, onClose, onDone }: {
-  projectId: string; itemId: string; editing: ContentTool | null; onClose: () => void; onDone: () => void;
+function ToolDialog({ projectId, itemId, editing, attachedIds, onClose, onDone }: {
+  projectId: string; itemId: string; editing: ContentTool | null; attachedIds: string[]; onClose: () => void; onDone: () => void;
 }) {
   const isEdit = !!editing;
   const [tab, setTab] = useState<"existing" | "new">(isEdit ? "new" : "existing");
 
-  // --- "Use existing" state --- (loading is simply "tools not fetched yet")
+  // --- "Use existing" state --- (loading is simply "tools not fetched yet").
+  // Tools already on this post are filtered out so the picker only offers new ones.
   const [tools, setTools] = useState<ContentTool[] | null>(null);
   const [attaching, setAttaching] = useState(false);
 
@@ -127,10 +134,10 @@ function ToolDialog({ projectId, itemId, editing, onClose, onDone }: {
     listContentTools(projectId).then((r) => {
       if (cancelled) return;
       if (!r.ok) toast.error(r.error ?? "Could not load tools.");
-      setTools(r.tools);
+      setTools(r.tools.filter((t) => !attachedIds.includes(t.id)));
     });
     return () => { cancelled = true; };
-  }, [isEdit, projectId]);
+  }, [isEdit, projectId, attachedIds]);
 
   const attach = async (toolId: string) => {
     if (attaching) return;
@@ -214,7 +221,7 @@ function ToolDialog({ projectId, itemId, editing, onClose, onDone }: {
               {tools === null ? (
                 <div className="flex items-center justify-center py-8 text-muted-foreground"><Loader2 className="size-4 animate-spin" /></div>
               ) : tools.length === 0 ? (
-                <p className="py-6 text-center text-[13px] text-muted-foreground">No tools in the library yet. Switch to <strong>Create new</strong>.</p>
+                <p className="py-6 text-center text-[13px] text-muted-foreground">No other tools to add. Switch to <strong>Create new</strong>.</p>
               ) : (
                 <div className="max-h-[320px] space-y-1.5 overflow-y-auto">
                   {tools.map((t) => (

@@ -3,6 +3,9 @@
 // modules can use it. The tool is a reusable spec (free-text content/inputs/
 // output/formula) plus an uploaded HTML code bundle (.zip) in Storage.
 
+// A post (topic_cluster_items) can carry at most this many calculators.
+export const MAX_TOOLS_PER_ITEM = 3;
+
 export const TOOL_BUNDLE_BUCKET = "content-tool-bundles";
 export const TOOL_BUNDLE_MAX_BYTES = 10 * 1024 * 1024; // 10MB
 export const TOOL_BUNDLE_ACCEPT = [

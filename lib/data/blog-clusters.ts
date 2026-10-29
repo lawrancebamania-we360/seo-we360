@@ -9,6 +9,34 @@ import type { ContentTool } from "@/lib/content-pipeline/tool";
 
 // A cluster's kind as a safe ClusterKind (defaults to blog for an unknown/empty value).
 const asClusterKind = (v: string | null | undefined): ClusterKind => (v === "guide" ? "guide" : "blog");
+
+// ---- Calculators (content_tools) shared read helpers -----------------------
+// The content_tools columns selected everywhere a tool is embedded.
+const TOOL_FIELDS = "id, name, content, inputs, output, formula, bundle_path, bundle_name, embed_url";
+type RawTool = {
+  id: string; name: string; content: string | null; inputs: string | null; output: string | null;
+  formula: string | null; bundle_path: string | null; bundle_name: string | null; embed_url: string | null;
+};
+function toContentTool(r: RawTool): ContentTool {
+  return {
+    id: r.id, name: r.name, content: r.content, inputs: r.inputs, output: r.output, formula: r.formula,
+    bundlePath: r.bundle_path, bundleName: r.bundle_name, embedUrl: r.embed_url,
+  };
+}
+// Up to 3 tools per post via the content_tool_items join (ordered by position).
+function mapJunctionTools(rows: Array<{ position: number | null; tool: RawTool | null }> | null | undefined): ContentTool[] {
+  return (rows ?? [])
+    .filter((j): j is { position: number | null; tool: RawTool } => !!j.tool)
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .map((j) => toContentTool(j.tool));
+}
+// A post's calculators from whichever embed the tiered read returned: the join
+// table ("tools"), else the legacy single tool_id embed ("tool"), else none.
+function itemTools(r: { tools?: Array<{ position: number | null; tool: RawTool | null }> | null; tool?: RawTool | null }): ContentTool[] {
+  if (r.tools !== undefined) return mapJunctionTools(r.tools);
+  if (r.tool !== undefined) return r.tool ? [toContentTool(r.tool)] : [];
+  return [];
+}
 import type { UrlTopQuery } from "@/lib/data/url-metrics";
 import type { AnalyticsCompareRange } from "@/lib/data/analytics-range";
 
@@ -142,8 +170,8 @@ export interface BlogClusterItemRow {
   publishState: PublishState;
   /** The resolved live URL (sitemap match, else the recorded URL); null until one exists. */
   liveUrl: string | null;
-  /** The attached calculator/tool, if any (null until the content_tools migration is applied). */
-  tool: ContentTool | null;
+  /** The attached calculators (0-3). Empty until the content_tools migration is applied. */
+  tools: ContentTool[];
 }
 
 export interface BlogClusterDetail {
@@ -177,19 +205,25 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
       meta_description, url_slug, primary_cta, task_id,
       tasks ( status, published_url, team_member_id, profiles!tasks_team_member_id_fkey ( name ) )`;
   const ARTIFACT_COLS = `artifact_url, artifact_drive_url, published_url, published_at, content_kind`;
-  // The calculator/tool embed (content_tools migration 20261028000001). Selected
-  // only at the top tier so the cluster still opens before the migration is applied.
-  const TOOL_COLS = `tool:content_tools ( id, name, content, inputs, output, formula, bundle_path, bundle_name, embed_url )`;
-  // tier 2: base + artifacts + tool · tier 1: base + artifacts · tier 0: base only
-  const loadItems = (tier: 0 | 1 | 2) =>
+  // The calculator/tool embeds. Tier 3 reads up to 3 via the content_tool_items
+  // join (migration 20261029000002); tier 2 falls back to the legacy single
+  // tool_id embed (migration 20261028000001); then artifacts; then base only -
+  // so the cluster still opens at every migration stage.
+  const JOIN_TOOLS = `tools:content_tool_items ( position, tool:content_tools ( ${TOOL_FIELDS} ) )`;
+  const SINGLE_TOOL = `tool:content_tools ( ${TOOL_FIELDS} )`;
+  const loadItems = (tier: 0 | 1 | 2 | 3) =>
     supabase.from("topic_cluster_items")
-      .select(tier === 2 ? `${BASE_COLS}, ${ARTIFACT_COLS}, ${TOOL_COLS}` : tier === 1 ? `${BASE_COLS}, ${ARTIFACT_COLS}` : BASE_COLS)
+      .select(
+        tier === 3 ? `${BASE_COLS}, ${ARTIFACT_COLS}, ${JOIN_TOOLS}`
+          : tier === 2 ? `${BASE_COLS}, ${ARTIFACT_COLS}, ${SINGLE_TOOL}`
+          : tier === 1 ? `${BASE_COLS}, ${ARTIFACT_COLS}` : BASE_COLS)
       .eq("cluster_id", clusterId)
       .order("position", { ascending: true });
 
-  // The tool embed is best-effort: any error there (missing table pre-migration,
-  // or an embed quirk) falls back to the known-good artifact read, then the base.
-  let itemsRes = await loadItems(2);
+  // Best-effort tool read: the join table (pre-migration: missing) falls back to
+  // the single tool_id embed, then to the known-good artifact read, then base.
+  let itemsRes = await loadItems(3);
+  if (itemsRes.error) itemsRes = await loadItems(2);
   if (itemsRes.error) itemsRes = await loadItems(1);
   if (itemsRes.error && isMissingColumn(itemsRes.error.message)) itemsRes = await loadItems(0);
 
@@ -204,10 +238,8 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
     tasks: { status: string | null; published_url: string | null; team_member_id: string | null; profiles: { name: string | null } | null } | null;
     artifact_url?: string | null; artifact_drive_url?: string | null; published_url?: string | null; published_at?: string | null;
     content_kind?: string | null;
-    tool?: {
-      id: string; name: string; content: string | null; inputs: string | null; output: string | null;
-      formula: string | null; bundle_path: string | null; bundle_name: string | null; embed_url: string | null;
-    } | null;
+    tool?: RawTool | null;
+    tools?: Array<{ position: number | null; tool: RawTool | null }> | null;
   };
   const rawItems = (itemsRes.data ?? []) as unknown as Row[];
 
@@ -252,13 +284,7 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
       publishedAt: r.published_at ?? null,
       publishState: state,
       liveUrl,
-      tool: r.tool
-        ? {
-            id: r.tool.id, name: r.tool.name, content: r.tool.content, inputs: r.tool.inputs,
-            output: r.tool.output, formula: r.tool.formula, bundlePath: r.tool.bundle_path,
-            bundleName: r.tool.bundle_name, embedUrl: r.tool.embed_url,
-          }
-        : null,
+      tools: itemTools(r),
     };
   });
 
@@ -291,8 +317,8 @@ export interface PublishQueueRow {
   artifactUrl: string | null;
   artifactDriveUrl: string | null;
   assigneeName: string | null;
-  /** The attached calculator/tool, if any (null until the content_tools migration is applied). */
-  tool: ContentTool | null;
+  /** The attached calculators (0-3). Empty until the content_tools migration is applied. */
+  tools: ContentTool[];
 }
 
 export async function getPublishQueue(projectId: string): Promise<{ ready: boolean; rows: PublishQueueRow[] }> {
@@ -302,15 +328,19 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
     artifact_url, artifact_drive_url, published_url,
     topic_clusters ( cluster_name ),
     tasks ( published_url, profiles!tasks_team_member_id_fkey ( name ) )`;
-  const TOOL = `tool:content_tools ( id, name, content, inputs, output, formula, bundle_path, bundle_name, embed_url )`;
-  const query = (withTool: boolean) =>
-    supabase.from("topic_cluster_items").select(withTool ? `${BASE}, ${TOOL}` : BASE)
+  const JOIN_TOOLS = `tools:content_tool_items ( position, tool:content_tools ( ${TOOL_FIELDS} ) )`;
+  const SINGLE_TOOL = `tool:content_tools ( ${TOOL_FIELDS} )`;
+  // tier 2: join table (up to 3) · tier 1: legacy single tool · tier 0: no tools.
+  const query = (tier: 0 | 1 | 2) =>
+    supabase.from("topic_cluster_items")
+      .select(tier === 2 ? `${BASE}, ${JOIN_TOOLS}` : tier === 1 ? `${BASE}, ${SINGLE_TOOL}` : BASE)
       .eq("project_id", projectId).not("artifact_url", "is", null);
-  // The tool embed doesn't resolve until the content_tools migration is applied -
-  // fall back to the tool-less read so the queue still works. The artifact columns
-  // not existing is the real "database update needed" case for this page.
-  let res = await query(true);
-  if (res.error) res = await query(false);
+  // The tool embeds don't resolve until their migrations are applied - fall back
+  // down the tiers so the queue still works. The artifact columns not existing is
+  // the real "database update needed" case for this page.
+  let res = await query(2);
+  if (res.error) res = await query(1);
+  if (res.error) res = await query(0);
   if (res.error) {
     if (isMissingColumn(res.error.message)) return { ready: false, rows: [] };
     return { ready: true, rows: [] };
@@ -322,10 +352,8 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
     artifact_url: string | null; artifact_drive_url: string | null; published_url: string | null;
     topic_clusters: { cluster_name: string } | null;
     tasks: { published_url: string | null; profiles: { name: string | null } | null } | null;
-    tool?: {
-      id: string; name: string; content: string | null; inputs: string | null; output: string | null;
-      formula: string | null; bundle_path: string | null; bundle_name: string | null; embed_url: string | null;
-    } | null;
+    tool?: RawTool | null;
+    tools?: Array<{ position: number | null; tool: RawTool | null }> | null;
   };
   const rows = (res.data ?? []) as unknown as Row[];
   if (!rows.length) return { ready: true, rows: [] };
@@ -360,13 +388,7 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
       artifactUrl: r.artifact_url,
       artifactDriveUrl: r.artifact_drive_url,
       assigneeName: r.tasks?.profiles?.name ?? null,
-      tool: r.tool
-        ? {
-            id: r.tool.id, name: r.tool.name, content: r.tool.content, inputs: r.tool.inputs,
-            output: r.tool.output, formula: r.tool.formula, bundlePath: r.tool.bundle_path,
-            bundleName: r.tool.bundle_name, embedUrl: r.tool.embed_url,
-          }
-        : null,
+      tools: itemTools(r),
     });
   }
   return { ready: true, rows: out };
@@ -419,30 +441,51 @@ export async function getContentToolsOverview(projectId: string): Promise<{ read
     for (const p of (profs ?? []) as { id: string; name: string | null }[]) if (p.name) nameById.set(p.id, p.name);
   }
 
-  // Which posts use each tool, with their live/publish state.
+  // Which posts use each tool. A tool-post pair comes from the content_tool_items
+  // join (a post can list several tools); pre-migration it falls back to the
+  // legacy single tool_id link, so the overview still works either way.
+  const toolIds = toolRows.map((t) => t.id);
+  let pairs: { itemId: string; toolId: string }[] = [];
+  const { data: linkData, error: linkErr } = await supabase
+    .from("content_tool_items").select("item_id, tool_id").in("tool_id", toolIds);
+  if (!linkErr) {
+    pairs = ((linkData ?? []) as { item_id: string; tool_id: string }[]).map((l) => ({ itemId: l.item_id, toolId: l.tool_id }));
+  } else {
+    const { data: legacy } = await supabase
+      .from("topic_cluster_items").select("id, tool_id").in("tool_id", toolIds);
+    pairs = ((legacy ?? []) as { id: string; tool_id: string }[]).map((l) => ({ itemId: l.id, toolId: l.tool_id }));
+  }
+
+  // Post details, fetched once by id and shared across however many tools use them.
   type IRow = {
-    id: string; title: string; content_kind: string | null; cluster_id: string; tool_id: string;
+    id: string; title: string; content_kind: string | null; cluster_id: string;
     url_slug: string | null; published_url: string | null; artifact_url: string | null;
     topic_clusters: { cluster_name: string | null; kind: string | null } | null;
     tasks: { published_url: string | null } | null;
   };
-  const { data: itemData } = await supabase
-    .from("topic_cluster_items")
-    .select("id, title, content_kind, cluster_id, tool_id, url_slug, published_url, artifact_url, topic_clusters(cluster_name, kind), tasks(published_url)")
-    .in("tool_id", toolRows.map((t) => t.id));
-  const items = (itemData ?? []) as unknown as IRow[];
+  const itemIds = [...new Set(pairs.map((p) => p.itemId))];
+  const itemById = new Map<string, IRow>();
+  if (itemIds.length) {
+    const { data: itemData } = await supabase
+      .from("topic_cluster_items")
+      .select("id, title, content_kind, cluster_id, url_slug, published_url, artifact_url, topic_clusters(cluster_name, kind), tasks(published_url)")
+      .in("id", itemIds);
+    for (const it of (itemData ?? []) as unknown as IRow[]) itemById.set(it.id, it);
+  }
 
   const sitemapIndex = await loadSitemapIndex(supabase, projectId);
   const usageByTool = new Map<string, ToolUsage[]>();
-  for (const it of items) {
+  for (const p of pairs) {
+    const it = itemById.get(p.itemId);
+    if (!it) continue;
     const { state, liveUrl } = resolvePublishState(
       { artifactUrl: it.artifact_url, publishedUrl: it.published_url, urlSlug: it.url_slug, taskPublishedUrl: it.tasks?.published_url ?? null },
       sitemapIndex,
     );
     const kind = (it.content_kind as ContentKind | null) ?? asClusterKind(it.topic_clusters?.kind);
-    const arr = usageByTool.get(it.tool_id) ?? [];
+    const arr = usageByTool.get(p.toolId) ?? [];
     arr.push({ itemId: it.id, title: it.title, kind, clusterId: it.cluster_id, clusterName: it.topic_clusters?.cluster_name ?? "Cluster", publishState: state, liveUrl });
-    usageByTool.set(it.tool_id, arr);
+    usageByTool.set(p.toolId, arr);
   }
 
   const tools: ToolOverviewRow[] = toolRows.map((t) => ({

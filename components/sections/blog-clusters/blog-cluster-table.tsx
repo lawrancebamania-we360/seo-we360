@@ -262,7 +262,7 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
 
                 <PageSpec title={openItem.title} slug={openItem.urlSlug} meta={openItem.metaDescription} siteDomain={siteDomain} />
                 <ArtifactEditor itemId={openItem.id} artifactUrl={openItem.artifactUrl} driveUrl={openItem.artifactDriveUrl} />
-                <ToolEditor projectId={projectId} itemId={openItem.id} tool={openItem.tool} />
+                <ToolEditor projectId={projectId} itemId={openItem.id} tools={openItem.tools} />
 
                 <DetailSection label="Primary keyword">
                   {openItem.targetKeyword ?? "—"} {openItem.volMo != null && <span className="text-muted-foreground">({openItem.volMo.toLocaleString()}/mo)</span>}

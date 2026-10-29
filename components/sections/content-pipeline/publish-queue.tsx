@@ -172,25 +172,29 @@ export function PublishQueue({ rows, siteDomain, hideChips }: { rows: PublishQue
                         <Detail label="Description">{r.metaDescription || <span className="text-muted-foreground">No description set.</span>}</Detail>
                         {r.targetKeyword && <Detail label="Target keyword">{r.targetKeyword}</Detail>}
                         {r.urlSlug && <Detail label="Slug"><span className="font-mono text-[12.5px]">{r.urlSlug}</span></Detail>}
-                        {r.tool && (
-                          <Detail label="Calculator">
-                            <div className="space-y-1">
-                              <div className="font-medium">{r.tool.name}</div>
-                              {r.tool.inputs && <div className="text-[12.5px] text-muted-foreground"><span className="font-semibold">Inputs:</span> {r.tool.inputs}</div>}
-                              {r.tool.output && <div className="text-[12.5px] text-muted-foreground"><span className="font-semibold">Output:</span> {r.tool.output}</div>}
-                              {r.tool.formula && <div className="text-[12.5px] text-muted-foreground"><span className="font-semibold">Formula:</span> {r.tool.formula}</div>}
-                              <div className="flex flex-wrap items-center gap-3 pt-0.5 text-[12.5px]">
-                                {r.tool.bundlePath && (
-                                  <button type="button" onClick={() => downloadBundle(r.tool!.bundlePath!)} className="inline-flex items-center gap-1.5 text-foreground hover:underline">
-                                    <FileArchive className="size-3.5 text-muted-foreground" /> <span className="truncate max-w-[200px]">{r.tool.bundleName ?? "HTML bundle"}</span> <Download className="size-3 text-muted-foreground" />
-                                  </button>
-                                )}
-                                {toExternalUrl(r.tool.embedUrl) && (
-                                  <a href={toExternalUrl(r.tool.embedUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-foreground hover:underline">
-                                    <ExternalLink className="size-3.5 text-muted-foreground" /> External
-                                  </a>
-                                )}
-                              </div>
+                        {r.tools.length > 0 && (
+                          <Detail label={r.tools.length === 1 ? "Calculator" : "Calculators"}>
+                            <div className="space-y-2.5">
+                              {r.tools.map((tool) => (
+                                <div key={tool.id} className="space-y-1">
+                                  <div className="font-medium">{tool.name}</div>
+                                  {tool.inputs && <div className="text-[12.5px] text-muted-foreground"><span className="font-semibold">Inputs:</span> {tool.inputs}</div>}
+                                  {tool.output && <div className="text-[12.5px] text-muted-foreground"><span className="font-semibold">Output:</span> {tool.output}</div>}
+                                  {tool.formula && <div className="text-[12.5px] text-muted-foreground"><span className="font-semibold">Formula:</span> {tool.formula}</div>}
+                                  <div className="flex flex-wrap items-center gap-3 pt-0.5 text-[12.5px]">
+                                    {tool.bundlePath && (
+                                      <button type="button" onClick={() => downloadBundle(tool.bundlePath!)} className="inline-flex items-center gap-1.5 text-foreground hover:underline">
+                                        <FileArchive className="size-3.5 text-muted-foreground" /> <span className="truncate max-w-[200px]">{tool.bundleName ?? "HTML bundle"}</span> <Download className="size-3 text-muted-foreground" />
+                                      </button>
+                                    )}
+                                    {toExternalUrl(tool.embedUrl) && (
+                                      <a href={toExternalUrl(tool.embedUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-foreground hover:underline">
+                                        <ExternalLink className="size-3.5 text-muted-foreground" /> External
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </Detail>
                         )}

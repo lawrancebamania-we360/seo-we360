@@ -12,7 +12,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { toExternalUrl } from "@/lib/url";
 import { isMissingColumn, isMissingTable } from "@/lib/ai-citation/run-state";
-import { TOOL_BUNDLE_BUCKET, type ContentTool } from "@/lib/content-pipeline/tool";
+import { TOOL_BUNDLE_BUCKET, MAX_TOOLS_PER_ITEM, type ContentTool } from "@/lib/content-pipeline/tool";
 
 const MIGRATION_NOTICE =
   "This needs a one-time database update first. Apply the 20261028000001 migration in Supabase, then try again.";
@@ -96,6 +96,17 @@ export async function createContentTool(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not authenticated." };
 
+  // When creating straight onto a post, don't leave an orphan tool in the
+  // library if that post is already at the cap. Skipped pre-migration (no join
+  // table), where only one calculator is possible anyway.
+  if (input.item_id) {
+    const { data: links, error: capErr } = await supabase
+      .from("content_tool_items").select("tool_id").eq("item_id", input.item_id);
+    if (!capErr && (links?.length ?? 0) >= MAX_TOOLS_PER_ITEM) {
+      return { ok: false, error: `A post can have up to ${MAX_TOOLS_PER_ITEM} calculators. Remove one first.` };
+    }
+  }
+
   const insert = {
     ...row,
     project_id: parsed.data.project_id,
@@ -145,46 +156,101 @@ export async function updateContentTool(input: z.infer<typeof UpdateInput>): Pro
   return { ok: true, tool: toTool(data as Record<string, unknown>) };
 }
 
+type SB = Awaited<ReturnType<typeof createClient>>;
+
+// Keep the legacy topic_cluster_items.tool_id in step with the post's primary
+// (lowest-position) calculator, so pre-junction code paths and the single-tool
+// read fallback stay correct. Best-effort — a hiccup here never fails the caller.
+async function syncPrimaryTool(supabase: SB, itemId: string): Promise<void> {
+  const { data } = await supabase
+    .from("content_tool_items").select("tool_id, position")
+    .eq("item_id", itemId).order("position", { ascending: true }).order("created_at", { ascending: true });
+  const primary = (data as { tool_id: string }[] | null)?.[0]?.tool_id ?? null;
+  await supabase.from("topic_cluster_items").update({ tool_id: primary }).eq("id", itemId);
+}
+
+async function revalidateForItem(supabase: SB, itemId: string): Promise<void> {
+  const { data } = await supabase.from("topic_cluster_items").select("cluster_id").eq("id", itemId).maybeSingle();
+  const clusterId = (data as { cluster_id: string } | null)?.cluster_id;
+  if (clusterId) revalidatePath(`/dashboard/blog-clusters/${clusterId}`);
+  revalidatePath("/dashboard/blog-clusters");
+  revalidatePath("/dashboard/to-publish");
+}
+
 const AttachInput = z.object({ item_id: z.string().uuid(), tool_id: z.string().uuid() });
 
-// Link an existing tool to a post. RLS on the item row gates who may do this.
+// Link an existing tool to a post (up to MAX_TOOLS_PER_ITEM). RLS on the join
+// row gates who may do this. Before the 20261029000002 migration the join table
+// is absent, so this falls back to the single tool_id link (one calculator).
 export async function attachToolToItem(input: z.infer<typeof AttachInput>): Promise<Result> {
   const parsed = AttachInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Pick a tool." };
+  const { item_id, tool_id } = parsed.data;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not authenticated." };
 
-  const { data, error } = await supabase
-    .from("topic_cluster_items").update({ tool_id: parsed.data.tool_id })
-    .eq("id", parsed.data.item_id).select("id, cluster_id");
-  if (error) return { ok: false, error: missing(error.message) ? MIGRATION_NOTICE : "Could not attach the tool." };
-  if (!data?.length) return { ok: false, error: "That item wasn't found." };
+  // The post's existing links double as the "does the join table exist?" probe.
+  const { data: links, error: listErr } = await supabase
+    .from("content_tool_items").select("tool_id, position").eq("item_id", item_id);
 
-  for (const c of new Set((data as { cluster_id: string }[]).map((r) => r.cluster_id))) revalidatePath(`/dashboard/blog-clusters/${c}`);
-  revalidatePath("/dashboard/to-publish");
+  if (listErr) {
+    // No join table yet -> legacy single-tool link, exactly as before.
+    if (missing(listErr.message)) {
+      const { data, error } = await supabase
+        .from("topic_cluster_items").update({ tool_id }).eq("id", item_id).select("id, cluster_id");
+      if (error) return { ok: false, error: "Could not attach the tool." };
+      if (!data?.length) return { ok: false, error: "That item wasn't found." };
+      for (const c of new Set((data as { cluster_id: string }[]).map((r) => r.cluster_id))) revalidatePath(`/dashboard/blog-clusters/${c}`);
+      revalidatePath("/dashboard/to-publish");
+      return { ok: true };
+    }
+    return { ok: false, error: "Could not attach the tool." };
+  }
+
+  const rows = (links ?? []) as { tool_id: string; position: number | null }[];
+  if (rows.some((r) => r.tool_id === tool_id)) { await revalidateForItem(supabase, item_id); return { ok: true }; } // already attached
+  if (rows.length >= MAX_TOOLS_PER_ITEM) return { ok: false, error: `A post can have up to ${MAX_TOOLS_PER_ITEM} calculators. Remove one first.` };
+
+  const position = rows.length ? Math.max(...rows.map((r) => r.position ?? 0)) + 1 : 0;
+  const { error: insErr } = await supabase.from("content_tool_items").insert({ item_id, tool_id, position });
+  if (insErr) return { ok: false, error: missing(insErr.message) ? MIGRATION_NOTICE : "Could not attach the tool." };
+
+  await syncPrimaryTool(supabase, item_id);
+  await revalidateForItem(supabase, item_id);
   return { ok: true };
 }
 
-const DetachInput = z.object({ item_id: z.string().uuid() });
+const DetachInput = z.object({ item_id: z.string().uuid(), tool_id: z.string().uuid() });
 
-// Unlink the tool from this post only (the tool itself stays in the library).
+// Unlink ONE calculator from this post (the tool itself stays in the library).
 export async function detachToolFromItem(input: z.infer<typeof DetachInput>): Promise<Result> {
   const parsed = DetachInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: "That item wasn't found." };
+  const { item_id, tool_id } = parsed.data;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not authenticated." };
 
-  const { data, error } = await supabase
-    .from("topic_cluster_items").update({ tool_id: null })
-    .eq("id", parsed.data.item_id).select("id, cluster_id");
-  if (error) return { ok: false, error: missing(error.message) ? MIGRATION_NOTICE : "Could not remove the tool." };
+  const { error } = await supabase
+    .from("content_tool_items").delete().eq("item_id", item_id).eq("tool_id", tool_id);
+  if (error) {
+    // Legacy single-tool link (pre-migration): clear tool_id if it's this tool.
+    if (missing(error.message)) {
+      const { data, error: upErr } = await supabase
+        .from("topic_cluster_items").update({ tool_id: null }).eq("id", item_id).eq("tool_id", tool_id).select("id, cluster_id");
+      if (upErr) return { ok: false, error: "Could not remove the tool." };
+      for (const c of new Set((data as { cluster_id: string }[] ?? []).map((r) => r.cluster_id))) revalidatePath(`/dashboard/blog-clusters/${c}`);
+      revalidatePath("/dashboard/to-publish");
+      return { ok: true };
+    }
+    return { ok: false, error: "Could not remove the tool." };
+  }
 
-  for (const c of new Set((data as { cluster_id: string }[] ?? []).map((r) => r.cluster_id))) revalidatePath(`/dashboard/blog-clusters/${c}`);
-  revalidatePath("/dashboard/to-publish");
+  await syncPrimaryTool(supabase, item_id);
+  await revalidateForItem(supabase, item_id);
   return { ok: true };
 }
 
