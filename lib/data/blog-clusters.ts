@@ -64,6 +64,8 @@ export interface BlogClusterSummary {
   itemCount: number;
   assignedCount: number;
   createdAt: string;
+  /** Lightweight post list so the list page can search by post title/keyword, not just cluster name. */
+  posts: { title: string; keyword: string | null }[];
 }
 
 export async function getBlogClusters(projectId: string): Promise<BlogClusterSummary[]> {
@@ -82,15 +84,19 @@ export async function getBlogClusters(projectId: string): Promise<BlogClusterSum
 
   const { data: items } = await supabase
     .from("topic_cluster_items")
-    .select("cluster_id, task_id")
+    .select("cluster_id, task_id, title, target_keyword")
     .in("cluster_id", rows.map((r) => r.id));
-  const itemRows = (items ?? []) as Array<{ cluster_id: string; task_id: string | null }>;
+  const itemRows = (items ?? []) as Array<{ cluster_id: string; task_id: string | null; title: string; target_keyword: string | null }>;
   const countByCluster = new Map<string, { total: number; assigned: number }>();
+  const postsByCluster = new Map<string, { title: string; keyword: string | null }[]>();
   for (const it of itemRows) {
     const c = countByCluster.get(it.cluster_id) ?? { total: 0, assigned: 0 };
     c.total++;
     if (it.task_id) c.assigned++;
     countByCluster.set(it.cluster_id, c);
+    const list = postsByCluster.get(it.cluster_id) ?? [];
+    list.push({ title: it.title, keyword: it.target_keyword });
+    postsByCluster.set(it.cluster_id, list);
   }
 
   return rows.map((r) => ({
@@ -101,6 +107,7 @@ export async function getBlogClusters(projectId: string): Promise<BlogClusterSum
     itemCount: countByCluster.get(r.id)?.total ?? 0,
     assignedCount: countByCluster.get(r.id)?.assigned ?? 0,
     createdAt: r.created_at,
+    posts: postsByCluster.get(r.id) ?? [],
   }));
 }
 

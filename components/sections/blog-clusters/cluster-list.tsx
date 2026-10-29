@@ -22,7 +22,11 @@ export function ClusterList({ clusters, projectId, canManage }: { clusters: Blog
   const [q, setQ] = useState("");
 
   const present = useMemo(() => CLUSTER_KINDS.filter((k) => clusters.some((c) => c.kind === k)), [clusters]);
-  const shown = clusters.filter((c) => (filter === "all" || c.kind === filter) && matchesQuery(q, c.clusterName));
+  // How many of a cluster's posts match the query (0 when the query is empty).
+  const postMatches = (c: BlogClusterSummary) => (q.trim() ? c.posts.filter((p) => matchesQuery(q, p.title, p.keyword)).length : 0);
+  // A cluster shows if its name matches OR any of its posts match - so searching
+  // a post title surfaces the cluster that holds it.
+  const shown = clusters.filter((c) => (filter === "all" || c.kind === filter) && (matchesQuery(q, c.clusterName) || postMatches(c) > 0));
 
   if (clusters.length === 0) {
     return (
@@ -49,12 +53,12 @@ export function ClusterList({ clusters, projectId, canManage }: { clusters: Blog
             ))}
           </div>
         ) : <div />}
-        <SearchBox value={q} onChange={setQ} placeholder="Search clusters..." className="w-full sm:w-64" />
+        <SearchBox value={q} onChange={setQ} placeholder="Search clusters or posts..." className="w-full sm:w-64" />
       </div>
 
       {shown.length === 0 ? (
         <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">
-          No clusters match {q.trim() ? <>&ldquo;{q}&rdquo;</> : "that filter"}.
+          No clusters or posts match {q.trim() ? <>&ldquo;{q}&rdquo;</> : "that filter"}.
         </Card>
       ) : (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -74,6 +78,11 @@ export function ClusterList({ clusters, projectId, canManage }: { clusters: Blog
               <p className="mt-1 text-xs text-muted-foreground">
                 {c.itemCount} post{c.itemCount === 1 ? "" : "s"} · {c.assignedCount} assigned
               </p>
+              {postMatches(c) > 0 && (
+                <p className="mt-1 text-[11px] font-medium text-[#5B45E0] dark:text-[#7B62FF]">
+                  {postMatches(c)} matching post{postMatches(c) === 1 ? "" : "s"}
+                </p>
+              )}
               <p className="mt-2 text-[11px] text-muted-foreground/70">
                 Added {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
               </p>

@@ -17,6 +17,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Combobox } from "@/components/ui/combobox";
+import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -53,6 +54,7 @@ type SortDir = "asc" | "desc";
 
 export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Props) {
   const [decisionFilter, setDecisionFilter] = useState<DecisionFilter>("all");
+  const [q, setQ] = useState("");
   // Default sort: impressions desc — biggest visible-traffic loss at the top.
   // Click a header to toggle; clicking the same column again flips direction.
   const [sortKey, setSortKey] = useState<SortKey>("impressions");
@@ -91,9 +93,8 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
   }), [actionable]);
 
   const visible = useMemo(() => {
-    const filtered = decisionFilter === "all"
-      ? actionable
-      : actionable.filter((f) => f.decision === decisionFilter);
+    const filtered = (decisionFilter === "all" ? actionable : actionable.filter((f) => f.decision === decisionFilter))
+      .filter((f) => matchesQuery(q, f.url, f.diagnostic, f.reason));
     // Sort a copy so we don't mutate the parent findings array.
     const sorted = [...filtered];
     sorted.sort((a, b) => {
@@ -103,7 +104,7 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [actionable, decisionFilter, sortKey, sortDir]);
+  }, [actionable, decisionFilter, q, sortKey, sortDir]);
 
   const openTask = (taskId: string) => {
     setOpeningTaskId(taskId);
@@ -123,10 +124,13 @@ export function BlogAuditWorklist({ findings, members, canEdit, projectId }: Pro
         <FilterChip label={`Update · ${counts.refresh}`} active={decisionFilter === "refresh"} onClick={() => setDecisionFilter("refresh")} tone="violet" />
         <FilterChip label={`Merge · ${counts.merge}`} active={decisionFilter === "merge"} onClick={() => setDecisionFilter("merge")} tone="amber" />
         <FilterChip label={`Delete · ${counts.prune}`} active={decisionFilter === "prune"} onClick={() => setDecisionFilter("prune")} tone="rose" />
-        <div className="ml-auto text-xs text-muted-foreground">
-          {actionable.length === 0
-            ? "All clear — every flagged URL already has a task in Sprint or is performing fine."
-            : `${visible.length} of ${actionable.length} need a task`}
+        <div className="ml-auto flex items-center gap-2">
+          <SearchBox value={q} onChange={setQ} placeholder="Search URL, issue..." className="w-44 sm:w-60" />
+          <div className="hidden text-xs text-muted-foreground sm:block">
+            {actionable.length === 0
+              ? "All clear."
+              : `${visible.length} of ${actionable.length} need a task`}
+          </div>
         </div>
       </div>
 

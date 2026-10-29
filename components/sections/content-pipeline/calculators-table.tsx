@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Calculator, ChevronDown, ChevronRight, Download, ExternalLink, FileArchive } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import { toExternalUrl } from "@/lib/url";
 import { signBundleUrl } from "@/lib/actions/content-tools";
 import type { ToolOverviewRow } from "@/lib/data/blog-clusters";
@@ -23,8 +24,10 @@ async function downloadBundle(path: string) {
 
 export function CalculatorsTable({ tools }: { tools: ToolOverviewRow[] }) {
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
+  const [q, setQ] = useState("");
   const toggle = (id: string) => setOpenRows((p) => ({ ...p, [id]: !p[id] }));
   const usedCount = useMemo(() => tools.filter((t) => t.usedOn.length > 0).length, [tools]);
+  const shown = tools.filter((t) => matchesQuery(q, t.name, t.output, t.inputs, t.formula, t.createdByName, t.usedOn.map((u) => u.title).join(" ")));
 
   if (!tools.length) {
     return (
@@ -36,7 +39,13 @@ export function CalculatorsTable({ tools }: { tools: ToolOverviewRow[] }) {
 
   return (
     <div className="space-y-3">
-      <div className="text-[12.5px] text-muted-foreground">{tools.length} calculator{tools.length === 1 ? "" : "s"} · {usedCount} attached to a post</div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-[12.5px] text-muted-foreground">{tools.length} calculator{tools.length === 1 ? "" : "s"} · {usedCount} attached to a post</div>
+        <SearchBox value={q} onChange={setQ} placeholder="Search calculators..." className="w-full sm:w-64" />
+      </div>
+      {shown.length === 0 ? (
+        <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">No calculators match &ldquo;{q}&rdquo;.</Card>
+      ) : (
       <div className="overflow-x-auto rounded-xl border border-border">
         <table className="w-full min-w-[820px] text-sm">
           <thead>
@@ -49,7 +58,7 @@ export function CalculatorsTable({ tools }: { tools: ToolOverviewRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {tools.map((t) => {
+            {shown.map((t) => {
               const open = !!openRows[t.id];
               return (
                 <Fragment key={t.id}>
@@ -113,6 +122,7 @@ export function CalculatorsTable({ tools }: { tools: ToolOverviewRow[] }) {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

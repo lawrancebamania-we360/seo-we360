@@ -9,6 +9,7 @@
 import { useMemo, useState } from "react";
 import { ExternalLink, ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import { toExternalUrl } from "@/lib/url";
 import { InfluencerCollabActions } from "@/components/sections/influencer-collabs/influencer-collab-actions";
 import type { InfluencerCollabRow } from "@/lib/data/influencer-collabs";
@@ -50,6 +51,7 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("postDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [q, setQ] = useState("");
 
   const sorted = useMemo(() => {
     const copy = [...collabs];
@@ -84,6 +86,8 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
     setSortDir(col.defaultDir);
   };
 
+  const shown = sorted.filter((c) => matchesQuery(q, c.influencerName, c.platform, c.assigneeName));
+
   if (!collabs.length) {
     return (
       <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">
@@ -93,6 +97,15 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
   }
 
   return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <SearchBox value={q} onChange={setQ} placeholder="Search influencers, platform..." className="w-full sm:w-72" />
+      </div>
+      {shown.length === 0 ? (
+        <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">
+          No collabs match &ldquo;{q}&rdquo;.
+        </Card>
+      ) : (
     <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full text-sm">
         <thead>
@@ -118,7 +131,7 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
           </tr>
         </thead>
         <tbody>
-          {sorted.map((c) => (
+          {shown.map((c) => (
             <tr key={c.id} className="border-b border-border/60 last:border-0 transition-colors hover:bg-muted/30">
               <td className="max-w-[180px] truncate px-3 py-2.5 font-medium text-foreground" title={c.influencerName}>
                 {c.influencerName}
@@ -148,6 +161,8 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
           ))}
         </tbody>
       </table>
+    </div>
+      )}
     </div>
   );
 }

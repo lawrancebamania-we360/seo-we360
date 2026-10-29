@@ -16,6 +16,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import { toExternalUrl } from "@/lib/url";
 import { RemoveWebsiteButton } from "@/components/sections/backlinks/website-removal";
 import type { BacklinkWebsiteSummary } from "@/lib/data/backlinks";
@@ -52,6 +53,7 @@ export function BacklinkWebsiteTable({ websites, projectId, canManage }: {
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("lastSubmissionDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [q, setQ] = useState("");
 
   const sorted = useMemo(() => {
     const copy = [...websites];
@@ -91,6 +93,8 @@ export function BacklinkWebsiteTable({ websites, projectId, canManage }: {
     setSortDir(col.defaultDir);
   };
 
+  const shown = sorted.filter((w) => matchesQuery(q, w.domain, w.lastSubmissionTopic, w.lastSubmissionAssigneeName));
+
   if (!websites.length) {
     return (
       <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">
@@ -100,6 +104,15 @@ export function BacklinkWebsiteTable({ websites, projectId, canManage }: {
   }
 
   return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <SearchBox value={q} onChange={setQ} placeholder="Search websites, topic..." className="w-full sm:w-72" />
+      </div>
+      {shown.length === 0 ? (
+        <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">
+          No websites match &ldquo;{q}&rdquo;.
+        </Card>
+      ) : (
     <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full text-sm">
         <thead>
@@ -124,7 +137,7 @@ export function BacklinkWebsiteTable({ websites, projectId, canManage }: {
           </tr>
         </thead>
         <tbody>
-          {sorted.map((w) => (
+          {shown.map((w) => (
             <tr key={w.id} className="border-b border-border/60 last:border-0 transition-colors hover:bg-muted/30">
               <td className="px-3 py-2.5">
                 <Link href={`/dashboard/backlinks/${w.id}`} className="font-medium text-foreground hover:underline">
@@ -168,6 +181,8 @@ export function BacklinkWebsiteTable({ websites, projectId, canManage }: {
           ))}
         </tbody>
       </table>
+    </div>
+      )}
     </div>
   );
 }
