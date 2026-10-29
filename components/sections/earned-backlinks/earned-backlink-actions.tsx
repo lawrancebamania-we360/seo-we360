@@ -21,12 +21,13 @@ import type { EarnedBacklinkRow } from "@/lib/data/earned-backlinks";
 import type { Member } from "@/components/sections/assignee-picker";
 
 export function EarnedBacklinkActions({
-  projectId, backlink, members, canManage,
+  projectId, backlink, members, canManage, exchangeReady,
 }: {
   projectId: string;
   backlink: EarnedBacklinkRow;
   members: Member[];
   canManage: boolean;
+  exchangeReady: boolean;
 }) {
   const router = useRouter();
   const backlinkId = backlink.id;
@@ -142,6 +143,7 @@ export function EarnedBacklinkActions({
           projectId={projectId}
           backlink={backlink}
           members={members}
+          exchangeReady={exchangeReady}
         />
       )}
     </div>

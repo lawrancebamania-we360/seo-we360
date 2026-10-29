@@ -23,7 +23,7 @@ export default async function LinkBuildingPage({
   const start = params.start ?? "";
   const end = params.end ?? "";
 
-  const [backlinks, members] = await Promise.all([
+  const [{ rows: backlinks, exchangeReady }, members] = await Promise.all([
     getEarnedBacklinks(ctx.activeProject.id, resolveBacklinkRange(range, start, end)),
     getTeamMembers(),
   ]);
@@ -36,12 +36,12 @@ export default async function LinkBuildingPage({
         actions={
           <div className="flex flex-nowrap items-center gap-2">
             <BacklinkDateFilter range={range} start={start} end={end} />
-            {ctx.canManageTeam && <AddEarnedBacklinkButton projectId={ctx.activeProject.id} members={members} />}
+            {ctx.canManageTeam && <AddEarnedBacklinkButton projectId={ctx.activeProject.id} members={members} exchangeReady={exchangeReady} />}
           </div>
         }
       />
 
-      <EarnedBacklinksTable websites={backlinks} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} />
+      <EarnedBacklinksTable websites={backlinks} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} exchangeReady={exchangeReady} />
     </div>
   );
 }

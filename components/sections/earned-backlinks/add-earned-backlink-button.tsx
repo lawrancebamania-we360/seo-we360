@@ -18,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Combobox } from "@/components/ui/combobox";
 import { addEarnedBacklink, previewEarnedBacklinksImport, commitEarnedBacklinksImport } from "@/lib/actions/earned-backlinks";
+import { ExchangeFields, toExchangeInput, EMPTY_EXCHANGE, type ExchangeFieldValues } from "@/components/sections/earned-backlinks/exchange-fields";
 import type { Member } from "@/components/sections/assignee-picker";
 
 const UNASSIGNED = "__unassigned__";
@@ -27,10 +28,13 @@ const today = (): string => new Date().toISOString().slice(0, 10);
 type ParsedRow = {
   tempId: string; website: string; acquired_date: string; domain_rating: string; backlink_url: string;
   amount_paid: string; currency: string; is_free: string;
+  link_type?: string; spam_score?: string; anchor_text?: string; anchor_target?: string; contact_email?: string;
+  given_url?: string; given_anchor_text?: string; given_anchor_target?: string;
+  given_domain_rating?: string; given_spam_score?: string; given_date?: string;
 };
 type View = "form" | "paste" | "review";
 
-export function AddEarnedBacklinkButton({ projectId, members }: { projectId: string; members: Member[] }) {
+export function AddEarnedBacklinkButton({ projectId, members, exchangeReady }: { projectId: string; members: Member[]; exchangeReady: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("form");
@@ -44,6 +48,7 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<"USD" | "INR">("USD");
   const [isFree, setIsFree] = useState(false);
+  const [exchange, setExchange] = useState<ExchangeFieldValues>(EMPTY_EXCHANGE);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,7 +68,7 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
   const reset = () => {
     setView("form");
     setWebsite(""); setDate(today()); setDr(""); setLink(""); setAssignedTo(UNASSIGNED);
-    setAmount(""); setCurrency("USD"); setIsFree(false);
+    setAmount(""); setCurrency("USD"); setIsFree(false); setExchange(EMPTY_EXCHANGE);
     setError(null);
     setPastedText(""); setPasteError(null);
     setRows([]); setRowAssignments({}); setSelected(new Set());
@@ -84,6 +89,7 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
       is_free: isFree,
       amount_paid: isFree ? undefined : (amount.trim() || undefined),
       currency,
+      ...(exchangeReady ? toExchangeInput(exchange) : {}),
     });
     setBusy(false);
     if (!r.ok) { setError(r.error ?? "Could not add that backlink."); return; }
@@ -143,6 +149,17 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
         amount_paid: row.amount_paid,
         currency: row.currency,
         is_free: row.is_free,
+        link_type: row.link_type,
+        spam_score: row.spam_score,
+        anchor_text: row.anchor_text,
+        anchor_target: row.anchor_target,
+        contact_email: row.contact_email,
+        given_url: row.given_url,
+        given_anchor_text: row.given_anchor_text,
+        given_anchor_target: row.given_anchor_target,
+        given_domain_rating: row.given_domain_rating,
+        given_spam_score: row.given_spam_score,
+        given_date: row.given_date,
       })),
     });
     setCommitBusy(false);
@@ -160,7 +177,7 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
         <Plus className="size-3.5" /> Add backlink
       </Button>
       <Dialog open={open} onOpenChange={(v) => { if (!busy && !pasteBusy && !commitBusy) { setOpen(v); if (!v) reset(); } }}>
-        <DialogContent className={view === "review" ? "sm:max-w-[760px]" : "sm:max-w-[480px]"}>
+        <DialogContent className={view === "review" ? "sm:max-w-[760px]" : "max-h-[88vh] overflow-y-auto sm:max-w-[520px]"}>
           {view === "form" && (
             <>
               <DialogHeader>
@@ -222,6 +239,9 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
                     className="h-9 w-full"
                   />
                 </div>
+                {exchangeReady && (
+                  <ExchangeFields idPrefix="eb-add" values={exchange} onChange={(patch) => setExchange((p) => ({ ...p, ...patch }))} />
+                )}
                 {error && <p className="text-xs text-error-600">{error}</p>}
               </div>
               <DialogFooter className="sm:justify-between">
@@ -243,7 +263,7 @@ export function AddEarnedBacklinkButton({ projectId, members }: { projectId: str
               <DialogHeader>
                 <DialogTitle>Paste backlinks from your tracking sheet</DialogTitle>
                 <DialogDescription>
-                  Select the header row + every data row in your sheet, copy, and paste below. Columns are matched by name, so order doesn&apos;t matter. Expected columns: Website, Date, DR, Link, Amount, Currency, Free (Amount/Currency/Free are optional - leave Free blank unless the backlink didn&apos;t cost anything).
+                  Select the header row + every data row in your sheet, copy, and paste below. Columns are matched by name. Recognised: Link Type, Live we got (the link), DR, Spam, Anchor text, Anchor link, Date, and the reciprocal set Link we gave, Anchor text, Anchor link, DR, Spam, Date, plus Email. On an exchange sheet the second DR / Spam / Anchor / Date is read as the link you gave back. Website is taken from the link if there&apos;s no Website column.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3">

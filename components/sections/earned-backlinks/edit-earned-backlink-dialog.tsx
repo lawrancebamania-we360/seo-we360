@@ -16,18 +16,21 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Combobox } from "@/components/ui/combobox";
 import { updateEarnedBacklink } from "@/lib/actions/earned-backlinks";
+import { ExchangeFields, toExchangeInput, type ExchangeFieldValues } from "@/components/sections/earned-backlinks/exchange-fields";
 import type { EarnedBacklinkRow } from "@/lib/data/earned-backlinks";
 import type { Member } from "@/components/sections/assignee-picker";
 
 const UNASSIGNED = "__unassigned__";
 const CURRENCY_ITEMS = [{ value: "USD", label: "USD" }, { value: "INR", label: "INR" }];
+const numStr = (n: number | null): string => (n == null ? "" : String(n));
 
-export function EditEarnedBacklinkDialog({ open, onOpenChange, projectId, backlink, members }: {
+export function EditEarnedBacklinkDialog({ open, onOpenChange, projectId, backlink, members, exchangeReady }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   projectId: string;
   backlink: EarnedBacklinkRow;
   members: Member[];
+  exchangeReady: boolean;
 }) {
   const router = useRouter();
   const [website, setWebsite] = useState(backlink.website);
@@ -40,6 +43,19 @@ export function EditEarnedBacklinkDialog({ open, onOpenChange, projectId, backli
   const [isFree, setIsFree] = useState(backlink.isFree);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exchange, setExchange] = useState<ExchangeFieldValues>({
+    linkType: backlink.linkType ?? "",
+    spamScore: numStr(backlink.spamScore),
+    anchorText: backlink.anchorText ?? "",
+    anchorTarget: backlink.anchorTarget ?? "",
+    contactEmail: backlink.contactEmail ?? "",
+    givenUrl: backlink.givenUrl ?? "",
+    givenAnchorText: backlink.givenAnchorText ?? "",
+    givenAnchorTarget: backlink.givenAnchorTarget ?? "",
+    givenDomainRating: numStr(backlink.givenDomainRating),
+    givenSpamScore: numStr(backlink.givenSpamScore),
+    givenDate: backlink.givenDate ?? "",
+  });
 
   const memberItems = [{ value: UNASSIGNED, label: "Unassigned" }, ...members.map((m) => ({ value: m.id, label: m.name }))];
 
@@ -58,6 +74,7 @@ export function EditEarnedBacklinkDialog({ open, onOpenChange, projectId, backli
       is_free: isFree,
       amount_paid: isFree ? undefined : (amount.trim() || undefined),
       currency,
+      ...(exchangeReady ? toExchangeInput(exchange) : {}),
     });
     setBusy(false);
     if (!r.ok) { setError(r.error ?? "Could not save your changes."); return; }
@@ -68,7 +85,7 @@ export function EditEarnedBacklinkDialog({ open, onOpenChange, projectId, backli
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!busy) onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>Edit backlink</DialogTitle>
           <DialogDescription>Update any detail of this logged backlink.</DialogDescription>
@@ -128,6 +145,13 @@ export function EditEarnedBacklinkDialog({ open, onOpenChange, projectId, backli
               className="h-9 w-full"
             />
           </div>
+          {exchangeReady ? (
+            <ExchangeFields idPrefix="eb-edit" values={exchange} onChange={(patch) => setExchange((p) => ({ ...p, ...patch }))} />
+          ) : (
+            <p className="rounded-md border border-dashed border-border px-3 py-2 text-[11.5px] text-muted-foreground">
+              Apply migration 20261029000001 to edit link-exchange details (type, spam, anchors, reciprocal link).
+            </p>
+          )}
           {error && <p className="text-xs text-error-600">{error}</p>}
         </div>
         <DialogFooter>
