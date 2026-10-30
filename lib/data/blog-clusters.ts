@@ -92,23 +92,41 @@ export interface BlogClusterSummary {
   itemCount: number;
   assignedCount: number;
   createdAt: string;
+  /** Cluster owner (POC). ownerName is resolved from profiles; null = unassigned. */
+  ownerId: string | null;
+  ownerName: string | null;
+  /** False until the owner_id migration (20261030000001) is applied. */
+  ownerReady: boolean;
   /** Lightweight post list so the list page can search by post title/keyword, not just cluster name. */
   posts: { title: string; keyword: string | null }[];
 }
 
 export async function getBlogClusters(projectId: string): Promise<BlogClusterSummary[]> {
   const supabase = await createClient();
-  // `kind` only exists after its migration; fall back to the base columns (and
-  // default every cluster to blog) before it's applied.
-  const loadClusters = (withKind: boolean) =>
-    supabase.from("topic_clusters")
-      .select(withKind ? "id, cluster_name, source, kind, created_at" : "id, cluster_name, source, created_at")
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: false });
-  let clustersRes = await loadClusters(true);
-  if (clustersRes.error && isMissingColumn(clustersRes.error.message)) clustersRes = await loadClusters(false);
-  const rows = (clustersRes.data ?? []) as unknown as Array<{ id: string; cluster_name: string; source: string; kind?: string | null; created_at: string }>;
+  // `kind` and `owner_id` each arrive via their own migration; peel them off the
+  // select if missing (and default the cluster to blog / ownerless) so the list
+  // still loads at any migration stage.
+  const loadClusters = (withKind: boolean, withOwner: boolean) => {
+    const cols = ["id", "cluster_name", "source", "created_at"];
+    if (withKind) cols.push("kind");
+    if (withOwner) cols.push("owner_id");
+    return supabase.from("topic_clusters").select(cols.join(", "))
+      .eq("project_id", projectId).order("created_at", { ascending: false });
+  };
+  let ownerReady = true;
+  let clustersRes = await loadClusters(true, true);
+  if (clustersRes.error && isMissingColumn(clustersRes.error.message)) { ownerReady = false; clustersRes = await loadClusters(true, false); }
+  if (clustersRes.error && isMissingColumn(clustersRes.error.message)) clustersRes = await loadClusters(false, false);
+  const rows = (clustersRes.data ?? []) as unknown as Array<{ id: string; cluster_name: string; source: string; kind?: string | null; owner_id?: string | null; created_at: string }>;
   if (!rows.length) return [];
+
+  // Resolve owner names in one lookup.
+  const ownerIds = [...new Set(rows.map((r) => r.owner_id).filter((v): v is string => !!v))];
+  const ownerById = new Map<string, string>();
+  if (ownerIds.length) {
+    const { data: profs } = await supabase.from("profiles").select("id, name").in("id", ownerIds);
+    for (const p of (profs ?? []) as Array<{ id: string; name: string | null }>) ownerById.set(p.id, p.name ?? "");
+  }
 
   const { data: items } = await supabase
     .from("topic_cluster_items")
@@ -135,6 +153,9 @@ export async function getBlogClusters(projectId: string): Promise<BlogClusterSum
     itemCount: countByCluster.get(r.id)?.total ?? 0,
     assignedCount: countByCluster.get(r.id)?.assigned ?? 0,
     createdAt: r.created_at,
+    ownerId: r.owner_id ?? null,
+    ownerName: r.owner_id ? (ownerById.get(r.owner_id) || null) : null,
+    ownerReady,
     posts: postsByCluster.get(r.id) ?? [],
   }));
 }

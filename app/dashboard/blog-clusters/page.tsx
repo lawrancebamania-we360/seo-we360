@@ -1,5 +1,6 @@
 import { requireSection } from "@/lib/auth/get-user";
 import { getBlogClusters } from "@/lib/data/blog-clusters";
+import { getTeamMembers } from "@/lib/data/tasks";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { NewClusterButton } from "@/components/sections/blog-clusters/new-cluster-button";
@@ -11,7 +12,10 @@ export default async function BlogClustersPage() {
   const ctx = await requireSection("sprint");
   if (!ctx.activeProject) return <EmptyProjectState canCreate={ctx.canManageProjects} />;
 
-  const clusters = await getBlogClusters(ctx.activeProject.id);
+  const [clusters, members] = await Promise.all([
+    getBlogClusters(ctx.activeProject.id),
+    getTeamMembers(),
+  ]);
 
   return (
     <div className="flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-10 space-y-5 max-w-[1800px] w-full mx-auto">
@@ -21,7 +25,7 @@ export default async function BlogClustersPage() {
         actions={ctx.canManageTeam ? <NewClusterButton projectId={ctx.activeProject.id} /> : null}
       />
 
-      <ClusterList clusters={clusters} projectId={ctx.activeProject.id} canManage={ctx.canManageTeam} />
+      <ClusterList clusters={clusters} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} />
     </div>
   );
 }

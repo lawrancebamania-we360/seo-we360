@@ -14,10 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import { cn } from "@/lib/utils";
 import { ClusterKindBadge, ClusterKindSelect } from "@/components/sections/content-pipeline/item-controls";
+import { ClusterOwner } from "@/components/sections/blog-clusters/cluster-owner";
 import { CLUSTER_KIND_LABEL, CLUSTER_KINDS, type ClusterKind } from "@/lib/content-pipeline/content-type";
 import type { BlogClusterSummary } from "@/lib/data/blog-clusters";
+import type { Member } from "@/components/sections/assignee-picker";
 
-export function ClusterList({ clusters, projectId, canManage }: { clusters: BlogClusterSummary[]; projectId: string; canManage: boolean }) {
+export function ClusterList({ clusters, projectId, members, canManage }: { clusters: BlogClusterSummary[]; projectId: string; members: Member[]; canManage: boolean }) {
   const [filter, setFilter] = useState<ClusterKind | "all">("all");
   const [q, setQ] = useState("");
 
@@ -83,6 +85,17 @@ export function ClusterList({ clusters, projectId, canManage }: { clusters: Blog
                   {postMatches(c)} matching post{postMatches(c) === 1 ? "" : "s"}
                 </p>
               )}
+              <div className="mt-2.5">
+                <ClusterOwner
+                  compact
+                  projectId={projectId}
+                  clusterId={c.id}
+                  ownerId={c.ownerId}
+                  ownerReady={c.ownerReady}
+                  members={members}
+                  canManage={canManage}
+                />
+              </div>
               <p className="mt-2 text-[11px] text-muted-foreground/70">
                 Added {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
               </p>
