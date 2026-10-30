@@ -180,19 +180,30 @@ export interface BlogClusterDetail {
   pillarTitle: string;
   source: "ai_generated" | "import";
   kind: ClusterKind;
+  /** The cluster's point-of-contact (profiles.id), null when unassigned. */
+  ownerId: string | null;
+  /** False until the owner_id migration (20261030000001) is applied. */
+  ownerReady: boolean;
   items: BlogClusterItemRow[];
 }
 
 export async function getBlogClusterDetail(projectId: string, clusterId: string): Promise<BlogClusterDetail | null> {
   const supabase = await createClient();
-  const loadCluster = (withKind: boolean) =>
-    supabase.from("topic_clusters")
-      .select(withKind ? "id, cluster_name, pillar_title, source, kind" : "id, cluster_name, pillar_title, source")
+  // `kind` and `owner_id` each arrive via their own migration; peel them off the
+  // select if missing so the cluster still opens at any migration stage.
+  const loadCluster = (withKind: boolean, withOwner: boolean) => {
+    const cols = ["id", "cluster_name", "pillar_title", "source"];
+    if (withKind) cols.push("kind");
+    if (withOwner) cols.push("owner_id");
+    return supabase.from("topic_clusters").select(cols.join(", "))
       .eq("id", clusterId).eq("project_id", projectId).maybeSingle();
-  let clusterRes = await loadCluster(true);
-  if (clusterRes.error && isMissingColumn(clusterRes.error.message)) clusterRes = await loadCluster(false);
+  };
+  let ownerReady = true;
+  let clusterRes = await loadCluster(true, true);
+  if (clusterRes.error && isMissingColumn(clusterRes.error.message)) { ownerReady = false; clusterRes = await loadCluster(true, false); }
+  if (clusterRes.error && isMissingColumn(clusterRes.error.message)) clusterRes = await loadCluster(false, false);
   if (!clusterRes.data) return null;
-  const c = clusterRes.data as unknown as { id: string; cluster_name: string; pillar_title: string; source: string; kind?: string | null };
+  const c = clusterRes.data as unknown as { id: string; cluster_name: string; pillar_title: string; source: string; kind?: string | null; owner_id?: string | null };
   const clusterKind = asClusterKind(c.kind);
 
   // tasks has three FKs into profiles (created_by, reviewed_by_id, team_member_id) -
@@ -294,6 +305,8 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
     pillarTitle: c.pillar_title,
     source: (c.source as "ai_generated" | "import") ?? "ai_generated",
     kind: clusterKind,
+    ownerId: c.owner_id ?? null,
+    ownerReady,
     items,
   };
 }

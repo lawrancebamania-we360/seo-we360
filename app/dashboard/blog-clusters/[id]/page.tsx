@@ -8,6 +8,8 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { BlogClusterTable } from "@/components/sections/blog-clusters/blog-cluster-table";
 import { DeleteClusterButton } from "@/components/sections/blog-clusters/delete-cluster-button";
+import { AddClusterPostButton } from "@/components/sections/blog-clusters/add-cluster-post-button";
+import { ClusterOwner } from "@/components/sections/blog-clusters/cluster-owner";
 import { ClusterKindBadge, ClusterKindSelect } from "@/components/sections/content-pipeline/item-controls";
 
 export default async function BlogClusterDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,9 +36,19 @@ export default async function BlogClusterDetailPage({ params }: { params: Promis
             {ctx.canManageTeam
               ? <ClusterKindSelect projectId={ctx.activeProject.id} clusterId={cluster.id} kind={cluster.kind} />
               : <ClusterKindBadge kind={cluster.kind} />}
+            {ctx.canManageTeam && <AddClusterPostButton projectId={ctx.activeProject.id} clusterId={cluster.id} />}
             {ctx.canManageTeam && <DeleteClusterButton projectId={ctx.activeProject.id} clusterId={cluster.id} clusterName={cluster.clusterName} />}
           </div>
         }
+      />
+
+      <ClusterOwner
+        projectId={ctx.activeProject.id}
+        clusterId={cluster.id}
+        ownerId={cluster.ownerId}
+        ownerReady={cluster.ownerReady}
+        members={members}
+        canManage={ctx.canManageTeam}
       />
 
       <BlogClusterTable clusterName={cluster.clusterName} items={cluster.items} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} siteDomain={ctx.activeProject.domain} />

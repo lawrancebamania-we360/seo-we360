@@ -19,6 +19,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { isMissingColumn } from "@/lib/ai-citation/run-state";
 
 const ImportInput = z.object({
   project_id: z.string().uuid(),
@@ -347,5 +348,171 @@ export async function deleteBlogCluster(input: z.infer<typeof DeleteClusterInput
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/dashboard/blog-clusters");
+  return { ok: true };
+}
+
+// ---- Tickets 1 & 2: add a post by hand / build a cluster without pasting ----
+
+// The structured fields for one planned post. Title / meta / slug / primary
+// keyword are required (the form enforces the same); everything else is
+// optional and maps to the exact columns the paste importer fills.
+const PostFields = {
+  title: z.string().trim().min(1, "Give the post a title.").max(300),
+  meta_description: z.string().trim().min(1, "Add a meta description.").max(500),
+  url_slug: z.string().trim().min(1, "Add a URL slug.").max(300),
+  target_keyword: z.string().trim().min(1, "Add a primary keyword.").max(200),
+  supporting_keywords: z.array(z.object({
+    keyword: z.string().trim().min(1).max(200),
+    volume: z.number().int().nonnegative().nullable(),
+  })).max(50).optional().default([]),
+  category: z.string().trim().max(200).optional().nullable(),
+  funnel_stage: z.string().trim().max(50).optional().nullable(),
+  content_type: z.string().trim().max(200).optional().nullable(),
+  vol_mo: z.number().int().nonnegative().nullable().optional(),
+  serp_verdict: z.string().trim().max(4000).optional().nullable(),
+  outline: z.array(z.string().trim().min(1)).max(100).optional().default([]),
+  faq_candidates: z.array(z.string().trim().min(1)).max(100).optional().default([]),
+  interlinks_to: z.array(z.string().trim().min(1)).max(100).optional().default([]),
+  interlinks_from: z.array(z.string().trim().min(1)).max(100).optional().default([]),
+  primary_cta: z.string().trim().max(500).optional().nullable(),
+};
+
+type PostInput = {
+  title: string; meta_description: string; url_slug: string; target_keyword: string;
+  supporting_keywords?: Array<{ keyword: string; volume: number | null }>;
+  category?: string | null; funnel_stage?: string | null; content_type?: string | null;
+  vol_mo?: number | null; serp_verdict?: string | null;
+  outline?: string[]; faq_candidates?: string[]; interlinks_to?: string[]; interlinks_from?: string[];
+  primary_cta?: string | null;
+};
+
+function toItemInsert(clusterId: string, projectId: string, position: number, d: PostInput): Record<string, unknown> {
+  return {
+    cluster_id: clusterId,
+    project_id: projectId,
+    position,
+    title: d.title,
+    target_keyword: d.target_keyword,
+    meta_description: d.meta_description,
+    url_slug: d.url_slug,
+    supporting_keywords: d.supporting_keywords ?? [],
+    outline: d.outline ?? [],
+    faq_candidates: d.faq_candidates ?? [],
+    interlinks_to: d.interlinks_to ?? [],
+    interlinks_from: d.interlinks_from ?? [],
+    category: d.category || null,
+    funnel_stage: d.funnel_stage || null,
+    content_type: d.content_type || null,
+    vol_mo: d.vol_mo ?? null,
+    serp_verdict: d.serp_verdict || null,
+    primary_cta: d.primary_cta || null,
+  };
+}
+
+const AddItemInput = z.object({ project_id: z.string().uuid(), cluster_id: z.string().uuid(), ...PostFields });
+
+/** Ticket 1: add one planned post to an existing cluster (appended at the end). */
+export async function addClusterItem(input: z.infer<typeof AddItemInput>): Promise<{ ok: boolean; error?: string; itemId?: string }> {
+  const parsed = AddItemInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Those details aren't valid." };
+  const { project_id, cluster_id } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  // Append after the last post in this cluster.
+  const { data: posRows } = await supabase
+    .from("topic_cluster_items").select("position")
+    .eq("cluster_id", cluster_id).order("position", { ascending: false }).limit(1);
+  const nextPos = (((posRows as { position: number }[] | null)?.[0]?.position) ?? 0) + 1;
+
+  const { data, error } = await supabase
+    .from("topic_cluster_items").insert(toItemInsert(cluster_id, project_id, nextPos, parsed.data)).select("id").single();
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard/blog-clusters");
+  revalidatePath(`/dashboard/blog-clusters/${cluster_id}`);
+  revalidatePath("/dashboard/to-publish");
+  return { ok: true, itemId: (data as { id: string }).id };
+}
+
+const CreateManualInput = z.object({
+  project_id: z.string().uuid(),
+  cluster_name: z.string().trim().min(1, "Give the cluster a name.").max(160),
+  kind: z.enum(["blog", "guide"]).optional(),
+  ...PostFields,
+});
+
+/**
+ * Ticket 2: create a cluster by hand (no paste) with its first post. The pillar
+ * columns on topic_clusters are NOT NULL, so they're seeded from the first post
+ * exactly as the importer does. source='import' is the only non-AI value the
+ * source CHECK allows, so a hand-built cluster carries the same flag.
+ */
+export async function createClusterManual(input: z.infer<typeof CreateManualInput>): Promise<ImportClusterResult> {
+  const parsed = CreateManualInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Those details aren't valid." };
+  const { project_id, cluster_name, kind } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { data: created, error: createErr } = await supabase
+    .from("topic_clusters")
+    .insert({
+      project_id,
+      cluster_name,
+      seed_keyword: parsed.data.target_keyword,
+      pillar_title: parsed.data.title,
+      pillar_slug: parsed.data.url_slug,
+      pillar_primary_keyword: parsed.data.target_keyword,
+      source: "import",
+      generated_by: user.id,
+    })
+    .select("id")
+    .single();
+  if (createErr || !created) return { ok: false, error: createErr?.message ?? "Could not create the cluster." };
+  const clusterId = (created as { id: string }).id;
+
+  // Set Blog/Guide separately so a not-yet-applied `kind` column can't break it.
+  if (kind && kind !== "blog") await supabase.from("topic_clusters").update({ kind }).eq("id", clusterId).eq("project_id", project_id);
+
+  const { error: insertErr } = await supabase
+    .from("topic_cluster_items").insert(toItemInsert(clusterId, project_id, 1, parsed.data));
+  if (insertErr) return { ok: false, error: insertErr.message, clusterId };
+
+  revalidatePath("/dashboard/blog-clusters");
+  revalidatePath(`/dashboard/blog-clusters/${clusterId}`);
+  return { ok: true, clusterId, itemsCreated: 1, itemsSkipped: 0 };
+}
+
+// ---- Ticket 3: cluster owner (point of contact) ----------------------------
+
+const OwnerInput = z.object({
+  project_id: z.string().uuid(),
+  cluster_id: z.string().uuid(),
+  owner_id: z.string().uuid().nullable(),
+});
+
+/** Set/clear a cluster's owner (a profiles.id from the project's team). */
+export async function setClusterOwner(input: z.infer<typeof OwnerInput>): Promise<{ ok: boolean; error?: string }> {
+  const parsed = OwnerInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Pick a team member." };
+  const { project_id, cluster_id, owner_id } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { error } = await supabase
+    .from("topic_clusters").update({ owner_id }).eq("id", cluster_id).eq("project_id", project_id);
+  if (error) {
+    return { ok: false, error: isMissingColumn(error.message) ? "This needs the 20261030000001 migration applied in Supabase first." : error.message };
+  }
+
+  revalidatePath("/dashboard/blog-clusters");
+  revalidatePath(`/dashboard/blog-clusters/${cluster_id}`);
   return { ok: true };
 }
