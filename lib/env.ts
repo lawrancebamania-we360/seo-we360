@@ -33,6 +33,9 @@ const schema = z.object({
   GOOGLE_SERVICE_ACCOUNT_JSON: z.string().optional(),
   PAGESPEED_API_KEY: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
+  // From-address for transactional email, e.g. "We360 <noreply@we360.ai>". The
+  // domain must be verified in Resend for delivery to anyone but your own inbox.
+  RESEND_FROM: z.string().optional(),
 
   // --- AI Visibility engines (each engine self-skips until its key exists) ---
   OPENAI_API_KEY: z.string().optional(),

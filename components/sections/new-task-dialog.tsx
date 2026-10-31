@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/combobox";
+import { Checkbox } from "@/components/ui/checkbox";
 import { createTask } from "@/lib/actions/tasks";
 import type { Profile } from "@/lib/types/database";
 
@@ -35,9 +36,11 @@ export function NewTaskDialog({ projectId, members }: { projectId: string; membe
   const [issue, setIssue] = useState("");
   const [impl, setImpl] = useState("");
   const [assignee, setAssignee] = useState<string>("");
+  const [notify, setNotify] = useState(true);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const willNotify = !!assignee && notify;
     start(async () => {
       try {
         await createTask({
@@ -50,10 +53,11 @@ export function NewTaskDialog({ projectId, members }: { projectId: string; membe
           issue: issue || null,
           impl: impl || null,
           team_member_id: assignee || null,
+          notify: willNotify,
         });
-        toast.success("Task added");
+        toast.success(willNotify ? "Task added — assignee notified by email" : "Task added");
         setOpen(false);
-        setTitle(""); setUrl(""); setImpact(""); setScheduled(""); setIssue(""); setImpl(""); setAssignee("");
+        setTitle(""); setUrl(""); setImpact(""); setScheduled(""); setIssue(""); setImpl(""); setAssignee(""); setNotify(true);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Could not create task");
       }
@@ -105,6 +109,11 @@ export function NewTaskDialog({ projectId, members }: { projectId: string; membe
               />
             </div>
           </div>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Checkbox checked={!!assignee && notify} disabled={!assignee} onCheckedChange={(v) => setNotify(!!v)} />
+            Email the assignee that they&apos;ve been assigned
+          </label>
+
           <div className="space-y-1.5">
             <Label htmlFor="impact">Impact</Label>
             <Input id="impact" value={impact} onChange={(e) => setImpact(e.target.value)} placeholder="+15% CTR" />

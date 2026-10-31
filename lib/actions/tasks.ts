@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { isCommunityPostBrief } from "@/lib/ui-helpers";
+import { sendEmail, appUrl } from "@/lib/email/resend";
+import { taskAssignedEmail } from "@/lib/email/templates";
 import type { TaskStatus } from "@/lib/types/database";
 
 const TaskSchema = z.object({
@@ -18,25 +20,56 @@ const TaskSchema = z.object({
   team_member_id: z.string().uuid().optional().nullable().or(z.literal("")),
   timeline: z.string().optional().nullable(),
   pillar: z.enum(["SEO", "AEO", "GEO", "SXO", "AIO"]).optional().nullable(),
+  // When true and an assignee is set, email them that they've been assigned.
+  notify: z.boolean().optional(),
 });
+
+type SB = Awaited<ReturnType<typeof createClient>>;
+
+// Best-effort "you've been assigned a task" email. Any failure is logged and
+// swallowed so it can never break task creation.
+async function notifyAssignee(supabase: SB, args: { assigneeId: string; assignerId: string; title: string; priority: string }) {
+  try {
+    const { data } = await supabase.from("profiles").select("id, name, email").in("id", [args.assigneeId, args.assignerId]);
+    const rows = (data ?? []) as Array<{ id: string; name: string | null; email: string | null }>;
+    const assignee = rows.find((r) => r.id === args.assigneeId);
+    const assigner = rows.find((r) => r.id === args.assignerId);
+    if (!assignee?.email) return;
+    const { subject, html } = taskAssignedEmail({
+      assigneeName: assignee.name ?? "there",
+      taskTitle: args.title,
+      assignedByName: assigner?.name ?? "A teammate",
+      priority: args.priority,
+      url: appUrl("/dashboard/tasks"),
+    });
+    await sendEmail({ to: assignee.email, subject, html });
+  } catch (e) {
+    console.error("[email] notifyAssignee failed:", e);
+  }
+}
 
 export async function createTask(input: z.infer<typeof TaskSchema>) {
   const parsed = TaskSchema.parse(input);
+  const { notify, ...fields } = parsed;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
   const payload = {
-    ...parsed,
-    url: parsed.url || null,
-    team_member_id: parsed.team_member_id || null,
-    scheduled_date: parsed.scheduled_date || null,
-    pillar: parsed.pillar || null,
+    ...fields,
+    url: fields.url || null,
+    team_member_id: fields.team_member_id || null,
+    scheduled_date: fields.scheduled_date || null,
+    pillar: fields.pillar || null,
     kind: "web_task" as const,
     created_by: user.id,
   };
   const { error } = await supabase.from("tasks").insert(payload);
   if (error) throw error;
+
+  if (notify && payload.team_member_id) {
+    await notifyAssignee(supabase, { assigneeId: payload.team_member_id, assignerId: user.id, title: fields.title, priority: fields.priority });
+  }
   revalidatePath("/dashboard/tasks");
 }
 
@@ -154,7 +187,6 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus) {
       });
       if (queueErr) {
         // Don't block the status change on queue failure — log and continue.
-        // eslint-disable-next-line no-console
         console.error("[updateTaskStatus] enqueue_task_verification failed", { taskId, queueErr });
       }
     }
