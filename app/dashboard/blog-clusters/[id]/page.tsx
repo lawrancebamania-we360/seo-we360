@@ -51,7 +51,7 @@ export default async function BlogClusterDetailPage({ params }: { params: Promis
         canManage={ctx.canManageTeam}
       />
 
-      <BlogClusterTable clusterName={cluster.clusterName} items={cluster.items} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} siteDomain={ctx.activeProject.domain} />
+      <BlogClusterTable clusterName={cluster.clusterName} items={cluster.items} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} itemOwnerReady={cluster.itemOwnerReady} siteDomain={ctx.activeProject.domain} />
     </div>
   );
 }

@@ -20,7 +20,7 @@ import { CONTENT_KIND_LABEL, type ContentKind } from "@/lib/content-pipeline/con
 import type { PublishQueueRow } from "@/lib/data/blog-clusters";
 
 const KIND_ORDER: ContentKind[] = ["blog", "guide", "listicle", "pillar", "other"];
-type SortKey = "title" | "kind" | "cluster" | "assignee";
+type SortKey = "title" | "kind" | "cluster" | "assignee" | "owner";
 
 function cmp(a: string | null, b: string | null, dir: number): number {
   if (a === b) return 0;
@@ -56,12 +56,13 @@ export function PublishQueue({ rows, siteDomain, hideChips }: { rows: PublishQue
 
   const shown = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
-    const base = rows.filter((r) => (kindFilter === "all" || r.kind === kindFilter) && matchesQuery(q, r.title, r.clusterName, r.targetKeyword, r.urlSlug, r.assigneeName));
+    const base = rows.filter((r) => (kindFilter === "all" || r.kind === kindFilter) && matchesQuery(q, r.title, r.clusterName, r.targetKeyword, r.urlSlug, r.assigneeName, r.ownerName));
     return [...base].sort((a, b) => {
       let p = 0;
       if (sortKey === "title") p = cmp(a.title, b.title, dir);
       else if (sortKey === "kind") p = cmp(a.kind, b.kind, dir);
       else if (sortKey === "cluster") p = cmp(a.clusterName, b.clusterName, dir);
+      else if (sortKey === "owner") p = cmp(a.ownerName, b.ownerName, dir);
       else p = cmp(a.assigneeName, b.assigneeName, dir);
       return p !== 0 ? p : a.title.localeCompare(b.title);
     });
@@ -109,6 +110,7 @@ export function PublishQueue({ rows, siteDomain, hideChips }: { rows: PublishQue
               <SortHead k="kind" label="Type" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <SortHead k="cluster" label="Cluster" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <SortHead k="assignee" label="Writer" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortHead k="owner" label="Owner" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               <th className="px-3 py-2.5 font-semibold">Artifact</th>
               <th className="px-3 py-2.5 font-semibold text-right">Action</th>
             </tr>
@@ -151,6 +153,7 @@ export function PublishQueue({ rows, siteDomain, hideChips }: { rows: PublishQue
                     <Link href={`/dashboard/blog-clusters/${r.clusterId}`} className="block truncate text-[12.5px] text-muted-foreground hover:text-foreground hover:underline" title={r.clusterName}>{r.clusterName}</Link>
                   </td>
                   <td className="px-3 py-2.5 text-[12.5px] text-muted-foreground">{r.assigneeName ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-[12.5px] text-muted-foreground">{r.ownerName ?? "—"}</td>
                   <td className="px-3 py-2.5">
                     <div className="flex flex-col gap-1 text-[12.5px]">
                       {draft && <a href={draft} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-foreground hover:underline"><Paperclip className="size-3 text-muted-foreground" /> Draft</a>}
@@ -166,7 +169,7 @@ export function PublishQueue({ rows, siteDomain, hideChips }: { rows: PublishQue
                 </tr>
                 {open && (
                   <tr className="border-b border-border/60">
-                    <td colSpan={6} className="px-3 pb-3.5 pt-0">
+                    <td colSpan={7} className="px-3 pb-3.5 pt-0">
                       <div className="ml-6 space-y-2.5 rounded-lg border border-border bg-muted/30 p-3.5">
                         <Detail label="Title">{r.title}</Detail>
                         <Detail label="Description">{r.metaDescription || <span className="text-muted-foreground">No description set.</span>}</Detail>

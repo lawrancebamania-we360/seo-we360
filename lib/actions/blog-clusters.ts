@@ -516,3 +516,30 @@ export async function setClusterOwner(input: z.infer<typeof OwnerInput>): Promis
   revalidatePath(`/dashboard/blog-clusters/${cluster_id}`);
   return { ok: true };
 }
+
+const ItemOwnerInput = z.object({
+  project_id: z.string().uuid(),
+  item_id: z.string().uuid(),
+  owner_id: z.string().uuid().nullable(),
+});
+
+/** Set/clear a single post's owner (a profiles.id from the project's team). */
+export async function setClusterItemOwner(input: z.infer<typeof ItemOwnerInput>): Promise<{ ok: boolean; error?: string }> {
+  const parsed = ItemOwnerInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Pick a team member." };
+  const { project_id, item_id, owner_id } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { data, error } = await supabase
+    .from("topic_cluster_items").update({ owner_id }).eq("id", item_id).eq("project_id", project_id).select("cluster_id");
+  if (error) {
+    return { ok: false, error: isMissingColumn(error.message) ? "This needs the 20261031000001 migration applied in Supabase first." : error.message };
+  }
+  for (const c of new Set((data as { cluster_id: string }[] ?? []).map((r) => r.cluster_id))) revalidatePath(`/dashboard/blog-clusters/${c}`);
+  revalidatePath("/dashboard/blog-clusters");
+  revalidatePath("/dashboard/to-publish");
+  return { ok: true };
+}

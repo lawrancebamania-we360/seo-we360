@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import { ClusterItemAssignee } from "@/components/sections/blog-clusters/cluster-item-assignee";
+import { ItemOwner } from "@/components/sections/blog-clusters/item-owner";
 import { KindSelect, BulkKindBar, PublishStateBadge, PageSpec, ArtifactEditor, PublishControl } from "@/components/sections/content-pipeline/item-controls";
 import { ToolEditor } from "@/components/sections/content-pipeline/tool-editor";
 import { CONTENT_KIND_LABEL, type ContentKind } from "@/lib/content-pipeline/content-type";
@@ -80,12 +81,13 @@ async function copyText(text: string, successMessage: string) {
   }
 }
 
-export function BlogClusterTable({ clusterName, items, projectId, members, canManage, siteDomain }: {
+export function BlogClusterTable({ clusterName, items, projectId, members, canManage, itemOwnerReady, siteDomain }: {
   clusterName: string;
   items: BlogClusterItemRow[];
   projectId: string;
   members: Member[];
   canManage: boolean;
+  itemOwnerReady: boolean;
   siteDomain: string;
 }) {
   const [openItemId, setOpenItemId] = useState<string | null>(null);
@@ -161,13 +163,14 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
               <th className="px-3 py-2.5 font-semibold">Funnel</th>
               <th className="px-3 py-2.5 font-semibold">Primary keyword</th>
               <th className="px-3 py-2.5 font-semibold text-right">Vol/mo</th>
+              <th className="px-3 py-2.5 font-semibold">Owner</th>
               {canManage && <th className="px-3 py-2.5 font-semibold text-right">Assignee</th>}
             </tr>
           </thead>
           <tbody>
             {shown.length === 0 && (
               <tr>
-                <td colSpan={canManage ? 8 : 7} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                <td colSpan={canManage ? 9 : 8} className="px-3 py-8 text-center text-sm text-muted-foreground">
                   No posts match {q.trim() ? `"${q}"` : "that filter"}.
                 </td>
               </tr>
@@ -207,6 +210,9 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
                 </td>
                 <td className="max-w-[200px] px-3 py-2.5 text-foreground"><div className="truncate" title={it.targetKeyword ?? undefined}>{it.targetKeyword ?? "—"}</div></td>
                 <td className="px-3 py-2.5 text-right font-mono text-[12.5px] tabular-nums text-foreground">{it.volMo != null ? it.volMo.toLocaleString() : "—"}</td>
+                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                  <ItemOwner compact projectId={projectId} itemId={it.id} ownerId={it.ownerId} ownerName={it.ownerName} ready={itemOwnerReady} members={members} canManage={canManage} />
+                </td>
                 {canManage && (
                   <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end">
@@ -259,6 +265,8 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
                     <PublishControl itemId={openItem.id} state={openItem.publishState} liveUrl={openItem.liveUrl} publishedUrl={openItem.publishedUrl} compact />
                   </div>
                 </div>
+
+                <ItemOwner projectId={projectId} itemId={openItem.id} ownerId={openItem.ownerId} ownerName={openItem.ownerName} ready={itemOwnerReady} members={members} canManage={canManage} compact={false} />
 
                 <PageSpec title={openItem.title} slug={openItem.urlSlug} meta={openItem.metaDescription} siteDomain={siteDomain} />
                 <ArtifactEditor itemId={openItem.id} artifactUrl={openItem.artifactUrl} driveUrl={openItem.artifactDriveUrl} />

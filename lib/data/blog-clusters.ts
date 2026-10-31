@@ -182,6 +182,9 @@ export interface BlogClusterItemRow {
   taskStatus: string | null;
   assigneeId: string | null;
   assigneeName: string | null;
+  /** Per-post owner (POC), distinct from the writer assignee. */
+  ownerId: string | null;
+  ownerName: string | null;
   // Content pipeline additions.
   kind: ContentKind;
   artifactUrl: string | null;
@@ -205,6 +208,8 @@ export interface BlogClusterDetail {
   ownerId: string | null;
   /** False until the owner_id migration (20261030000001) is applied. */
   ownerReady: boolean;
+  /** False until the per-post owner migration (20261031000001) is applied. */
+  itemOwnerReady: boolean;
   items: BlogClusterItemRow[];
 }
 
@@ -277,7 +282,26 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
 
   const sitemapIndex = await loadSitemapIndex(supabase, projectId);
 
+  // Per-post owner lives behind its own migration (20261031000001); read it on
+  // its own so the main item read can't break before it's applied, then resolve
+  // owner names in one lookup.
+  let itemOwnerReady = true;
+  const ownerByItem = new Map<string, string | null>();
+  const ownerRes = await supabase.from("topic_cluster_items").select("id, owner_id").eq("cluster_id", clusterId);
+  if (ownerRes.error) {
+    if (isMissingColumn(ownerRes.error.message)) itemOwnerReady = false;
+  } else {
+    for (const o of (ownerRes.data ?? []) as Array<{ id: string; owner_id: string | null }>) ownerByItem.set(o.id, o.owner_id);
+  }
+  const ownerIds = [...new Set([...ownerByItem.values()].filter((v): v is string => !!v))];
+  const ownerNameById = new Map<string, string>();
+  if (ownerIds.length) {
+    const { data: ownerProfs } = await supabase.from("profiles").select("id, name").in("id", ownerIds);
+    for (const p of (ownerProfs ?? []) as Array<{ id: string; name: string | null }>) ownerNameById.set(p.id, p.name ?? "");
+  }
+
   const items = rawItems.map((r) => {
+    const itemOwnerId = ownerByItem.get(r.id) ?? null;
     const ownPublished = r.published_url ?? null;
     const taskPublished = r.tasks?.published_url ?? null;
     const publishedUrl = ownPublished ?? taskPublished; // merged, for display
@@ -308,6 +332,8 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
       taskStatus: r.tasks?.status ?? null,
       assigneeId: r.tasks?.team_member_id ?? null,
       assigneeName: r.tasks?.profiles?.name ?? null,
+      ownerId: itemOwnerId,
+      ownerName: itemOwnerId ? (ownerNameById.get(itemOwnerId) || null) : null,
       // Per-post override wins; otherwise the post is whatever the cluster is.
       kind: (r.content_kind as ContentKind | null) ?? clusterKind,
       artifactUrl,
@@ -328,6 +354,7 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
     kind: clusterKind,
     ownerId: c.owner_id ?? null,
     ownerReady,
+    itemOwnerReady,
     items,
   };
 }
@@ -351,6 +378,8 @@ export interface PublishQueueRow {
   artifactUrl: string | null;
   artifactDriveUrl: string | null;
   assigneeName: string | null;
+  /** Per-post owner name, null when unassigned or before its migration. */
+  ownerName: string | null;
   /** The attached calculators (0-3). Empty until the content_tools migration is applied. */
   tools: ContentTool[];
 }
@@ -403,6 +432,18 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
     if (!kres.error) for (const k of (kres.data ?? []) as { id: string; kind: string | null }[]) kindByCluster.set(k.id, asClusterKind(k.kind));
   }
 
+  // Per-post owner name (its own migration; read separately so it can't break the
+  // queue before it's applied).
+  const ownerByItem = new Map<string, string | null>();
+  const ores = await supabase.from("topic_cluster_items").select("id, owner_id").in("id", rows.map((r) => r.id));
+  if (!ores.error) for (const o of (ores.data ?? []) as { id: string; owner_id: string | null }[]) ownerByItem.set(o.id, o.owner_id);
+  const ownerIds = [...new Set([...ownerByItem.values()].filter((v): v is string => !!v))];
+  const ownerNameById = new Map<string, string>();
+  if (ownerIds.length) {
+    const { data: ownerProfs } = await supabase.from("profiles").select("id, name").in("id", ownerIds);
+    for (const p of (ownerProfs ?? []) as { id: string; name: string | null }[]) ownerNameById.set(p.id, p.name ?? "");
+  }
+
   const out: PublishQueueRow[] = [];
   for (const r of rows) {
     const { state } = resolvePublishState(
@@ -422,6 +463,7 @@ export async function getPublishQueue(projectId: string): Promise<{ ready: boole
       artifactUrl: r.artifact_url,
       artifactDriveUrl: r.artifact_drive_url,
       assigneeName: r.tasks?.profiles?.name ?? null,
+      ownerName: (() => { const oid = ownerByItem.get(r.id); return oid ? (ownerNameById.get(oid) || null) : null; })(),
       tools: itemTools(r),
     });
   }
