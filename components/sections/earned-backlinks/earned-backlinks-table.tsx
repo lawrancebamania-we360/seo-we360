@@ -224,6 +224,7 @@ function RowDetail({ b }: { b: EarnedBacklinkRow }) {
     <div className="ml-6 grid gap-3 rounded-lg border border-border bg-background p-3.5 sm:grid-cols-2">
       <div className="space-y-1.5">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Link we got</div>
+        <Detail label="Live URL" value={b.backlinkUrl} link wrap />
         <Detail label="Anchor text" value={b.anchorText} />
         <Detail label="Anchor target" value={b.anchorTarget} link />
         <Detail label="Spam" value={b.spamScore == null ? null : `${b.spamScore}%`} />
@@ -248,14 +249,14 @@ function RowDetail({ b }: { b: EarnedBacklinkRow }) {
   );
 }
 
-function Detail({ label, value, link }: { label: string; value: string | null; link?: boolean }) {
+function Detail({ label, value, link, wrap }: { label: string; value: string | null; link?: boolean; wrap?: boolean }) {
   return (
     <div className="grid grid-cols-[92px_1fr] gap-2 text-[12.5px]">
       <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
       {value ? (
         link ? (
-          <a href={toExternalUrl(value)} target="_blank" rel="noopener noreferrer" className="inline-flex min-w-0 items-center gap-1 truncate text-foreground hover:underline" title={value}>
-            <span className="truncate">{value}</span> <ExternalLink className="size-3 shrink-0" />
+          <a href={toExternalUrl(value)} target="_blank" rel="noopener noreferrer" className={`inline-flex min-w-0 items-start gap-1 text-foreground hover:underline ${wrap ? "break-all" : "truncate"}`} title={value}>
+            <span className={wrap ? "break-all" : "truncate"}>{value}</span> <ExternalLink className="mt-0.5 size-3 shrink-0" />
           </a>
         ) : (
           <span className="min-w-0 break-words text-foreground">{value}</span>
