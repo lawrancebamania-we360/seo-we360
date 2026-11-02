@@ -874,10 +874,14 @@ export const FUNNEL_SEGMENTS: { key: FunnelSegment; label: string; step1: string
   { key: "marketing", label: "Marketing pages", step1: "Views a marketing page" },
 ];
 
+// Funnel steps only accept a subset of dimensions — pagePath is NOT allowed, so
+// use unifiedPagePathScreen ("Page path and screen class"), the dimension GA4's
+// own Funnel exploration uses for a page filter.
+const PAGE_FIELD = "unifiedPagePathScreen";
 const SEGMENT_STEP1: Record<FunnelSegment, object> = {
-  blog: { funnelFieldFilter: { fieldName: "pagePath", stringFilter: { matchType: "CONTAINS", value: "/blog/" } } },
-  guide: { funnelFieldFilter: { fieldName: "pagePath", stringFilter: { matchType: "CONTAINS", value: "/guides/" } } },
-  marketing: { funnelFieldFilter: { fieldName: "pagePath", stringFilter: { matchType: "PARTIAL_REGEXP", value: "^/(solutions|features|alternatives|industry|pricing)" } } },
+  blog: { funnelFieldFilter: { fieldName: PAGE_FIELD, stringFilter: { matchType: "CONTAINS", value: "/blog/" } } },
+  guide: { funnelFieldFilter: { fieldName: PAGE_FIELD, stringFilter: { matchType: "CONTAINS", value: "/guides/" } } },
+  marketing: { funnelFieldFilter: { fieldName: PAGE_FIELD, stringFilter: { matchType: "PARTIAL_REGEXP", value: "^/(solutions|features|alternatives|industry|pricing)" } } },
 };
 
 export interface FunnelStep { name: string; users: number; completionRate: number; abandonments: number; abandonmentRate: number; }
@@ -898,8 +902,8 @@ function funnelBody(startDate: string, endDate: string, step1: object, breakdown
     funnel: {
       steps: [
         { name: "Reads content", filterExpression: step1 },
-        { name: "Views demo page", filterExpression: { funnelFieldFilter: { fieldName: "pagePath", stringFilter: { matchType: "CONTAINS", value: "/demo/" } } } },
-        { name: "Books a demo", filterExpression: { funnelFieldFilter: { fieldName: "pagePath", stringFilter: { matchType: "CONTAINS", value: "/next-steps/" } } } },
+        { name: "Views demo page", filterExpression: { funnelFieldFilter: { fieldName: PAGE_FIELD, stringFilter: { matchType: "CONTAINS", value: "/demo/" } } } },
+        { name: "Books a demo", filterExpression: { funnelFieldFilter: { fieldName: PAGE_FIELD, stringFilter: { matchType: "CONTAINS", value: "/next-steps/" } } } },
       ],
     },
   };
