@@ -10,6 +10,7 @@
 import { Suspense } from "react";
 
 import { TrafficSourcesStreamed } from "@/components/sections/traffic-sources-section";
+import { DemoBookingsStreamed } from "@/components/sections/demo-bookings-section";
 import { RankingMoversStreamed, PageViewMoversStreamed } from "@/components/sections/weekly-movers-section";
 import { ContentDecaySection } from "@/components/sections/content-decay-section";
 import { EngagementExtremesSection } from "@/components/sections/engagement-extremes-section";
@@ -52,6 +53,10 @@ export function AnalyticsScreen({
 
       <Suspense fallback={<SectionSkeleton kind="donut" />}>
         <TrafficSourcesStreamed propertyId={propertyId} projectId={projectId} range={range} />
+      </Suspense>
+
+      <Suspense fallback={<SectionSkeleton kind="donut" />}>
+        <DemoBookingsStreamed propertyId={propertyId} range={range} />
       </Suspense>
 
       <AnalyticsCategoryBoxes

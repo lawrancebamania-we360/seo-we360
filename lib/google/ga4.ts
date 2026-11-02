@@ -592,3 +592,182 @@ export async function getGa4OrganicMonthly(
     return { ...empty, reason: e instanceof Error ? e.message : "GA4 request failed" };
   }
 }
+
+// ============================================================================
+// Demo bookings — a booking = a session that reached a "next-steps" page (the
+// post-demo "What's Next?" guide that only loads after a Calendly booking).
+// Counted per channel, PAID excluded (the Analytics demo panel is non-paid
+// only), and test traffic (utm_source=claude_test) filtered out. Same GA4 Data
+// API + auth path as getGa4OrganicMonthly above.
+// ============================================================================
+
+const BOOKING_PAGE_MATCH = "next-steps";
+const PAID_CHANNELS = new Set([
+  "Paid Search", "Paid Social", "Paid Video", "Paid Shopping", "Paid Other", "Display", "Cross-network",
+]);
+
+// pagePath CONTAINS next-steps AND NOT (utm_source = claude_test), plus any extra expressions.
+function bookingFilter(extra: object[] = []): object {
+  return {
+    andGroup: {
+      expressions: [
+        { filter: { fieldName: "pagePath", stringFilter: { matchType: "CONTAINS", value: BOOKING_PAGE_MATCH } } },
+        { notExpression: { filter: { fieldName: "sessionSource", stringFilter: { matchType: "EXACT", value: "claude_test" } } } },
+        ...extra,
+      ],
+    },
+  };
+}
+
+export interface Ga4DemoChannelRow {
+  channel: string;
+  bookings: number;
+  priorBookings: number;
+  deltaPct: number | null;
+}
+export interface Ga4DemoBookings {
+  connected: boolean;
+  reason?: string;
+  total: number;        // non-paid bookings
+  priorTotal: number;
+  trendPct: number | null;
+  byChannel: Ga4DemoChannelRow[];  // non-paid channels only, desc by bookings
+}
+
+export async function getGa4DemoBookings(
+  propertyId: string | null,
+  compareRange: { current: { start: string; end: string }; previous: { start: string; end: string } },
+): Promise<Ga4DemoBookings> {
+  const empty: Ga4DemoBookings = { connected: false, total: 0, priorTotal: 0, trendPct: null, byChannel: [] };
+  if (!propertyId) return { ...empty, reason: "No GA4 property ID on this project." };
+  if (!(await isGoogleServiceAccountConfigured())) return { ...empty, reason: "GA4 not connected." };
+
+  let token: string;
+  try { token = await getGoogleAccessToken(SCOPE); }
+  catch (e) { return { ...empty, reason: e instanceof Error ? e.message : "GA4 auth failed" }; }
+
+  const byChannel = async (startDate: string, endDate: string): Promise<RunReportRow[]> => {
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          dateRanges: [{ startDate, endDate }],
+          dimensions: [{ name: "sessionDefaultChannelGroup" }],
+          metrics: [{ name: "sessions" }],
+          dimensionFilter: bookingFilter(),
+          limit: 50,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    if (!res.ok) throw new Error(`GA4 demo-bookings failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+    return ((await res.json()) as { rows?: RunReportRow[] }).rows ?? [];
+  };
+
+  try {
+    const [rows, priorRows] = await Promise.all([
+      byChannel(compareRange.current.start, compareRange.current.end),
+      byChannel(compareRange.previous.start, compareRange.previous.end).catch(() => [] as RunReportRow[]),
+    ]);
+
+    const priorByChannel = new Map<string, number>();
+    let priorTotal = 0;
+    for (const r of priorRows) {
+      const channel = r.dimensionValues[0]?.value ?? "(unknown)";
+      const bookings = parseInt(r.metricValues[0]?.value ?? "0", 10) || 0;
+      priorByChannel.set(channel, (priorByChannel.get(channel) ?? 0) + bookings);
+      if (!PAID_CHANNELS.has(channel)) priorTotal += bookings;
+    }
+
+    let total = 0;
+    const out: Ga4DemoChannelRow[] = [];
+    for (const r of rows) {
+      const channel = r.dimensionValues[0]?.value ?? "(unknown)";
+      if (PAID_CHANNELS.has(channel)) continue; // non-paid only
+      const bookings = parseInt(r.metricValues[0]?.value ?? "0", 10) || 0;
+      if (bookings === 0) continue;
+      total += bookings;
+      const prior = priorByChannel.get(channel) ?? 0;
+      const deltaPct = prior >= 10 ? Math.round(((bookings - prior) / prior) * 100) : null;
+      out.push({ channel, bookings, priorBookings: prior, deltaPct });
+    }
+    const trendPct = priorTotal === 0 ? (total > 0 ? 100 : null) : Math.round(((total - priorTotal) / priorTotal) * 100);
+
+    return { connected: true, total, priorTotal, trendPct, byChannel: out.sort((a, b) => b.bookings - a.bookings) };
+  } catch (e) {
+    return { ...empty, reason: e instanceof Error ? e.message : "GA4 request failed" };
+  }
+}
+
+export interface Ga4BookingDetailRow {
+  time: string;         // "YYYY-MM-DD HH:MM"
+  sourceMedium: string;
+  landingPage: string;
+  device: string;
+  location: string;
+  bookings: number;
+}
+
+// Per-booking detail for one channel — what the panel loads when a source row is
+// expanded. GA4 aggregates identical dimension tuples, so near-simultaneous
+// bookings from the same source/page can collapse into one row (directional).
+export async function getGa4DemoBookingDetail(
+  propertyId: string | null,
+  range: { start: string; end: string },
+  channel: string,
+): Promise<{ ok: boolean; reason?: string; rows: Ga4BookingDetailRow[] }> {
+  if (!propertyId) return { ok: false, reason: "No GA4 property ID on this project.", rows: [] };
+  if (!(await isGoogleServiceAccountConfigured())) return { ok: false, reason: "GA4 not connected.", rows: [] };
+
+  let token: string;
+  try { token = await getGoogleAccessToken(SCOPE); }
+  catch (e) { return { ok: false, reason: e instanceof Error ? e.message : "GA4 auth failed", rows: [] }; }
+
+  try {
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: range.start, endDate: range.end }],
+          dimensions: [
+            { name: "dateHourMinute" },
+            { name: "sessionSourceMedium" },
+            { name: "landingPagePlusQueryString" },
+            { name: "deviceCategory" },
+            { name: "city" },
+          ],
+          metrics: [{ name: "sessions" }],
+          dimensionFilter: bookingFilter([
+            { filter: { fieldName: "sessionDefaultChannelGroup", stringFilter: { matchType: "EXACT", value: channel } } },
+          ]),
+          orderBys: [{ dimension: { dimensionName: "dateHourMinute" }, desc: true }],
+          limit: 250,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    if (!res.ok) return { ok: false, reason: `GA4 booking-detail failed (${res.status}): ${(await res.text()).slice(0, 160)}`, rows: [] };
+    const data = (await res.json()) as { rows?: RunReportRow[] };
+    const rows: Ga4BookingDetailRow[] = (data.rows ?? []).map((r) => {
+      const raw = r.dimensionValues[0]?.value ?? ""; // YYYYMMDDHHMM
+      const time = raw.length === 12
+        ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)} ${raw.slice(8, 10)}:${raw.slice(10, 12)}`
+        : raw;
+      return {
+        time,
+        sourceMedium: r.dimensionValues[1]?.value ?? "(unknown)",
+        landingPage: r.dimensionValues[2]?.value ?? "(not set)",
+        device: r.dimensionValues[3]?.value ?? "",
+        location: r.dimensionValues[4]?.value ?? "",
+        bookings: parseInt(r.metricValues[0]?.value ?? "0", 10) || 0,
+      };
+    });
+    return { ok: true, rows };
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : "GA4 request failed", rows: [] };
+  }
+}
