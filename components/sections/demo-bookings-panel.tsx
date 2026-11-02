@@ -11,8 +11,9 @@ import Link from "next/link";
 import { ArrowUpRight, CalendarCheck, ChevronDown, ChevronRight, Loader2, Plug, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/dashboard/empty-state";
+import { MousePointerClick } from "lucide-react";
 import { getDemoBookingDetail } from "@/lib/actions/report-demos";
-import type { Ga4DemoBookings, Ga4BookingDetailRow } from "@/lib/google/ga4";
+import type { Ga4DemoBookings, Ga4BookingDetailRow, Ga4DemoCta } from "@/lib/google/ga4";
 
 const CHANNEL_COLOR: Record<string, string> = {
   "Organic Search": "var(--color-chart-1)",
@@ -38,7 +39,7 @@ function TrendChip({ pct }: { pct: number | null }) {
 
 type DetailState = { loading: boolean; rows?: Ga4BookingDetailRow[]; error?: string };
 
-export function DemoBookingsPanel({ data, range, rangeLabel }: { data: Ga4DemoBookings; range: string; rangeLabel: string }) {
+export function DemoBookingsPanel({ data, cta, range, rangeLabel }: { data: Ga4DemoBookings; cta: Ga4DemoCta; range: string; rangeLabel: string }) {
   const [open, setOpen] = useState<string | null>(null);
   const [cache, setCache] = useState<Record<string, DetailState>>({});
 
@@ -160,6 +161,81 @@ export function DemoBookingsPanel({ data, range, rangeLabel }: { data: Ga4DemoBo
           </div>
         )}
       </div>
+
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-lift">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <MousePointerClick className="size-4 text-muted-foreground" />
+          <h3 className="text-[15px] font-semibold text-foreground">Demo CTA clicks</h3>
+          <span className="text-[12px] text-slate-400">which button & page drive demos</span>
+        </div>
+        {!cta.connected ? (
+          <p className="text-[13px] text-muted-foreground">{cta.reason ?? "GA4 not connected."}</p>
+        ) : cta.beforeCta ? (
+          <p className="text-[13px] text-muted-foreground">Button tracking started 2 Nov 2026 — no CTA data for this range.</p>
+        ) : cta.totalClicks === 0 ? (
+          <p className="text-[13px] text-muted-foreground">No demo-CTA clicks in this range (tracking began 2 Nov 2026).</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-end gap-6">
+              <Stat label="Demo CTA clicks" value={cta.totalClicks.toLocaleString()} />
+              <Stat label="Bookings" value={data.total.toLocaleString()} />
+              <Stat label="Click → booking" value={cta.totalClicks > 0 ? `${Math.round((data.total / cta.totalClicks) * 1000) / 10}%` : "—"} />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">By placement</div>
+              {(() => {
+                const maxLoc = cta.byLocation.reduce((m, l) => Math.max(m, l.clicks), 0) || 1;
+                return cta.byLocation.map((l) => (
+                  <div key={l.location} className="flex items-center gap-3">
+                    <span className="w-[140px] shrink-0 truncate text-[13px] text-slate-700 dark:text-foreground">{l.location}</span>
+                    <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-[#5B45E0]" style={{ width: `${Math.max(3, (l.clicks / maxLoc) * 100)}%` }} />
+                    </div>
+                    <span className="w-12 shrink-0 text-right font-mono text-[12.5px] tabular-nums text-slate-500">{l.clicks.toLocaleString()}</span>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full min-w-[560px] text-[12.5px]">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40 text-left text-[10.5px] uppercase tracking-wider text-muted-foreground">
+                    <th className="px-2.5 py-1.5 font-semibold">Button</th>
+                    <th className="px-2.5 py-1.5 font-semibold">Placement</th>
+                    <th className="px-2.5 py-1.5 font-semibold">Page</th>
+                    <th className="px-2.5 py-1.5 text-right font-semibold">Clicks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cta.byButton.slice(0, 25).map((r, i) => (
+                    <tr key={i} className="border-b border-border/60 last:border-0">
+                      <td className="px-2.5 py-1.5 text-foreground">{r.ctaText}</td>
+                      <td className="px-2.5 py-1.5 text-muted-foreground">{r.location}</td>
+                      <td className="max-w-[220px] truncate px-2.5 py-1.5 text-muted-foreground" title={r.page}>{r.page}</td>
+                      <td className="px-2.5 py-1.5 text-right font-mono tabular-nums text-foreground">{r.clicks.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-[12px] text-slate-400">
+              Aggregate only — the rate is total bookings ÷ total demo-CTA clicks across the site, not per button (per-button booking attribution needs BigQuery). Tracking began 2 Nov 2026.
+            </p>
+          </div>
+        )}
+      </div>
     </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="font-heading text-[22px] font-bold leading-none tabular-nums text-foreground">{value}</div>
+      <div className="mt-1 text-[11.5px] text-slate-500">{label}</div>
+    </div>
   );
 }

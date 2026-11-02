@@ -771,3 +771,215 @@ export async function getGa4DemoBookingDetail(
     return { ok: false, reason: e instanceof Error ? e.message : "GA4 request failed", rows: [] };
   }
 }
+
+// ============================================================================
+// Demo CTA aggregate — which button on which page drives demo demand. Reads the
+// cta_click event (live since 2 Nov 2026) filtered to cta_type=demo, by its
+// registered event-scoped custom dimensions. Aggregate only: GA4's API can't tie
+// a specific booking to a specific click (that needs BigQuery), so we report
+// clicks by placement/button/page + an overall click->booking rate.
+// ============================================================================
+
+const CTA_LIVE_DATE = "2026-11-02"; // GTM cta_click tag went live; no data before this
+
+export interface Ga4CtaButtonRow { location: string; ctaText: string; page: string; clicks: number; }
+export interface Ga4DemoCta {
+  connected: boolean;
+  reason?: string;
+  beforeCta: boolean;   // the selected range ends before the tag was live
+  totalClicks: number;
+  byLocation: { location: string; clicks: number }[];
+  byButton: Ga4CtaButtonRow[];
+}
+
+export async function getGa4DemoCta(
+  propertyId: string | null,
+  range: { start: string; end: string },
+): Promise<Ga4DemoCta> {
+  const empty: Ga4DemoCta = { connected: false, beforeCta: false, totalClicks: 0, byLocation: [], byButton: [] };
+  if (!propertyId) return { ...empty, reason: "No GA4 property ID on this project." };
+  if (!(await isGoogleServiceAccountConfigured())) return { ...empty, reason: "GA4 not connected." };
+  // Nothing was tracked before the tag went live.
+  if (range.end < CTA_LIVE_DATE) return { ...empty, connected: true, beforeCta: true };
+  const startDate = range.start < CTA_LIVE_DATE ? CTA_LIVE_DATE : range.start;
+
+  let token: string;
+  try { token = await getGoogleAccessToken(SCOPE); }
+  catch (e) { return { ...empty, reason: e instanceof Error ? e.message : "GA4 auth failed" }; }
+
+  try {
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          dateRanges: [{ startDate, endDate: range.end }],
+          dimensions: [
+            { name: "customEvent:cta_location" },
+            { name: "customEvent:cta_text" },
+            { name: "pagePath" },
+          ],
+          metrics: [{ name: "eventCount" }],
+          dimensionFilter: {
+            andGroup: {
+              expressions: [
+                { filter: { fieldName: "eventName", stringFilter: { matchType: "EXACT", value: "cta_click" } } },
+                { filter: { fieldName: "customEvent:cta_type", stringFilter: { matchType: "EXACT", value: "demo" } } },
+                { notExpression: { filter: { fieldName: "sessionSource", stringFilter: { matchType: "EXACT", value: "claude_test" } } } },
+              ],
+            },
+          },
+          orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+          limit: 100,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    if (!res.ok) return { ...empty, reason: `GA4 demo-CTA failed (${res.status}): ${(await res.text()).slice(0, 160)}` };
+    const data = (await res.json()) as { rows?: RunReportRow[] };
+
+    const byLocationMap = new Map<string, number>();
+    let totalClicks = 0;
+    const byButton: Ga4CtaButtonRow[] = (data.rows ?? []).map((r) => {
+      const location = r.dimensionValues[0]?.value || "(not set)";
+      const ctaText = r.dimensionValues[1]?.value || "(not set)";
+      const page = r.dimensionValues[2]?.value || "(not set)";
+      const clicks = parseInt(r.metricValues[0]?.value ?? "0", 10) || 0;
+      byLocationMap.set(location, (byLocationMap.get(location) ?? 0) + clicks);
+      totalClicks += clicks;
+      return { location, ctaText, page, clicks };
+    });
+    const byLocation = [...byLocationMap.entries()].map(([location, clicks]) => ({ location, clicks })).sort((a, b) => b.clicks - a.clicks);
+
+    return { connected: true, beforeCta: false, totalClicks, byLocation, byButton };
+  } catch (e) {
+    return { ...empty, reason: e instanceof Error ? e.message : "GA4 request failed" };
+  }
+}
+
+// ============================================================================
+// Content -> demo funnel (GA4 alpha runFunnelReport). Three steps: reads content
+// of a segment -> views /demo/ -> reaches /next-steps/ (booked). Segments:
+// blog (/blog/*), guide (/guides/*), marketing (high-intent: solutions/features/
+// alternatives/industry/pricing). Step counts come from a no-breakdown funnel;
+// the per-page drill-down from a second funnel broken down by landing page.
+// Response shape is parsed defensively so an alpha quirk degrades, never breaks.
+// ============================================================================
+
+export type FunnelSegment = "blog" | "guide" | "marketing";
+export const FUNNEL_SEGMENTS: { key: FunnelSegment; label: string; step1: string }[] = [
+  { key: "blog", label: "Blogs", step1: "Reads a blog" },
+  { key: "guide", label: "Guides", step1: "Reads a guide" },
+  { key: "marketing", label: "Marketing pages", step1: "Views a marketing page" },
+];
+
+const SEGMENT_STEP1: Record<FunnelSegment, object> = {
+  blog: { funnelFieldFilter: { fieldName: "pagePath", stringFilter: { matchType: "CONTAINS", value: "/blog/" } } },
+  guide: { funnelFieldFilter: { fieldName: "pagePath", stringFilter: { matchType: "CONTAINS", value: "/guides/" } } },
+  marketing: { funnelFieldFilter: { fieldName: "pagePath", stringFilter: { matchType: "PARTIAL_REGEXP", value: "^/(solutions|features|alternatives|industry|pricing)" } } },
+};
+
+export interface FunnelStep { name: string; users: number; completionRate: number; abandonments: number; abandonmentRate: number; }
+export interface FunnelPageRow { page: string; entered: number; booked: number; completionRate: number; }
+export interface Ga4ContentFunnel {
+  connected: boolean;
+  reason?: string;
+  segment: FunnelSegment;
+  steps: FunnelStep[];
+  pages: FunnelPageRow[];
+}
+
+type FunnelRow = { dimensionValues?: { value: string }[]; metricValues?: { value: string }[] };
+
+function funnelBody(startDate: string, endDate: string, step1: object, breakdown: boolean) {
+  const body: Record<string, unknown> = {
+    dateRanges: [{ startDate, endDate }],
+    funnel: {
+      steps: [
+        { name: "Reads content", filterExpression: step1 },
+        { name: "Views demo page", filterExpression: { funnelFieldFilter: { fieldName: "pagePath", stringFilter: { matchType: "CONTAINS", value: "/demo/" } } } },
+        { name: "Books a demo", filterExpression: { funnelFieldFilter: { fieldName: "pagePath", stringFilter: { matchType: "CONTAINS", value: "/next-steps/" } } } },
+      ],
+    },
+  };
+  if (breakdown) body.funnelBreakdown = { breakdownDimension: { name: "landingPagePlusQueryString" }, limit: 12 };
+  return body;
+}
+
+export async function getGa4ContentDemoFunnel(
+  propertyId: string | null,
+  range: { start: string; end: string },
+  segment: FunnelSegment,
+): Promise<Ga4ContentFunnel> {
+  const empty: Ga4ContentFunnel = { connected: false, segment, steps: [], pages: [] };
+  if (!propertyId) return { ...empty, reason: "No GA4 property ID on this project." };
+  if (!(await isGoogleServiceAccountConfigured())) return { ...empty, reason: "GA4 not connected." };
+
+  let token: string;
+  try { token = await getGoogleAccessToken(SCOPE); }
+  catch (e) { return { ...empty, reason: e instanceof Error ? e.message : "GA4 auth failed" }; }
+
+  const call = async (breakdown: boolean): Promise<FunnelRow[]> => {
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1alpha/properties/${propertyId}:runFunnelReport`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify(funnelBody(range.start, range.end, SEGMENT_STEP1[segment], breakdown)),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    if (!res.ok) throw new Error(`GA4 funnel failed (${res.status}): ${(await res.text()).slice(0, 180)}`);
+    const json = (await res.json()) as { funnelTable?: { rows?: FunnelRow[] } };
+    return json.funnelTable?.rows ?? [];
+  };
+
+  try {
+    const [plain, broken] = await Promise.all([call(false), call(true).catch(() => [] as FunnelRow[])]);
+
+    // Plain rows: one per step. The step name is the last dimension value; users
+    // is the last metric value (activeUsers). Keep source order as step order.
+    const usersByStep = plain.map((r) => parseInt(r.metricValues?.[r.metricValues.length - 1]?.value ?? "0", 10) || 0);
+    const names = ["Reads content", "Views demo page", "Books a demo"];
+    const base = usersByStep[0] || 0;
+    const steps: FunnelStep[] = names.map((name, i) => {
+      const users = usersByStep[i] ?? 0;
+      const next = usersByStep[i + 1] ?? 0;
+      const abandonments = i < names.length - 1 ? Math.max(0, users - next) : 0;
+      return {
+        name,
+        users,
+        completionRate: base > 0 ? Math.round((users / base) * 1000) / 10 : 0,
+        abandonments,
+        abandonmentRate: users > 0 ? Math.round((abandonments / users) * 1000) / 10 : 0,
+      };
+    });
+
+    // Broken-down rows: (step, landingPage) -> users. Build per-page entered(step1)
+    // + booked(last step). The step dimension is the FIRST value, the breakdown the
+    // second; fall back gracefully if the order differs.
+    const enteredByPage = new Map<string, number>();
+    const bookedByPage = new Map<string, number>();
+    for (const r of broken) {
+      const dims = r.dimensionValues ?? [];
+      const users = parseInt(r.metricValues?.[r.metricValues.length - 1]?.value ?? "0", 10) || 0;
+      const stepVal = dims[0]?.value ?? "";
+      const page = dims[1]?.value ?? dims[dims.length - 1]?.value ?? "(not set)";
+      const isStep1 = /1|reads|content/i.test(stepVal);
+      const isLast = /3|book/i.test(stepVal);
+      if (isStep1) enteredByPage.set(page, (enteredByPage.get(page) ?? 0) + users);
+      else if (isLast) bookedByPage.set(page, (bookedByPage.get(page) ?? 0) + users);
+    }
+    const pages: FunnelPageRow[] = [...enteredByPage.entries()]
+      .map(([page, entered]) => {
+        const booked = bookedByPage.get(page) ?? 0;
+        return { page, entered, booked, completionRate: entered > 0 ? Math.round((booked / entered) * 1000) / 10 : 0 };
+      })
+      .sort((a, b) => b.entered - a.entered);
+
+    return { connected: true, segment, steps, pages };
+  } catch (e) {
+    return { ...empty, reason: e instanceof Error ? e.message : "GA4 request failed" };
+  }
+}
