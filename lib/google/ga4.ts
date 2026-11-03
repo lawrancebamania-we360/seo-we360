@@ -1012,7 +1012,6 @@ export interface Ga4ContentFunnel {
   segment: FunnelSegment;
   steps: FunnelStep[];
   pages: FunnelPageRow[];
-  debug?: string;   // TEMP: raw alpha funnel response sample, to fix parsing
 }
 
 type FunnelRow = { dimensionValues?: { value: string }[]; metricValues?: { value: string }[] };
@@ -1045,7 +1044,6 @@ export async function getGa4ContentDemoFunnel(
   try { token = await getGoogleAccessToken(SCOPE); }
   catch (e) { return { ...empty, reason: e instanceof Error ? e.message : "GA4 auth failed" }; }
 
-  let rawSample = "";
   const call = async (breakdown: boolean): Promise<FunnelRow[]> => {
     const res = await fetch(
       `https://analyticsdata.googleapis.com/v1alpha/properties/${propertyId}:runFunnelReport`,
@@ -1058,16 +1056,16 @@ export async function getGa4ContentDemoFunnel(
     );
     if (!res.ok) throw new Error(`GA4 funnel failed (${res.status}): ${(await res.text()).slice(0, 180)}`);
     const json = (await res.json()) as { funnelTable?: { rows?: FunnelRow[] } };
-    if (!breakdown) rawSample = JSON.stringify(json).slice(0, 600); // TEMP debug: see the real alpha shape
     return json.funnelTable?.rows ?? [];
   };
 
   try {
     const [plain, broken] = await Promise.all([call(false), call(true).catch(() => [] as FunnelRow[])]);
 
-    // Plain rows: one per step. The step name is the last dimension value; users
-    // is the last metric value (activeUsers). Keep source order as step order.
-    const usersByStep = plain.map((r) => parseInt(r.metricValues?.[r.metricValues.length - 1]?.value ?? "0", 10) || 0);
+    // Plain rows: one per step. Metrics per row are
+    // [activeUsers, completionRate, abandonments, abandonmentRate, ...] — the
+    // FIRST value is activeUsers (what we want); step order = row order.
+    const usersByStep = plain.map((r) => parseInt(r.metricValues?.[0]?.value ?? "0", 10) || 0);
     const names = ["Reads content", "Views demo page", "Books a demo"];
     const base = usersByStep[0] || 0;
     const steps: FunnelStep[] = names.map((name, i) => {
@@ -1090,7 +1088,7 @@ export async function getGa4ContentDemoFunnel(
     const bookedByPage = new Map<string, number>();
     for (const r of broken) {
       const dims = r.dimensionValues ?? [];
-      const users = parseInt(r.metricValues?.[r.metricValues.length - 1]?.value ?? "0", 10) || 0;
+      const users = parseInt(r.metricValues?.[0]?.value ?? "0", 10) || 0;
       const stepVal = dims[0]?.value ?? "";
       const page = dims[1]?.value ?? dims[dims.length - 1]?.value ?? "(not set)";
       const isStep1 = /1|reads|content/i.test(stepVal);
@@ -1105,7 +1103,7 @@ export async function getGa4ContentDemoFunnel(
       })
       .sort((a, b) => b.entered - a.entered);
 
-    return { connected: true, segment, steps, pages, debug: rawSample };
+    return { connected: true, segment, steps, pages };
   } catch (e) {
     return { ...empty, reason: e instanceof Error ? e.message : "GA4 request failed" };
   }

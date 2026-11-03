@@ -36,10 +36,7 @@ function FunnelCardView({ f }: { f: FunnelCard }) {
       {!f.connected ? (
         <p className="text-[12.5px] text-muted-foreground">{f.reason ?? "GA4 not connected."}</p>
       ) : noData ? (
-        <div className="space-y-1">
-          <p className="text-[12.5px] text-muted-foreground">No funnel data in this range.</p>
-          {f.debug && <p className="break-all font-mono text-[9.5px] leading-tight text-slate-400">{f.debug}</p>}
-        </div>
+        <p className="text-[12.5px] text-muted-foreground">No funnel data in this range.</p>
       ) : (
         <>
           <div className="space-y-2.5">
