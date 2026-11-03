@@ -36,6 +36,9 @@ const schema = z.object({
   // From-address for transactional email, e.g. "We360 <noreply@we360.ai>". The
   // domain must be verified in Resend for delivery to anyone but your own inbox.
   RESEND_FROM: z.string().optional(),
+  // HubSpot private-app token (server-only) — used to verify demo bookings
+  // against real CRM contacts/deals. Never exposed to the client.
+  HUBSPOT_PRIVATE_APP_TOKEN: z.string().optional(),
 
   // --- AI Visibility engines (each engine self-skips until its key exists) ---
   OPENAI_API_KEY: z.string().optional(),
@@ -76,6 +79,9 @@ export function hasApify(): boolean {
 }
 export function hasResend(): boolean {
   return !!env().RESEND_API_KEY;
+}
+export function hasHubspot(): boolean {
+  return !!env().HUBSPOT_PRIVATE_APP_TOKEN;
 }
 export function hasGoogleServiceAccount(): boolean {
   return !!env().GOOGLE_SERVICE_ACCOUNT_JSON;

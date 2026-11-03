@@ -6,14 +6,32 @@
 // via getDemoBookingDetail. Honest about GA4's limits: "Direct" is undercounted
 // (Calendly wrapper + late GTM lose the source).
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, CalendarCheck, ChevronDown, ChevronRight, Loader2, Plug, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, CalendarCheck, ChevronDown, ChevronRight, Loader2, MousePointerClick, Plug, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { MousePointerClick } from "lucide-react";
 import { getDemoBookingDetail } from "@/lib/actions/report-demos";
 import type { Ga4DemoBookings, Ga4BookingDetailRow, Ga4DemoCta } from "@/lib/google/ga4";
+import type { HubspotVerification } from "@/lib/hubspot/leads";
+
+// GA4 booking times are wall-clock in the property timezone; HubSpot createdate is
+// UTC. Convert both to a comparable "property-tz wall clock" so a booking can be
+// matched to a CRM record created within MATCH_MS of it.
+const MATCH_MS = 15 * 60 * 1000;
+function tzWallMs(utcMs: number, tz: string): number {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date(utcMs));
+  const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "0";
+  const h = g("hour") === "24" ? "0" : g("hour");
+  return Date.UTC(+g("year"), +g("month") - 1, +g("day"), +h, +g("minute"));
+}
+function gaWallMs(timeStr: string): number {
+  const [date, time] = timeStr.split(" ");
+  if (!date || !time) return NaN;
+  const [y, mo, d] = date.split("-").map(Number);
+  const [h, mi] = time.split(":").map(Number);
+  return Date.UTC(y, mo - 1, d, h, mi);
+}
 
 const CHANNEL_COLOR: Record<string, string> = {
   "Organic Search": "var(--color-chart-1)",
@@ -39,9 +57,12 @@ function TrendChip({ pct }: { pct: number | null }) {
 
 type DetailState = { loading: boolean; rows?: Ga4BookingDetailRow[]; error?: string };
 
-export function DemoBookingsPanel({ data, cta, range, rangeLabel }: { data: Ga4DemoBookings; cta: Ga4DemoCta; range: string; rangeLabel: string }) {
+export function DemoBookingsPanel({ data, cta, hubspot, propertyTz, range, rangeLabel }: { data: Ga4DemoBookings; cta: Ga4DemoCta; hubspot: HubspotVerification; propertyTz: string; range: string; rangeLabel: string }) {
   const [open, setOpen] = useState<string | null>(null);
   const [cache, setCache] = useState<Record<string, DetailState>>({});
+  // Real HubSpot record times, as property-tz wall clock, for booking-row tagging.
+  const hsWall = useMemo(() => (hubspot.ok ? hubspot.timestamps.map((t) => tzWallMs(t, propertyTz)) : []), [hubspot, propertyTz]);
+  const isVerified = (time: string) => { const g = gaWallMs(time); return Number.isFinite(g) && hsWall.some((w) => Math.abs(w - g) <= MATCH_MS); };
 
   const toggle = async (channel: string) => {
     if (open === channel) { setOpen(null); return; }
@@ -132,18 +153,31 @@ export function DemoBookingsPanel({ data, cta, range, rangeLabel }: { data: Ga4D
                                   <th className="px-2.5 py-1.5 font-semibold">Landing page</th>
                                   <th className="px-2.5 py-1.5 font-semibold">Device</th>
                                   <th className="px-2.5 py-1.5 font-semibold">Location</th>
+                                  <th className="px-2.5 py-1.5 font-semibold">HubSpot</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {detail.rows.map((r, i) => (
+                                {detail.rows.map((r, i) => {
+                                  const verified = hubspot.ok && isVerified(r.time);
+                                  return (
                                   <tr key={i} className="border-b border-border/60 last:border-0">
                                     <td className="whitespace-nowrap px-2.5 py-1.5 font-mono tabular-nums text-foreground">{r.time}</td>
                                     <td className="px-2.5 py-1.5 text-muted-foreground">{r.sourceMedium}</td>
                                     <td className="max-w-[240px] truncate px-2.5 py-1.5 text-muted-foreground" title={r.landingPage}>{r.landingPage}</td>
                                     <td className="px-2.5 py-1.5 capitalize text-muted-foreground">{r.device}</td>
                                     <td className="px-2.5 py-1.5 text-muted-foreground">{r.location || "—"}</td>
+                                    <td className="whitespace-nowrap px-2.5 py-1.5">
+                                      {verified ? (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success-strong">
+                                          <BadgeCheck className="size-3" /> Verified
+                                        </span>
+                                      ) : (
+                                        <span className="text-muted-foreground/50">—</span>
+                                      )}
+                                    </td>
                                   </tr>
-                                ))}
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>
@@ -154,6 +188,19 @@ export function DemoBookingsPanel({ data, cta, range, rangeLabel }: { data: Ga4D
                 );
               })}
             </div>
+
+            {hubspot.ok ? (
+              <p className="flex items-start gap-1.5 rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-[12px] text-slate-600 dark:text-foreground/80">
+                <BadgeCheck className="mt-0.5 size-3.5 shrink-0 text-success-strong" />
+                <span>
+                  HubSpot this period: <strong>{hubspot.realContacts.toLocaleString()}</strong> real contacts · <strong>{hubspot.realDeals.toLocaleString()}</strong> deals created
+                  {hubspot.internalCount + hubspot.testCount > 0 ? ` · ${(hubspot.internalCount + hubspot.testCount).toLocaleString()} internal/test excluded` : ""}.
+                  Expand a source — a booking is tagged <span className="font-semibold text-success-strong">Verified</span> when a real contact/deal was created within ~15 min of it.
+                </span>
+              </p>
+            ) : hubspot.reason ? (
+              <p className="text-[12px] text-slate-400">HubSpot verification unavailable: {hubspot.reason}</p>
+            ) : null}
 
             <p className="pt-1 text-[12px] text-slate-400">
               “Direct” is undercounted — the Calendly wrapper + late GTM lose the original source, so real organic/referral bookings are higher. Times are collapsed when the same source/page/minute repeats.

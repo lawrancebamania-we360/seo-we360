@@ -593,6 +593,23 @@ export async function getGa4OrganicMonthly(
   }
 }
 
+// The property's reporting timezone (GA4 Admin API). GA4 dateHourMinute values
+// are in this zone; HubSpot createdate is UTC — so matching a booking to a CRM
+// record needs this to align the two. Falls back to IST (the team's zone).
+export async function getGa4PropertyTimezone(propertyId: string | null): Promise<string> {
+  const fallback = "Asia/Kolkata";
+  if (!propertyId || !(await isGoogleServiceAccountConfigured())) return fallback;
+  try {
+    const token = await getGoogleAccessToken(SCOPE);
+    const res = await fetch(`https://analyticsadmin.googleapis.com/v1beta/properties/${propertyId}`, {
+      headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return fallback;
+    const j = (await res.json()) as { timeZone?: string };
+    return j.timeZone || fallback;
+  } catch { return fallback; }
+}
+
 // ============================================================================
 // Demo bookings — a booking = a session that reached a "next-steps" page (the
 // post-demo "What's Next?" guide that only loads after a Calendly booking).
