@@ -229,8 +229,8 @@ export function DemoBookingsPanel({ data, cta, hubspot, propertyTz, range, range
           <div className="space-y-4">
             <div className="flex flex-wrap items-end gap-6">
               <Stat label="Demo CTA clicks" value={cta.totalClicks.toLocaleString()} />
-              <Stat label="Bookings" value={data.total.toLocaleString()} />
-              <Stat label="Click → booking" value={cta.totalClicks > 0 ? `${Math.round((data.total / cta.totalClicks) * 1000) / 10}%` : "—"} />
+              <Stat label="Bookings (since 2 Nov)" value={cta.bookingsSince.toLocaleString()} />
+              <Stat label="Click → booking" value={cta.totalClicks > 0 ? `${Math.round((cta.bookingsSince / cta.totalClicks) * 1000) / 10}%` : "—"} />
             </div>
 
             <div className="space-y-1.5">
@@ -273,7 +273,7 @@ export function DemoBookingsPanel({ data, cta, hubspot, propertyTz, range, range
             </div>
 
             <p className="text-[12px] text-slate-400">
-              Aggregate only — the rate is total bookings ÷ total demo-CTA clicks across the site, not per button (per-button booking attribution needs BigQuery). Tracking began 2 Nov 2026.
+              Aggregate only — the rate is bookings ÷ demo-CTA clicks over the same window (2 Nov onward), not per button (per-button attribution needs BigQuery). Not every booking comes from a tracked button, so it can exceed 100%.
             </p>
           </div>
         )}

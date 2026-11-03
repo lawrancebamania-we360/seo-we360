@@ -810,6 +810,8 @@ export interface Ga4DemoCta {
   reason?: string;
   beforeCta: boolean;   // the selected range ends before the tag was live
   totalClicks: number;
+  /** Non-paid bookings over the SAME (2 Nov-onward) window as the clicks, so the rate is like-for-like. */
+  bookingsSince: number;
   byLocation: { location: string; clicks: number }[];
   byButton: Ga4CtaButtonRow[];
 }
@@ -818,7 +820,7 @@ export async function getGa4DemoCta(
   propertyId: string | null,
   range: { start: string; end: string },
 ): Promise<Ga4DemoCta> {
-  const empty: Ga4DemoCta = { connected: false, beforeCta: false, totalClicks: 0, byLocation: [], byButton: [] };
+  const empty: Ga4DemoCta = { connected: false, beforeCta: false, totalClicks: 0, bookingsSince: 0, byLocation: [], byButton: [] };
   if (!propertyId) return { ...empty, reason: "No GA4 property ID on this project." };
   if (!(await isGoogleServiceAccountConfigured())) return { ...empty, reason: "GA4 not connected." };
   // Nothing was tracked before the tag went live.
@@ -874,7 +876,35 @@ export async function getGa4DemoCta(
     });
     const byLocation = [...byLocationMap.entries()].map(([location, clicks]) => ({ location, clicks })).sort((a, b) => b.clicks - a.clicks);
 
-    return { connected: true, beforeCta: false, totalClicks, byLocation, byButton };
+    // Non-paid bookings over the SAME window as the clicks, so click->booking is like-for-like.
+    let bookingsSince = 0;
+    try {
+      const bres = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            dateRanges: [{ startDate, endDate: range.end }],
+            dimensions: [{ name: "sessionDefaultChannelGroup" }],
+            metrics: [{ name: "sessions" }],
+            dimensionFilter: bookingFilter(),
+            limit: 50,
+          }),
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      if (bres.ok) {
+        const bj = (await bres.json()) as { rows?: RunReportRow[] };
+        for (const r of bj.rows ?? []) {
+          const channel = r.dimensionValues[0]?.value ?? "";
+          if (PAID_CHANNELS.has(channel)) continue;
+          bookingsSince += parseInt(r.metricValues[0]?.value ?? "0", 10) || 0;
+        }
+      }
+    } catch { /* leave bookingsSince at 0 */ }
+
+    return { connected: true, beforeCta: false, totalClicks, bookingsSince, byLocation, byButton };
   } catch (e) {
     return { ...empty, reason: e instanceof Error ? e.message : "GA4 request failed" };
   }
