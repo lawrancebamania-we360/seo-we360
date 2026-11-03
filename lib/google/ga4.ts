@@ -1012,6 +1012,7 @@ export interface Ga4ContentFunnel {
   segment: FunnelSegment;
   steps: FunnelStep[];
   pages: FunnelPageRow[];
+  debug?: string;   // TEMP: raw alpha funnel response sample, to fix parsing
 }
 
 type FunnelRow = { dimensionValues?: { value: string }[]; metricValues?: { value: string }[] };
@@ -1044,6 +1045,7 @@ export async function getGa4ContentDemoFunnel(
   try { token = await getGoogleAccessToken(SCOPE); }
   catch (e) { return { ...empty, reason: e instanceof Error ? e.message : "GA4 auth failed" }; }
 
+  let rawSample = "";
   const call = async (breakdown: boolean): Promise<FunnelRow[]> => {
     const res = await fetch(
       `https://analyticsdata.googleapis.com/v1alpha/properties/${propertyId}:runFunnelReport`,
@@ -1056,6 +1058,7 @@ export async function getGa4ContentDemoFunnel(
     );
     if (!res.ok) throw new Error(`GA4 funnel failed (${res.status}): ${(await res.text()).slice(0, 180)}`);
     const json = (await res.json()) as { funnelTable?: { rows?: FunnelRow[] } };
+    if (!breakdown) rawSample = JSON.stringify(json).slice(0, 600); // TEMP debug: see the real alpha shape
     return json.funnelTable?.rows ?? [];
   };
 
@@ -1102,7 +1105,7 @@ export async function getGa4ContentDemoFunnel(
       })
       .sort((a, b) => b.entered - a.entered);
 
-    return { connected: true, segment, steps, pages };
+    return { connected: true, segment, steps, pages, debug: rawSample };
   } catch (e) {
     return { ...empty, reason: e instanceof Error ? e.message : "GA4 request failed" };
   }
