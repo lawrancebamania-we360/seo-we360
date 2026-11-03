@@ -622,14 +622,19 @@ const BOOKING_PAGE_MATCH = "next-steps";
 const PAID_CHANNELS = new Set([
   "Paid Search", "Paid Social", "Paid Video", "Paid Shopping", "Paid Other", "Display", "Cross-network",
 ]);
+// Cities whose bookings are excluded as known internal/test traffic (e.g. the
+// team tests demos from Jalandhar). Filtered out of both counts and detail rows.
+const EXCLUDED_CITIES = ["Jalandhar"];
 
-// pagePath CONTAINS next-steps AND NOT (utm_source = claude_test), plus any extra expressions.
+// pagePath CONTAINS next-steps, NOT test traffic (utm_source=claude_test or an
+// excluded city), plus any extra expressions.
 function bookingFilter(extra: object[] = []): object {
   return {
     andGroup: {
       expressions: [
         { filter: { fieldName: "pagePath", stringFilter: { matchType: "CONTAINS", value: BOOKING_PAGE_MATCH } } },
         { notExpression: { filter: { fieldName: "sessionSource", stringFilter: { matchType: "EXACT", value: "claude_test" } } } },
+        { notExpression: { filter: { fieldName: "city", inListFilter: { values: EXCLUDED_CITIES } } } },
         ...extra,
       ],
     },
