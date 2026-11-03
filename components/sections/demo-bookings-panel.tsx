@@ -60,9 +60,12 @@ type DetailState = { loading: boolean; rows?: Ga4BookingDetailRow[]; error?: str
 export function DemoBookingsPanel({ data, cta, hubspot, propertyTz, range, rangeLabel }: { data: Ga4DemoBookings; cta: Ga4DemoCta; hubspot: HubspotVerification; propertyTz: string; range: string; rangeLabel: string }) {
   const [open, setOpen] = useState<string | null>(null);
   const [cache, setCache] = useState<Record<string, DetailState>>({});
-  // Real HubSpot record times, as property-tz wall clock, for booking-row tagging.
-  const hsWall = useMemo(() => (hubspot.ok ? hubspot.timestamps.map((t) => tzWallMs(t, propertyTz)) : []), [hubspot, propertyTz]);
-  const isVerified = (time: string) => { const g = gaWallMs(time); return Number.isFinite(g) && hsWall.some((w) => Math.abs(w - g) <= MATCH_MS); };
+  // HubSpot meeting times (property-tz wall clock): real -> "Verified", internal/test -> drop the row.
+  const verifyWall = useMemo(() => (hubspot.ok ? hubspot.verifyTimestamps.map((t) => tzWallMs(t, propertyTz)) : []), [hubspot, propertyTz]);
+  const excludeWall = useMemo(() => (hubspot.ok ? hubspot.excludeTimestamps.map((t) => tzWallMs(t, propertyTz)) : []), [hubspot, propertyTz]);
+  const near = (walls: number[], time: string) => { const g = gaWallMs(time); return Number.isFinite(g) && walls.some((w) => Math.abs(w - g) <= MATCH_MS); };
+  const isVerified = (time: string) => near(verifyWall, time);
+  const isExcluded = (time: string) => near(excludeWall, time);
 
   const toggle = async (channel: string) => {
     if (open === channel) { setOpen(null); return; }
@@ -157,7 +160,7 @@ export function DemoBookingsPanel({ data, cta, hubspot, propertyTz, range, range
                                 </tr>
                               </thead>
                               <tbody>
-                                {detail.rows.map((r, i) => {
+                                {detail.rows.filter((r) => !(hubspot.ok && isExcluded(r.time))).map((r, i) => {
                                   const verified = hubspot.ok && isVerified(r.time);
                                   return (
                                   <tr key={i} className="border-b border-border/60 last:border-0">
@@ -193,9 +196,9 @@ export function DemoBookingsPanel({ data, cta, hubspot, propertyTz, range, range
               <p className="flex items-start gap-1.5 rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-[12px] text-slate-600 dark:text-foreground/80">
                 <BadgeCheck className="mt-0.5 size-3.5 shrink-0 text-success-strong" />
                 <span>
-                  HubSpot this period: <strong>{hubspot.realContacts.toLocaleString()}</strong> real contacts · <strong>{hubspot.realDeals.toLocaleString()}</strong> deals created
-                  {hubspot.internalCount + hubspot.testCount > 0 ? ` · ${(hubspot.internalCount + hubspot.testCount).toLocaleString()} internal/test excluded` : ""}.
-                  Expand a source — a booking is tagged <span className="font-semibold text-success-strong">Verified</span> when a real contact/deal was created within ~15 min of it.
+                  HubSpot this period: <strong>{hubspot.realMeetings.toLocaleString()}</strong> real demo meetings · <strong>{hubspot.realContacts.toLocaleString()}</strong> contacts created
+                  {hubspot.excludedMeetings > 0 ? ` · ${hubspot.excludedMeetings.toLocaleString()} internal/test meetings dropped` : ""}.
+                  Expand a source — a booking is tagged <span className="font-semibold text-success-strong">Verified</span> when a HubSpot meeting was booked within ~15 min of it; internal/test bookings are removed.
                 </span>
               </p>
             ) : hubspot.reason ? (
