@@ -794,6 +794,74 @@ export async function getGa4DemoBookingDetail(
   }
 }
 
+export interface Ga4NonPaidBookingRow {
+  channel: string;
+  time: string;         // "YYYY-MM-DD HH:MM" in the property timezone
+  landingPage: string;
+  device: string;
+  location: string;
+}
+
+// Every NON-PAID next-steps booking as a (channel, minute) row — the raw input
+// for matching bookings to HubSpot deals (organic deals). One report across all
+// channels; paid channels dropped in code. Test/Jalandhar excluded by bookingFilter.
+export async function getGa4NonPaidDemoRows(
+  propertyId: string | null,
+  range: { start: string; end: string },
+): Promise<{ ok: boolean; reason?: string; rows: Ga4NonPaidBookingRow[] }> {
+  if (!propertyId) return { ok: false, reason: "No GA4 property ID on this project.", rows: [] };
+  if (!(await isGoogleServiceAccountConfigured())) return { ok: false, reason: "GA4 not connected.", rows: [] };
+  let token: string;
+  try { token = await getGoogleAccessToken(SCOPE); }
+  catch (e) { return { ok: false, reason: e instanceof Error ? e.message : "GA4 auth failed", rows: [] }; }
+
+  try {
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: range.start, endDate: range.end }],
+          dimensions: [
+            { name: "sessionDefaultChannelGroup" },
+            { name: "dateHourMinute" },
+            { name: "landingPagePlusQueryString" },
+            { name: "deviceCategory" },
+            { name: "city" },
+          ],
+          metrics: [{ name: "sessions" }],
+          dimensionFilter: bookingFilter(),
+          orderBys: [{ dimension: { dimensionName: "dateHourMinute" }, desc: true }],
+          limit: 1000,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    if (!res.ok) return { ok: false, reason: `GA4 non-paid rows failed (${res.status}): ${(await res.text()).slice(0, 160)}`, rows: [] };
+    const data = (await res.json()) as { rows?: RunReportRow[] };
+    const rows: Ga4NonPaidBookingRow[] = [];
+    for (const r of data.rows ?? []) {
+      const channel = r.dimensionValues[0]?.value ?? "(unknown)";
+      if (PAID_CHANNELS.has(channel)) continue;
+      const raw = r.dimensionValues[1]?.value ?? ""; // YYYYMMDDHHMM
+      const time = raw.length === 12
+        ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)} ${raw.slice(8, 10)}:${raw.slice(10, 12)}`
+        : raw;
+      rows.push({
+        channel,
+        time,
+        landingPage: r.dimensionValues[2]?.value ?? "(not set)",
+        device: r.dimensionValues[3]?.value ?? "",
+        location: r.dimensionValues[4]?.value ?? "",
+      });
+    }
+    return { ok: true, rows };
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : "GA4 request failed", rows: [] };
+  }
+}
+
 // ============================================================================
 // Demo CTA aggregate — which button on which page drives demo demand. Reads the
 // cta_click event (live since 2 Nov 2026) filtered to cta_type=demo, by its
