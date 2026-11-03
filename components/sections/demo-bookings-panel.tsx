@@ -217,6 +217,7 @@ export function DemoBookingsPanel({ data, cta, hubspot, propertyTz, range, range
           <MousePointerClick className="size-4 text-muted-foreground" />
           <h3 className="text-[15px] font-semibold text-foreground">Demo CTA clicks</h3>
           <span className="text-[12px] text-slate-400">which button & page drive demos</span>
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Tracking since 2 Nov 2026</span>
         </div>
         {!cta.connected ? (
           <p className="text-[13px] text-muted-foreground">{cta.reason ?? "GA4 not connected."}</p>
