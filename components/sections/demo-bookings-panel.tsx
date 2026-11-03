@@ -86,9 +86,9 @@ export function DemoBookingsPanel({ data, cta, hubspot, propertyTz, range, range
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="font-heading text-[19px] font-semibold tracking-[-0.01em] text-foreground">Demo bookings</h2>
+        <h2 className="font-heading text-[19px] font-semibold tracking-[-0.01em] text-foreground">Deals captured</h2>
         <p className="mt-1 text-[13px] text-slate-500">
-          Sessions that reached the post-demo page · {rangeLabel.toLowerCase()} · non-paid sources only
+          Demos booked by source · {rangeLabel.toLowerCase()} · non-paid; tagged when a HubSpot deal was captured
         </p>
       </div>
 
@@ -107,15 +107,23 @@ export function DemoBookingsPanel({ data, cta, hubspot, propertyTz, range, range
         ) : data.total === 0 ? (
           <EmptyState
             icon={CalendarCheck}
-            title={`No demo bookings ${rangeLabel.toLowerCase()}`}
+            title={`No demos booked ${rangeLabel.toLowerCase()}`}
             why="A booking is counted when a visitor reaches the post-demo “What’s Next?” page. None from non-paid sources in this window."
           />
         ) : (
           <div className="space-y-4">
-            <div className="flex items-end gap-3">
-              <div className="font-heading text-[30px] font-bold leading-none tabular-nums text-foreground">{data.total.toLocaleString()}</div>
-              <div className="pb-0.5 text-[13px] text-slate-500">bookings</div>
-              <div className="pb-0.5"><TrendChip pct={data.trendPct} /></div>
+            <div className="flex flex-wrap items-end gap-x-7 gap-y-2">
+              <div className="flex items-end gap-2">
+                <div className="font-heading text-[30px] font-bold leading-none tabular-nums text-foreground">{data.total.toLocaleString()}</div>
+                <div className="pb-0.5 text-[13px] text-slate-500">demos booked</div>
+                <div className="pb-0.5"><TrendChip pct={data.trendPct} /></div>
+              </div>
+              {hubspot.ok && (
+                <div className="flex items-end gap-2">
+                  <div className="font-heading text-[30px] font-bold leading-none tabular-nums text-success-strong">{hubspot.realDeals.toLocaleString()}</div>
+                  <div className="pb-0.5 text-[13px] text-slate-500">deals captured</div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -156,7 +164,7 @@ export function DemoBookingsPanel({ data, cta, hubspot, propertyTz, range, range
                                   <th className="px-2.5 py-1.5 font-semibold">Landing page</th>
                                   <th className="px-2.5 py-1.5 font-semibold">Device</th>
                                   <th className="px-2.5 py-1.5 font-semibold">Location</th>
-                                  <th className="px-2.5 py-1.5 font-semibold">HubSpot</th>
+                                  <th className="px-2.5 py-1.5 font-semibold">Deal</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -172,7 +180,7 @@ export function DemoBookingsPanel({ data, cta, hubspot, propertyTz, range, range
                                     <td className="whitespace-nowrap px-2.5 py-1.5">
                                       {verified ? (
                                         <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success-strong">
-                                          <BadgeCheck className="size-3" /> Verified
+                                          <BadgeCheck className="size-3" /> Deal
                                         </span>
                                       ) : (
                                         <span className="text-muted-foreground/50">—</span>
@@ -196,9 +204,9 @@ export function DemoBookingsPanel({ data, cta, hubspot, propertyTz, range, range
               <p className="flex items-start gap-1.5 rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-[12px] text-slate-600 dark:text-foreground/80">
                 <BadgeCheck className="mt-0.5 size-3.5 shrink-0 text-success-strong" />
                 <span>
-                  HubSpot this period: <strong>{hubspot.realMeetings.toLocaleString()}</strong> real demo meetings · <strong>{hubspot.realContacts.toLocaleString()}</strong> contacts created
-                  {hubspot.excludedMeetings > 0 ? ` · ${hubspot.excludedMeetings.toLocaleString()} internal/test meetings dropped` : ""}.
-                  Expand a source — a booking is tagged <span className="font-semibold text-success-strong">Verified</span> when a HubSpot meeting was booked within ~15 min of it; internal/test bookings are removed.
+                  HubSpot this period: <strong>{hubspot.realDeals.toLocaleString()}</strong> deals captured
+                  {hubspot.excludedDeals > 0 ? ` · ${hubspot.excludedDeals.toLocaleString()} internal/test dropped` : ""}.
+                  Expand a source — a booking is tagged <span className="font-semibold text-success-strong">Deal</span> when a HubSpot deal was created within ~15 min of it; internal/test are removed. About half of bookings become a deal; the rest stay untagged (booked, no deal yet).
                 </span>
               </p>
             ) : hubspot.reason ? (
