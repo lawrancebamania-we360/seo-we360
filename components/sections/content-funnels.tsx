@@ -95,6 +95,12 @@ function FunnelModal({ f, onClose }: { f: FunnelCard; onClose: () => void }) {
           </div>
         </div>
 
+        {/* Plain-English explainer */}
+        <p className="mt-3 rounded-lg border border-border bg-muted/20 px-3 py-2 text-[12px] leading-relaxed text-slate-600 dark:text-foreground/80">
+          <span className="font-semibold text-foreground">What this is:</span> Google Analytics data — it counts anonymous visitors who did each step in order (read content → opened the demo page → reached the booking page), not people by name or HubSpot deals.
+          {" "}<span className="font-semibold text-foreground">Note on “Booked” per page:</span> most people book later in a separate visit via a direct link, so Google can’t tie that booking back to the blog they first read — per-page “Booked” often shows 0 even when the funnel total above doesn’t. Treat the top “Books a demo” number as the real total; per-page <strong>Entered</strong> and <strong>Viewed demo</strong> are the reliable columns.
+        </p>
+
         {/* Per-page breakdown */}
         <div className="mt-4">
           <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">By page</div>
