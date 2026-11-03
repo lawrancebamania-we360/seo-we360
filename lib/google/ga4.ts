@@ -1005,7 +1005,7 @@ const SEGMENT_STEP1: Record<FunnelSegment, object> = {
 };
 
 export interface FunnelStep { name: string; users: number; completionRate: number; abandonments: number; abandonmentRate: number; }
-export interface FunnelPageRow { page: string; entered: number; booked: number; completionRate: number; }
+export interface FunnelPageRow { page: string; entered: number; viewedDemo: number; booked: number; completionRate: number; }
 export interface Ga4ContentFunnel {
   connected: boolean;
   reason?: string;
@@ -1084,22 +1084,28 @@ export async function getGa4ContentDemoFunnel(
     // Broken-down rows: (step, landingPage) -> users. Build per-page entered(step1)
     // + booked(last step). The step dimension is the FIRST value, the breakdown the
     // second; fall back gracefully if the order differs.
+    // Broken-down rows come as (funnel step, landing page). Bucket each page's
+    // users at step 1 (entered), step 2 (viewed /demo/) and step 3 (booked). The
+    // step name is "N. ...", so the leading number is the step index. GA4 adds a
+    // "RESERVED_TOTAL" aggregate page — dropped (the card header shows totals).
     const enteredByPage = new Map<string, number>();
+    const viewedByPage = new Map<string, number>();
     const bookedByPage = new Map<string, number>();
     for (const r of broken) {
       const dims = r.dimensionValues ?? [];
       const users = parseInt(r.metricValues?.[0]?.value ?? "0", 10) || 0;
       const stepVal = dims[0]?.value ?? "";
       const page = dims[1]?.value ?? dims[dims.length - 1]?.value ?? "(not set)";
-      const isStep1 = /1|reads|content/i.test(stepVal);
-      const isLast = /3|book/i.test(stepVal);
-      if (isStep1) enteredByPage.set(page, (enteredByPage.get(page) ?? 0) + users);
-      else if (isLast) bookedByPage.set(page, (bookedByPage.get(page) ?? 0) + users);
+      if (page === "RESERVED_TOTAL") continue;
+      const step = parseInt(stepVal, 10); // "2. Views demo page" -> 2
+      if (step === 1) enteredByPage.set(page, (enteredByPage.get(page) ?? 0) + users);
+      else if (step === 2) viewedByPage.set(page, (viewedByPage.get(page) ?? 0) + users);
+      else if (step === 3) bookedByPage.set(page, (bookedByPage.get(page) ?? 0) + users);
     }
     const pages: FunnelPageRow[] = [...enteredByPage.entries()]
       .map(([page, entered]) => {
         const booked = bookedByPage.get(page) ?? 0;
-        return { page, entered, booked, completionRate: entered > 0 ? Math.round((booked / entered) * 1000) / 10 : 0 };
+        return { page, entered, viewedDemo: viewedByPage.get(page) ?? 0, booked, completionRate: entered > 0 ? Math.round((booked / entered) * 1000) / 10 : 0 };
       })
       .sort((a, b) => b.entered - a.entered);
 
