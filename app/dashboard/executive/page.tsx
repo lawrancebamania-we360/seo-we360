@@ -20,15 +20,11 @@ export default async function ExecutivePage({
   if (!ctx.activeProject) return <EmptyProjectState canCreate={ctx.canManageProjects} />;
 
   const sp = await searchParams;
-  const data = await getExecutiveDashboard(ctx.activeProject.id, sp.range ?? "this_month");
+  const data = await getExecutiveDashboard(ctx.activeProject.id, sp.range ?? "this_month", ctx.activeProject.ga4_property_id ?? null);
 
-  // Flatten the in-range DR/Traffic points for the admin editor's delete list.
-  const editorPoints = [
-    ...data.traffic.actual.map((p) => ({ ...p, metric: "traffic" as const, kind: "actual" as const })),
-    ...data.traffic.targets.map((p) => ({ ...p, metric: "traffic" as const, kind: "target" as const })),
-    ...data.dr.actual.map((p) => ({ ...p, metric: "dr" as const, kind: "actual" as const })),
-    ...data.dr.targets.map((p) => ({ ...p, metric: "dr" as const, kind: "target" as const })),
-  ].sort((a, b) => b.date.localeCompare(a.date));
+  // Every hand-entered DR / traffic point (goals included, whatever their date),
+  // newest first, for the admin editor's delete list.
+  const editorPoints = [...data.manualPoints].sort((a, b) => b.date.localeCompare(a.date));
 
   return (
     <div className="mx-auto w-full max-w-[1400px] flex-1 space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-10">

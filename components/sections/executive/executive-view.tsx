@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  ComposedChart, LineChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid,
+  ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine, Cell,
 } from "recharts";
 import {
@@ -47,8 +47,8 @@ export function ExecutiveView({ data }: { data: ExecutiveDashboard }) {
       <KpiRow data={data} />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <TargetChart title="Organic traffic" icon={TrendingUp} color={C.traffic} series={data.traffic} unit="" />
-        <TargetChart title="Domain Rating" icon={Gauge} color={C.dr} series={data.dr} unit="" drStyle />
+        <GoalCard title="Traffic goal" icon={TrendingUp} color={C.traffic} series={data.traffic} today={data.today} />
+        <GoalCard title="Domain Rating goal" icon={Gauge} color={C.dr} series={data.dr} today={data.today} />
       </div>
 
       <SpendEffect data={data} />
@@ -71,7 +71,7 @@ function KpiRow({ data }: { data: ExecutiveDashboard }) {
   return (
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
       <Tile
-        icon={TrendingUp} label="Organic traffic"
+        icon={TrendingUp} label="Traffic (30 days)"
         value={t.latestActual !== null ? fmtNum(t.latestActual) : "—"}
         sub={t.latestTarget ? `Target ${fmtNum(t.latestTarget)}${trafficToGoal !== null ? ` · ${pct(trafficToGoal)}` : ""}` : "No target set"}
         delta={t.delta} color={C.traffic}
@@ -124,39 +124,163 @@ function Tile({
 }
 
 // ---------------------------------------------------------------------------
-// Target vs achieved (line + target reference)
+// Goal tracker: achieved vs pending, and the path to the deadline. Not tied to
+// the range filter - a goal has its own deadline, so it always shows the whole
+// journey from the first reading to that date.
 // ---------------------------------------------------------------------------
 
-function TargetChart({
-  title, icon: Icon, color, series, unit, drStyle,
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const monthLabelOf = (k: string) => { const [y, m] = k.split("-").map(Number); return `${MONTHS[m - 1]} ${String(y).slice(2)}`; };
+const fmtDay = (d: string) => { const [y, m, dd] = d.split("-").map(Number); return `${MONTHS[m - 1]} ${dd}, ${y}`; };
+const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+
+function monthsFrom(startKey: string, endKey: string): string[] {
+  const out: string[] = [];
+  let [y, m] = startKey.split("-").map(Number);
+  const [ey, em] = endKey.split("-").map(Number);
+  for (let i = 0; i < 60 && (y < ey || (y === ey && m <= em)); i++) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return out;
+}
+
+interface GoalRow { key: string; label: string; actual: number | null; glide: number | null }
+
+/** One bucket per month from the first reading to the goal month: the actual
+ *  line, plus a dashed straight "needed path" from the latest reading to the goal. */
+function goalRows(series: MetricSeries): GoalRow[] {
+  const { history, goal } = series;
+  if (!history.length && !goal) return [];
+  const firstKey = (history[0]?.date ?? goal!.date).slice(0, 7);
+  const lastKey = history.length ? history[history.length - 1].date.slice(0, 7) : null;
+  let endKey = goal ? goal.date.slice(0, 7) : lastKey!;
+  if (lastKey && lastKey > endKey) endKey = lastKey;
+  const keys = monthsFrom(firstKey, endKey);
+  const actualBy = new Map<string, number>();
+  for (const p of history) actualBy.set(p.date.slice(0, 7), p.value); // ascending, so a month's last reading wins
+  const rows: GoalRow[] = keys.map((k) => ({ key: k, label: monthLabelOf(k), actual: actualBy.get(k) ?? null, glide: null }));
+  if (goal && lastKey) {
+    const i0 = keys.indexOf(lastKey), iG = keys.indexOf(goal.date.slice(0, 7));
+    const v0 = actualBy.get(lastKey) ?? 0;
+    if (i0 >= 0 && iG > i0) {
+      for (let i = i0; i <= iG; i++) rows[i].glide = Math.round((v0 + ((goal.value - v0) * (i - i0)) / (iG - i0)) * 100) / 100;
+    }
+  }
+  return rows;
+}
+
+function GoalCard({
+  title, icon: Icon, color, series, today,
 }: {
-  title: string; icon: typeof TrendingUp; color: string; series: MetricSeries; unit: string; drStyle?: boolean;
+  title: string; icon: typeof TrendingUp; color: string; series: MetricSeries; today: string;
 }) {
-  const rows = series.actual.map((p) => ({ date: p.date.slice(5), value: p.value }));
-  const hasData = rows.length > 0;
-  const target = series.latestTarget;
+  const rows = useMemo(() => goalRows(series), [series]);
+  const isTraffic = series.metric === "traffic";
+  const fmt = (n: number) => (isTraffic ? fmtNum(n) : String(Math.round(n * 10) / 10));
+  const goal = series.goal;
+  const achieved = series.latestActual;
+  const pending = goal && achieved !== null ? Math.max(0, goal.value - achieved) : null;
+  const share = goal && achieved !== null && goal.value > 0 ? Math.min(1, achieved / goal.value) : null;
+  const daysLeft = goal ? daysBetween(today, goal.date) : null;
+  const perMonth = pending && daysLeft && daysLeft > 0 ? pending / (daysLeft / 30.44) : null;
+
+  const vals = rows.flatMap((r) => [r.actual, r.glide]).filter((v): v is number => v != null).concat(goal ? [goal.value] : []);
+  const lo = vals.length ? Math.min(...vals) : 0;
+  const hi = vals.length ? Math.max(...vals) : 1;
+  const domain: number[] = isTraffic
+    ? [0, Math.ceil(hi * 1.08)]
+    : [Math.max(0, Math.floor(lo - 4)), Math.min(100, Math.ceil(hi + 3))];
+
+  const subtitle = isTraffic
+    ? "Monthly sessions · GA4, same total as Analytics → Traffic sources"
+    : "Ahrefs Domain Rating, recorded by hand";
+
   return (
-    <ChartCard title={title} icon={Icon} right={
-      target != null ? <span className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground"><Target className="size-3" /> target {fmtNum(target)}</span> : undefined
-    }>
-      {!series.ready ? (
-        <Empty>Add the migration, then record {title.toLowerCase()} points.</Empty>
-      ) : !hasData ? (
-        <Empty>No {title.toLowerCase()} readings in this range yet. Use “DR / Traffic” to add one.</Empty>
+    <ChartCard
+      title={title} icon={Icon} subtitle={subtitle}
+      right={daysLeft !== null ? (
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+          <Target className="size-3" />
+          {daysLeft > 0 ? `${daysLeft} days left` : daysLeft === 0 ? "Due today" : "Deadline passed"}
+        </span>
+      ) : undefined}
+    >
+      <div className="mb-3 grid grid-cols-3 gap-2">
+        <Stat label="Achieved" color={color}
+          value={achieved !== null ? fmt(achieved) : "—"}
+          sub={share !== null ? `${pct(share)} of goal` : series.reason ?? "No reading yet"} />
+        <Stat label="Pending"
+          value={pending !== null ? fmt(pending) : "—"}
+          sub={pending === 0 ? "Goal reached" : perMonth !== null ? `≈ +${fmt(perMonth)} / month needed` : ""} />
+        <Stat label="Goal"
+          value={goal ? fmt(goal.value) : "—"}
+          sub={goal ? `by ${fmtDay(goal.date)}` : "No target set"} />
+      </div>
+
+      {goal && achieved !== null && share !== null && (
+        <div className="mb-4">
+          <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted" role="img"
+            aria-label={`${pct(share)} achieved, ${fmt(pending ?? 0)} pending`}>
+            <div style={{ width: `${share * 100}%`, background: color }} />
+            <div className="flex-1" style={{ backgroundImage: `repeating-linear-gradient(45deg, ${color}45 0 6px, transparent 6px 12px)` }} />
+          </div>
+          <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block size-2.5 rounded-sm" style={{ background: color }} /> Achieved {fmt(achieved)}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              Pending {fmt(pending ?? 0)}
+              <span className="inline-block size-2.5 rounded-sm border" style={{ borderColor: `${color}80`, backgroundImage: `repeating-linear-gradient(45deg, ${color}55 0 2px, transparent 2px 4px)` }} />
+            </span>
+          </div>
+        </div>
+      )}
+
+      {!series.ready && series.source === "manual" ? (
+        <Empty>{series.reason ?? "Add the migration, then record readings."}</Empty>
+      ) : !series.ready ? (
+        <Empty>Traffic comes from Google Analytics, which isn’t reachable here{series.reason ? `: ${series.reason}` : "."}</Empty>
+      ) : rows.length === 0 ? (
+        <Empty>No readings yet. Use “DR / Traffic” to add one.</Empty>
       ) : (
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={rows} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false}
-              domain={drStyle ? [0, 100] : ["auto", "auto"]} width={44} />
-            <Tooltip contentStyle={TOOLTIP} formatter={(v) => [fmtNum(Number(v)) + (unit ? ` ${unit}` : ""), title]} />
-            {target != null && <ReferenceLine y={target} stroke={C.target} strokeDasharray="5 4" label={{ value: "target", position: "right", fontSize: 10, fill: C.target }} />}
-            <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} dot={{ r: 3, fill: color }} activeDot={{ r: 5 }} />
-          </LineChart>
-        </ResponsiveContainer>
+        <>
+          <ResponsiveContainer width="100%" height={200}>
+            <ComposedChart data={rows} margin={{ top: 8, right: 12, left: -4, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
+              <YAxis domain={domain} width={48} tickLine={false} axisLine={false}
+                tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                tickFormatter={(v: number) => (isTraffic && v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
+              <Tooltip contentStyle={TOOLTIP} formatter={(v, name) => [fmt(Number(v)), name]} />
+              {goal && (
+                <ReferenceLine y={goal.value} stroke={C.target} strokeDasharray="5 4"
+                  label={{ value: `goal ${fmt(goal.value)}`, position: "insideTopLeft", fontSize: 10, fill: C.target }} />
+              )}
+              <Line type="monotone" dataKey="glide" name="Needed path" stroke={color} strokeOpacity={0.5} strokeWidth={2}
+                strokeDasharray="5 5" dot={false} activeDot={false} connectNulls />
+              <Line type="monotone" dataKey="actual" name="Achieved" stroke={color} strokeWidth={2.5}
+                dot={{ r: 3, fill: color }} activeDot={{ r: 5 }} connectNulls />
+            </ComposedChart>
+          </ResponsiveContainer>
+          <Legend2 items={[
+            { label: "Achieved", color, line: true },
+            { label: "Needed path to goal", color: `${color}80`, line: true },
+            { label: "Goal", color: C.target, line: true },
+          ]} />
+        </>
       )}
     </ChartCard>
+  );
+}
+
+function Stat({ label, value, sub, color }: { label: string; value: string; sub: string; color?: string }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-border bg-muted/20 px-3 py-2">
+      <div className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="font-heading text-[20px] font-bold leading-tight tracking-[-0.01em] text-foreground" style={color ? { color } : undefined}>{value}</div>
+      {sub && <div className="truncate text-[11px] text-slate-500" title={sub}>{sub}</div>}
+    </div>
   );
 }
 
@@ -168,7 +292,7 @@ function SpendEffect({ data }: { data: ExecutiveDashboard }) {
   const [line, setLine] = useState<"dr" | "traffic">("dr");
   const keys = data.spend.buckets.map((b) => b.key);
   const effect = useMemo(
-    () => alignToBuckets((line === "dr" ? data.dr : data.traffic).actual, keys),
+    () => alignToBuckets((line === "dr" ? data.dr : data.traffic).history, keys),
     [line, data.dr, data.traffic, keys],
   );
   const rows = data.spend.buckets.map((b, i) => ({
@@ -214,7 +338,7 @@ function SpendEffect({ data }: { data: ExecutiveDashboard }) {
           <Legend2 items={[
             { label: "Backlinks spend", color: C.backlinks },
             { label: "Collabs spend", color: C.collabs },
-            { label: line === "dr" ? "Domain Rating" : "Organic traffic", color: lineColor, line: true },
+            { label: line === "dr" ? "Domain Rating" : "Traffic", color: lineColor, line: true },
           ]} />
         </>
       )}

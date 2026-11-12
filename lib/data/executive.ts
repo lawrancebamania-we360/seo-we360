@@ -4,12 +4,17 @@
 // money spent and the effect it bought, and what each person is working on -
 // all for a selectable date range (default: this month).
 //
-// Everything here is DB-backed so it works the same locally and in prod (GA4
-// and GSC return 403 off the Vercel runtime). Traffic and DR come from the
-// hand-entered seo_metric_points table; money from earned_backlinks +
-// influencer_collabs; team from the existing Team Targets dashboard. Each reader degrades (ready=false, zero
-// rows) when its table/column isn't there yet, so the page never 500s before
-// the migration is applied.
+// Sources: traffic is LIVE GA4 - the same counted-channel sessions the
+// Analytics nav's Traffic sources card shows (works on the Vercel runtime;
+// locally GA4 returns 403, so the card shows its "not connected" reason).
+// DR (Ahrefs) actuals and the DR / traffic GOALS are hand-entered in
+// seo_metric_points. Money comes from earned_backlinks + influencer_collabs;
+// team from the existing Team Targets dashboard. Each reader degrades
+// (ready=false, zero rows) when its table/column isn't there yet, so the page
+// never 500s before a migration is applied.
+//
+// Goals are deliberately NOT range-filtered: a goal has its own deadline, so
+// its chart always runs from the first reading to that deadline.
 
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTable, isMissingColumn } from "@/lib/ai-citation/run-state";
@@ -19,6 +24,7 @@ import {
   type TrafficRangeKey,
   type DateRange,
 } from "@/lib/data/analytics-range";
+import { getGa4OrganicMonthly, getGa4MonthlySessions } from "@/lib/google/ga4";
 import { getTeamTargetsDashboard } from "@/lib/data/team-targets";
 import type { Period } from "@/lib/team-targets/period";
 import type { TeamTargetsDashboard } from "@/lib/team-targets/types";
@@ -57,6 +63,12 @@ const toNum = (v: unknown): number => {
   const n = typeof v === "number" ? v : parseFloat(String(v ?? ""));
   return Number.isFinite(n) ? n : 0;
 };
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Today's date in IST as YYYY-MM-DD (the team works in IST). */
+function istToday(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
 
 export const EXEC_RANGE_DEFAULT: TrafficRangeKey = "this_month";
 export function resolveExecRange(key: string): { range: DateRange; label: string; key: TrafficRangeKey } {
@@ -66,55 +78,115 @@ export function resolveExecRange(key: string): { range: DateRange; label: string
 }
 
 // ---------------------------------------------------------------------------
-// Metric points (DR + Traffic, actual + target)
+// DR + Traffic: actuals and goals
 // ---------------------------------------------------------------------------
 
 export interface MetricPoint { date: string; value: number; note: string | null; id: string }
+export interface ManualPoint extends MetricPoint { metric: "dr" | "traffic"; kind: "actual" | "target" }
+export interface MetricGoal { value: number; date: string }
+
 export interface MetricSeries {
-  ready: boolean;
+  ready: boolean;              // the source is there (table exists / GA4 reachable)
   metric: "dr" | "traffic";
-  actual: MetricPoint[];       // measured values in range, oldest -> newest
-  targets: MetricPoint[];      // target values in range
-  latestActual: number | null; // most recent actual on/before range end
-  latestTarget: number | null; // most recent target on/before range end
-  firstActual: number | null;  // oldest actual in range (for delta/effect)
-  delta: number | null;        // latestActual - firstActual
+  source: "manual" | "ga4";
+  reason: string | null;       // why there's no data, when there isn't
+  history: MetricPoint[];      // every actual, oldest -> newest
+  latestActual: number | null;
+  latestActualDate: string | null;
+  goal: MetricGoal | null;     // the active goal: nearest on/after today, else the latest
+  latestTarget: number | null; // = goal?.value
+  delta: number | null;        // change vs the previous reading
+  rangeDelta: number | null;   // change across the selected range (for $ per DR point)
 }
 
-async function getMetricSeries(projectId: string, metric: "dr" | "traffic", range: DateRange): Promise<MetricSeries> {
-  const empty: MetricSeries = {
-    ready: false, metric, actual: [], targets: [],
-    latestActual: null, latestTarget: null, firstActual: null, delta: null,
-  };
+type PointRow = { id: string; metric: "dr" | "traffic"; kind: "actual" | "target"; value: number | string; as_of: string; note: string | null };
+
+async function getManualPoints(projectId: string): Promise<{ ready: boolean; rows: ManualPoint[] }> {
   const supabase = await createClient();
-  // Pull everything on/before range end so "latest target/actual" is correct
-  // even when the last point was set before the window opened.
   const { data, error } = await supabase
     .from("seo_metric_points")
-    .select("id, kind, value, as_of, note")
+    .select("id, metric, kind, value, as_of, note")
     .eq("project_id", projectId)
-    .eq("metric", metric)
-    .lte("as_of", range.end)
     .order("as_of", { ascending: true });
   if (error) {
-    if (isMissingTable(error.message) || isMissingColumn(error.message)) return empty;
-    throw new Error(`Could not load ${metric} points: ${error.message}`);
+    if (isMissingTable(error.message) || isMissingColumn(error.message)) return { ready: false, rows: [] };
+    throw new Error(`Could not load DR / traffic points: ${error.message}`);
   }
-  const rows = (data ?? []) as { id: string; kind: string; value: number; as_of: string; note: string | null }[];
-  const inRange = (r: { as_of: string }) => r.as_of >= range.start && r.as_of <= range.end;
-  const actualAll = rows.filter((r) => r.kind === "actual");
-  const targetAll = rows.filter((r) => r.kind === "target");
-  const actual = actualAll.filter(inRange).map((r) => ({ id: r.id, date: r.as_of, value: toNum(r.value), note: r.note }));
-  const targets = targetAll.filter(inRange).map((r) => ({ id: r.id, date: r.as_of, value: toNum(r.value), note: r.note }));
-  const latestActual = actualAll.length ? toNum(actualAll[actualAll.length - 1].value) : null;
-  const latestTarget = targetAll.length ? toNum(targetAll[targetAll.length - 1].value) : null;
-  const firstActual = actual.length ? actual[0].value : null;
-  const delta = latestActual !== null && firstActual !== null ? Math.round((latestActual - firstActual) * 100) / 100 : null;
-  return { ready: true, metric, actual, targets, latestActual, latestTarget, firstActual, delta };
+  return {
+    ready: true,
+    rows: ((data ?? []) as PointRow[]).map((r) => ({
+      id: r.id, metric: r.metric, kind: r.kind, value: toNum(r.value), date: r.as_of, note: r.note,
+    })),
+  };
+}
+
+function pickGoal(targets: MetricPoint[], today: string): MetricGoal | null {
+  if (!targets.length) return null;
+  const g = targets.find((t) => t.date >= today) ?? targets[targets.length - 1];
+  return { value: g.value, date: g.date };
+}
+
+function buildSeries(args: {
+  metric: "dr" | "traffic"; source: "manual" | "ga4"; ready: boolean; reason: string | null;
+  history: MetricPoint[]; targets: MetricPoint[]; range: DateRange; today: string; delta?: number | null;
+}): MetricSeries {
+  const { history, range } = args;
+  const last = history.length ? history[history.length - 1] : null;
+  const prev = history.length > 1 ? history[history.length - 2] : null;
+  const goal = pickGoal(args.targets, args.today);
+
+  // Value at the range end vs just before it opened (carried forward).
+  let endVal: number | null = null, startVal: number | null = null;
+  for (const p of history) {
+    if (p.date <= range.end) endVal = p.value;
+    if (p.date < range.start) startVal = p.value;
+  }
+  if (startVal === null) startVal = history.find((p) => p.date >= range.start && p.date <= range.end)?.value ?? null;
+
+  return {
+    ready: args.ready, metric: args.metric, source: args.source, reason: args.reason,
+    history,
+    latestActual: last ? last.value : null,
+    latestActualDate: last ? last.date : null,
+    goal,
+    latestTarget: goal ? goal.value : null,
+    delta: args.delta !== undefined ? args.delta : last && prev ? round2(last.value - prev.value) : null,
+    rangeDelta: endVal !== null && startVal !== null ? round2(endVal - startVal) : null,
+  };
+}
+
+/** Last day of a YYYY-MM month as YYYY-MM-DD. */
+function monthEnd(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${key}-${String(d).padStart(2, "0")}`;
+}
+
+/** Traffic actuals from GA4: the last 6 complete months + "last 30 days" (today). */
+async function getTrafficActuals(ga4PropertyId: string | null, today: string): Promise<{
+  connected: boolean; reason: string | null; history: MetricPoint[]; delta: number | null;
+}> {
+  const [ty, tm] = today.split("-").map(Number);
+  const back = new Date(Date.UTC(ty, tm - 1 - 6, 1));
+  const start = `${back.getUTCFullYear()}-${String(back.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  const prevMonth = new Date(Date.UTC(ty, tm - 2, 1));
+  const end = monthEnd(`${prevMonth.getUTCFullYear()}-${String(prevMonth.getUTCMonth() + 1).padStart(2, "0")}`);
+
+  const [now, monthly] = await Promise.all([
+    getGa4OrganicMonthly(ga4PropertyId, resolveTrafficCompareRange("last_30_days")),
+    getGa4MonthlySessions(ga4PropertyId, start, end),
+  ]);
+  if (!now.connected) return { connected: false, reason: now.reason ?? "GA4 not connected.", history: [], delta: null };
+
+  const history: MetricPoint[] = monthly.months.map((m) => ({
+    id: `ga4-${m.month}`, date: monthEnd(m.month), value: m.sessions, note: "GA4 · full month",
+  }));
+  history.push({ id: "ga4-last30", date: today, value: now.monthlySessions, note: "GA4 · last 30 days" });
+  return { connected: true, reason: null, history, delta: now.monthlySessions - now.priorSessions };
 }
 
 // ---------------------------------------------------------------------------
-// Money spent (USD) + the content it bought
+// Money spent (USD)
 // ---------------------------------------------------------------------------
 
 export interface SpendBucket { key: string; label: string; backlinks: number; collabs: number; total: number }
@@ -225,8 +297,10 @@ export interface ExecutiveDashboard {
   rangeKey: TrafficRangeKey;
   rangeLabel: string;
   range: DateRange;
+  today: string;
   traffic: MetricSeries;
   dr: MetricSeries;
+  manualPoints: ManualPoint[]; // every hand-entered DR / traffic point (the editor's list)
   spend: SpendSummary;
   backlinks: BacklinksEarned;
   team: TeamTargetsDashboard;
@@ -235,24 +309,43 @@ export interface ExecutiveDashboard {
   costPerBacklink: number | null;
 }
 
-export async function getExecutiveDashboard(projectId: string, rangeKey: string): Promise<ExecutiveDashboard> {
+export async function getExecutiveDashboard(
+  projectId: string, rangeKey: string, ga4PropertyId: string | null = null,
+): Promise<ExecutiveDashboard> {
   const { range, label, key } = resolveExecRange(rangeKey);
   const teamPeriod: Period = { key: "custom", start: range.start, end: range.end, label };
+  const today = istToday();
 
-  const [traffic, dr, spend, backlinks, team] = await Promise.all([
-    getMetricSeries(projectId, "traffic", range),
-    getMetricSeries(projectId, "dr", range),
+  const [manual, trafficActuals, spend, backlinks, team] = await Promise.all([
+    getManualPoints(projectId),
+    getTrafficActuals(ga4PropertyId, today),
     getSpendSummary(projectId, range),
     getBacklinksEarned(projectId, range),
     getTeamTargetsDashboard(projectId, teamPeriod),
   ]);
 
-  const costPerDrPoint = dr.delta && dr.delta > 0 ? Math.round(spend.totalUsd / dr.delta) : null;
+  const pts = manual.rows;
+  const strip = (p: ManualPoint): MetricPoint => ({ id: p.id, date: p.date, value: p.value, note: p.note });
+  const of = (metric: "dr" | "traffic", kind: "actual" | "target") =>
+    pts.filter((p) => p.metric === metric && p.kind === kind).map(strip);
+
+  const dr = buildSeries({
+    metric: "dr", source: "manual", ready: manual.ready,
+    reason: manual.ready ? null : "Add the 20261112000002 migration, then record DR readings.",
+    history: of("dr", "actual"), targets: of("dr", "target"), range, today,
+  });
+  const traffic = buildSeries({
+    metric: "traffic", source: "ga4", ready: trafficActuals.connected, reason: trafficActuals.reason,
+    history: trafficActuals.history, targets: of("traffic", "target"), range, today, delta: trafficActuals.delta,
+  });
+
+  const costPerDrPoint = dr.rangeDelta && dr.rangeDelta > 0 ? Math.round(spend.totalUsd / dr.rangeDelta) : null;
   const costPerBacklink = spend.backlinksCount > 0 ? Math.round(spend.backlinksUsd / spend.backlinksCount) : null;
 
   return {
-    rangeKey: key, rangeLabel: label, range,
-    traffic, dr, spend, backlinks, team,
+    rangeKey: key, rangeLabel: label, range, today,
+    traffic, dr, manualPoints: pts,
+    spend, backlinks, team,
     costPerDrPoint, costPerBacklink,
   };
 }

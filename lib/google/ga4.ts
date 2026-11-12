@@ -593,6 +593,58 @@ export async function getGa4OrganicMonthly(
   }
 }
 
+// Monthly traffic history for the executive goal chart: sessions per calendar
+// month, summed over the SAME counted channels as getGa4OrganicMonthly (the
+// Analytics nav's Traffic sources total), so the goal line and that card agree.
+export interface Ga4MonthlySessions {
+  connected: boolean;
+  reason?: string;
+  months: { month: string; sessions: number }[]; // YYYY-MM, oldest -> newest
+}
+
+export async function getGa4MonthlySessions(
+  propertyId: string | null,
+  startDate: string,
+  endDate: string,
+): Promise<Ga4MonthlySessions> {
+  const empty: Ga4MonthlySessions = { connected: false, months: [] };
+  if (!propertyId) return { ...empty, reason: "No GA4 property ID on this project." };
+  if (!(await isGoogleServiceAccountConfigured())) return { ...empty, reason: "GA4 not connected." };
+  try {
+    const token = await getGoogleAccessToken(SCOPE);
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          dateRanges: [{ startDate, endDate }],
+          dimensions: [{ name: "yearMonth" }, { name: "sessionDefaultChannelGroup" }],
+          metrics: [{ name: "sessions" }],
+          limit: 1000,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    if (!res.ok) throw new Error(`GA4 monthly sessions failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+    const rows = ((await res.json()) as { rows?: RunReportRow[] }).rows ?? [];
+    const byMonth = new Map<string, number>();
+    for (const r of rows) {
+      const ym = r.dimensionValues[0]?.value ?? "";
+      const channel = r.dimensionValues[1]?.value ?? "";
+      if (!/^\d{6}$/.test(ym) || !ORGANIC_EARNED_CHANNELS.has(channel)) continue;
+      const key = `${ym.slice(0, 4)}-${ym.slice(4)}`;
+      byMonth.set(key, (byMonth.get(key) ?? 0) + (parseInt(r.metricValues[0]?.value ?? "0", 10) || 0));
+    }
+    return {
+      connected: true,
+      months: [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([month, sessions]) => ({ month, sessions })),
+    };
+  } catch (e) {
+    return { ...empty, reason: e instanceof Error ? e.message : "GA4 request failed" };
+  }
+}
+
 // The property's reporting timezone (GA4 Admin API). GA4 dateHourMinute values
 // are in this zone; HubSpot createdate is UTC — so matching a booking to a CRM
 // record needs this to align the two. Falls back to IST (the team's zone).

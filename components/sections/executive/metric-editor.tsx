@@ -30,7 +30,7 @@ export function MetricEditor({
   projectId, points,
 }: {
   projectId: string;
-  points: Listed[]; // in-range points, for the delete list
+  points: Listed[]; // every recorded point, for the delete list
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -44,14 +44,17 @@ export function MetricEditor({
 
   const close = () => { if (!saving) setOpen(false); };
 
+  // Traffic actuals come from Google Analytics automatically; only its goal is typed in.
+  const effectiveKind: Kind = metric === "traffic" ? "target" : kind;
+
   const save = async () => {
     const v = parseFloat(value);
     if (!Number.isFinite(v)) { toast.error("Enter a number."); return; }
     setSaving(true);
     try {
-      const r = await addMetricPoint({ project_id: projectId, metric, kind, value: v, as_of: asOf, note: note.trim() || undefined });
+      const r = await addMetricPoint({ project_id: projectId, metric, kind: effectiveKind, value: v, as_of: asOf, note: note.trim() || undefined });
       if (!r.ok) { toast.error(r.error ?? "Could not save."); return; }
-      toast.success(`${metric === "dr" ? "DR" : "Traffic"} ${kind} recorded.`);
+      toast.success(`${metric === "dr" ? "DR" : "Traffic"} ${effectiveKind} recorded.`);
       setValue(""); setNote("");
       router.refresh();
     } catch { toast.error("Something went wrong."); }
@@ -83,8 +86,8 @@ export function MetricEditor({
           <DialogHeader>
             <DialogTitle>Record a DR or Traffic point</DialogTitle>
             <DialogDescription>
-              DR is Ahrefs data, entered by hand. Add a <strong>target</strong> (the goal) and an{" "}
-              <strong>actual</strong> each time you read a new value — every actual is kept, so the chart shows the trajectory.
+              DR is Ahrefs data, entered by hand: add an <strong>actual</strong> each time you read a new value, and a{" "}
+              <strong>target</strong> with its deadline date. Traffic actuals come from Google Analytics automatically — only its target is entered here.
             </DialogDescription>
           </DialogHeader>
 
@@ -92,7 +95,7 @@ export function MetricEditor({
             <div className="space-y-1.5">
               <Label className="text-xs">Metric</Label>
               <Combobox
-                items={[{ value: "dr", label: "Domain Rating" }, { value: "traffic", label: "Organic traffic" }]}
+                items={[{ value: "dr", label: "Domain Rating" }, { value: "traffic", label: "Traffic (GA4)" }]}
                 value={metric} onValueChange={(v) => setMetric(v as Metric)} className="h-9 w-full"
               />
             </div>
@@ -100,16 +103,16 @@ export function MetricEditor({
               <Label className="text-xs">Type</Label>
               <Combobox
                 items={[{ value: "actual", label: "Actual (measured)" }, { value: "target", label: "Target (goal)" }]}
-                value={kind} onValueChange={(v) => setKind(v as Kind)} className="h-9 w-full"
+                value={effectiveKind} onValueChange={(v) => setKind(v as Kind)} disabled={metric === "traffic"} className="h-9 w-full"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">{metric === "dr" ? "DR (0–100)" : "Value"}</Label>
+              <Label className="text-xs">{metric === "dr" ? "DR (0–100)" : "Monthly sessions"}</Label>
               <Input type="number" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)}
-                placeholder={metric === "dr" ? "43" : "12500"} className="h-9" />
+                placeholder={metric === "dr" ? "43" : "25000"} className="h-9" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">As of</Label>
+              <Label className="text-xs">{effectiveKind === "target" ? "Deadline" : "As of"}</Label>
               <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="h-9" />
             </div>
             <div className="col-span-2 space-y-1.5">
@@ -121,7 +124,7 @@ export function MetricEditor({
           {points.length > 0 && (
             <div className="mt-1 max-h-44 overflow-y-auto rounded-lg border border-border">
               <div className="border-b border-border bg-muted/40 px-3 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Points in this range
+                Recorded points
               </div>
               <ul className="divide-y divide-border/60">
                 {points.map((p) => (
