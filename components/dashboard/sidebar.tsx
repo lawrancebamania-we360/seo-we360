@@ -25,7 +25,7 @@ import Image from "next/image";
 import {
   LayoutDashboard, ListChecks, Search, Swords,
   CalendarRange, Trophy, Users, FolderCog, GitBranch, FileSearch, Network,
-  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, ChevronDown, Link2, Magnet, Handshake, Target, Upload, Gauge,
+  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, ChevronDown, Link2, Magnet, Handshake, Target, Upload, MessageSquareQuote, Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/dashboard/user-menu";
@@ -64,6 +64,7 @@ const NAV_SECTION: Record<string, string | null> = {
   "/dashboard/sprint":      "sprint",
   "/dashboard/blog-clusters": "sprint", // planned-content grouping - same section as Blog Sprint
   "/dashboard/to-publish":  null,        // always visible - whoever uploads pages (a member) works from here
+  "/dashboard/reddit-citations": null,   // always visible - contributors add citations, Leena publishes
   "/dashboard/blog-audit":  "seo_gaps",
   "/dashboard/reports":     null,        // always visible
   "/dashboard/backlinks":   null,        // always visible - standalone link-building log
@@ -98,6 +99,7 @@ const DEFAULT_NAV: NavItem[] = [
   // { href: "/dashboard/sprint",     label: "Blog Sprint", icon: CalendarRange,  tone: "primary" },
   { href: "/dashboard/blog-clusters", label: "Blog Clusters", icon: Network,   tone: "primary" },
   { href: "/dashboard/to-publish", label: "To Publish",   icon: Upload,        tone: "primary" },
+  { href: "/dashboard/reddit-citations", label: "Reddit Citations", icon: MessageSquareQuote, tone: "primary" },
   // Blog audit folded into Reports (one unified page, "Audit worklist" tab);
   // the old /dashboard/blog-audit route redirects there (?tab=audit).
   // { href: "/dashboard/blog-audit", label: "Blog audit",  icon: FileSearch,     tone: "primary" },
