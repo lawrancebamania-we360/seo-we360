@@ -162,13 +162,16 @@ function monthEnd(key: string): string {
   return `${key}-${String(d).padStart(2, "0")}`;
 }
 
-/** Traffic actuals from GA4: the last 6 complete months + "last 30 days" (today). */
+// The traffic goal chart starts here (per direction: August 2026 onward, earlier
+// months left out).
+const GOAL_HISTORY_START = "2026-08-01";
+
+/** Traffic actuals from GA4: every complete month since GOAL_HISTORY_START + "last 30 days" (today). */
 async function getTrafficActuals(ga4PropertyId: string | null, today: string): Promise<{
   connected: boolean; reason: string | null; history: MetricPoint[]; delta: number | null;
 }> {
   const [ty, tm] = today.split("-").map(Number);
-  const back = new Date(Date.UTC(ty, tm - 1 - 6, 1));
-  const start = `${back.getUTCFullYear()}-${String(back.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  const start = GOAL_HISTORY_START;
   const prevMonth = new Date(Date.UTC(ty, tm - 2, 1));
   const end = monthEnd(`${prevMonth.getUTCFullYear()}-${String(prevMonth.getUTCMonth() + 1).padStart(2, "0")}`);
 
