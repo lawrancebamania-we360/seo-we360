@@ -25,7 +25,7 @@ import Image from "next/image";
 import {
   LayoutDashboard, ListChecks, Search, Swords,
   CalendarRange, Trophy, Users, FolderCog, GitBranch, FileSearch, Network,
-  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, ChevronDown, Link2, Magnet, Handshake, Target, Upload,
+  PanelLeftClose, PanelLeftOpen, GripVertical, BarChart3, LineChart, Sparkles, ChevronDown, Link2, Magnet, Handshake, Target, Upload, Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/dashboard/user-menu";
@@ -120,6 +120,7 @@ const DEFAULT_NAV: NavItem[] = [
 // Admin-only nav — Wins gets the yellow accent so it stands out as a
 // reward / status surface vs the work-tracking nav above.
 const ADMIN_NAV: NavItem[] = [
+  { href: "/dashboard/executive", label: "Executive", icon: Gauge,    tone: "yellow"  },
   { href: "/dashboard/wins",     label: "Wins",     icon: Trophy,    tone: "yellow"  },
   { href: "/dashboard/team",     label: "Team",     icon: Users,     tone: "primary" },
   { href: "/dashboard/projects", label: "Projects", icon: FolderCog, tone: "primary" },

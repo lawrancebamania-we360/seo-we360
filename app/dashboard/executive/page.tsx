@@ -1,0 +1,48 @@
+import { requireAdmin } from "@/lib/auth/get-user";
+import { getExecutiveDashboard } from "@/lib/data/executive";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { EmptyProjectState } from "@/components/dashboard/empty-project";
+import { ExecutiveRangeFilter } from "@/components/sections/executive/range-filter";
+import { MetricEditor } from "@/components/sections/executive/metric-editor";
+import { ExecutiveView } from "@/components/sections/executive/executive-view";
+
+export const metadata = { title: "Executive" };
+
+// Admin-only, concise leadership view. requireAdmin redirects members to "/"
+// so the page can't be reached by typing the URL even though it's hidden in
+// the sidebar for non-admins.
+export default async function ExecutivePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string }>;
+}) {
+  const ctx = await requireAdmin();
+  if (!ctx.activeProject) return <EmptyProjectState canCreate={ctx.canManageProjects} />;
+
+  const sp = await searchParams;
+  const data = await getExecutiveDashboard(ctx.activeProject.id, sp.range ?? "this_month");
+
+  // Flatten the in-range DR/Traffic points for the admin editor's delete list.
+  const editorPoints = [
+    ...data.traffic.actual.map((p) => ({ ...p, metric: "traffic" as const, kind: "actual" as const })),
+    ...data.traffic.targets.map((p) => ({ ...p, metric: "traffic" as const, kind: "target" as const })),
+    ...data.dr.actual.map((p) => ({ ...p, metric: "dr" as const, kind: "actual" as const })),
+    ...data.dr.targets.map((p) => ({ ...p, metric: "dr" as const, kind: "target" as const })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+
+  return (
+    <div className="mx-auto w-full max-w-[1400px] flex-1 space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+      <PageHeader
+        title="Executive"
+        description={`Target vs achieved, money spent and its effect, and what the team is working on · ${data.rangeLabel}`}
+        actions={
+          <>
+            <MetricEditor projectId={ctx.activeProject.id} points={editorPoints} />
+            <ExecutiveRangeFilter rangeKey={data.rangeKey} />
+          </>
+        }
+      />
+      <ExecutiveView data={data} />
+    </div>
+  );
+}
