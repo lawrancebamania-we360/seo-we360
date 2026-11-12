@@ -8,13 +8,15 @@
 import { useMemo, useState } from "react";
 import {
   ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine, Cell, LabelList,
+  Tooltip, ResponsiveContainer, ReferenceLine, Cell,
 } from "recharts";
 import {
   TrendingUp, TrendingDown, DollarSign, Link2, Gauge, Target, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ExecutiveDashboard, MetricSeries } from "@/lib/data/executive";
+import type {
+  ExecutiveDashboard, MetricSeries, BacklinkComparison, BacklinkPersonMonths, BacklinkMonthStat,
+} from "@/lib/data/executive";
 
 const C = {
   traffic: "#5B45E0",
@@ -354,61 +356,149 @@ function SpendEffect({ data }: { data: ExecutiveDashboard }) {
 }
 
 // ---------------------------------------------------------------------------
-// Backlinks earned, by person (straight from the Backlinks page)
+// Backlinks earned: last month vs this month, per person, against each
+// month's target (straight from the Backlinks page; not tied to the range filter)
 // ---------------------------------------------------------------------------
 
-interface BacklinkBar { name: string; full: string; count: number; free: number; paid: number; paidUsd: number; avgDr: number | null }
+const stripes = (color: string) => ({
+  backgroundImage: `repeating-linear-gradient(45deg, ${color}66 0 4px, transparent 4px 8px)`,
+});
+
+function axisTicks(max: number): number[] {
+  const step = max <= 5 ? 1 : max <= 12 ? 2 : Math.ceil(max / 5);
+  const out: number[] = [];
+  for (let v = 0; v <= max; v += step) out.push(v);
+  return out;
+}
 
 function BacklinksChart({ data }: { data: ExecutiveDashboard }) {
-  const b = data.backlinks;
-  const rows: BacklinkBar[] = b.byPerson.map((p) => ({
-    name: p.name.split(" ")[0], full: p.name, count: p.count, free: p.free, paid: p.paid, paidUsd: p.paidUsd, avgDr: p.avgDr,
-  }));
-  const subtitle = `${b.count} in ${data.rangeLabel.toLowerCase()} · ${b.free} free · ${b.paid} paid${b.paidUsd > 0 ? ` (${fmtUsd(b.paidUsd)})` : ""}${b.avgDr !== null ? ` · avg DR ${b.avgDr}` : ""}`;
+  const c = data.backlinkMonths;
+  const freeMax = Math.max(1, ...c.people.flatMap((p) => [
+    p.last.free, p.current.free, p.last.freeTarget ?? 0, p.current.freeTarget ?? 0,
+  ]));
+  const paidMax = Math.max(1, ...c.people.flatMap((p) => [
+    p.last.paid + p.last.paidBelow, p.current.paid + p.current.paidBelow, p.last.paidTarget ?? 0, p.current.paidTarget ?? 0,
+  ]));
   return (
-    <ChartCard title="Backlinks earned" icon={Link2} subtitle={subtitle}>
-      {!b.ready ? (
+    <ChartCard title="Backlinks earned" icon={Link2}
+      subtitle={`${c.lastLabel} vs ${c.currentLabel} · per person, against each month’s target · from the Backlinks page`}>
+      {!c.ready ? (
         <Empty>The Backlinks table isn’t set up yet.</Empty>
-      ) : rows.length === 0 ? (
-        <Empty>No backlinks recorded in this range. Try a longer range.</Empty>
+      ) : c.people.length === 0 ? (
+        <Empty>No backlink targets or backlinks yet.</Empty>
       ) : (
-        <>
-          <ResponsiveContainer width="100%" height={Math.max(160, rows.length * 38)}>
-            <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 36, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "var(--foreground)" }} tickLine={false} axisLine={false} width={70} />
-              <Tooltip content={<BacklinkTip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
-              <Bar dataKey="free" name="Free" stackId="bl" fill={C.blFree} />
-              <Bar dataKey="paid" name="Paid" stackId="bl" fill={C.blPaid} radius={[0, 4, 4, 0]}>
-                <LabelList dataKey="count" position="right" style={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <Legend2 items={[
-            { label: "Free (exchange, guest post, free)", color: C.blFree },
-            { label: "Paid", color: C.blPaid },
-          ]} />
-        </>
+        <div className="space-y-5">
+          <MonthPanel kind="free" title="Free links" hint="exchange, guest post, free" data={c} max={freeMax} color={C.blFree} />
+          <MonthPanel kind="paid" title={`Paid · DR ${c.paidMinDr}+`} hint={`paid under DR ${c.paidMinDr} shows grey, not counted`}
+            data={c} max={paidMax} color={C.blPaid} />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm bg-slate-500 opacity-50" /> {c.lastLabel}</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm bg-slate-500" /> {c.currentLabel}</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm border border-slate-400" style={stripes("#64748b")} /> Pending to target</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-0.5 rounded bg-foreground/70" /> Target</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm bg-slate-400/70" /> Paid under DR {c.paidMinDr}</span>
+          </div>
+        </div>
       )}
     </ChartCard>
   );
 }
 
-function BacklinkTip({ active, payload }: { active?: boolean; payload?: { payload?: BacklinkBar }[] }) {
-  const p = active ? payload?.[0]?.payload : undefined;
-  if (!p) return null;
+type BlKind = "free" | "paid";
+
+function MonthPanel({
+  kind, title, hint, data, max, color,
+}: {
+  kind: BlKind; title: string; hint: string; data: BacklinkComparison; max: number; color: string;
+}) {
+  const done = (s: BacklinkMonthStat) => (kind === "free" ? s.free : s.paid);
+  const tgt = (s: BacklinkMonthStat) => (kind === "free" ? s.freeTarget : s.paidTarget) ?? 0;
+  const team = (pick: (p: BacklinkPersonMonths) => BacklinkMonthStat, f: (s: BacklinkMonthStat) => number) =>
+    data.people.reduce((a, p) => a + f(pick(p)), 0);
   return (
-    <div style={TOOLTIP} className="space-y-0.5 px-3 py-2">
-      <div className="font-semibold">{p.full}</div>
-      <div className="flex items-center gap-1.5">
-        <span className="inline-block size-2.5 rounded-sm" style={{ background: C.blFree }} /> Free: {p.free}
+    <div>
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+        <div className="text-[12.5px] font-semibold text-foreground">
+          {title} <span className="font-normal text-muted-foreground">· {hint}</span>
+        </div>
+        <div className="text-[11.5px] text-muted-foreground">
+          Team {data.lastLabel} {team((p) => p.last, done)}/{team((p) => p.last, tgt)} · {data.currentLabel}{" "}
+          <span className="font-semibold text-foreground">{team((p) => p.current, done)}/{team((p) => p.current, tgt)}</span>
+        </div>
       </div>
-      <div className="flex items-center gap-1.5">
-        <span className="inline-block size-2.5 rounded-sm" style={{ background: C.blPaid }} />
-        Paid: {p.paid}{p.paid > 0 ? ` · ${fmtUsd(p.paidUsd)} spent` : ""}
+      <div className="space-y-2.5">
+        {data.people.map((p) => (
+          <div key={p.id} className="flex items-center gap-2">
+            <div className="w-16 shrink-0 truncate text-[12px] font-medium text-foreground" title={p.name}>{p.name.split(" ")[0]}</div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <MonthBar kind={kind} person={p.name} label={data.lastLabel} s={p.last} max={max} color={color} faded paidMinDr={data.paidMinDr} />
+              <MonthBar kind={kind} person={p.name} label={data.currentLabel} s={p.current} max={max} color={color} paidMinDr={data.paidMinDr} />
+            </div>
+          </div>
+        ))}
+        <div className="flex items-center gap-2">
+          <div className="w-16 shrink-0" />
+          <div className="w-12 shrink-0" />
+          <div className="relative h-3 min-w-0 flex-1">
+            {axisTicks(max).map((t) => (
+              <span key={t} className="absolute -translate-x-1/2 text-[10px] tabular-nums text-muted-foreground" style={{ left: `${(t / max) * 100}%` }}>{t}</span>
+            ))}
+          </div>
+          <div className="w-14 shrink-0" />
+        </div>
       </div>
-      <div className="text-muted-foreground">{p.count} total{p.avgDr != null ? ` · avg DR ${p.avgDr}` : ""}</div>
+    </div>
+  );
+}
+
+function MonthBar({
+  kind, person, label, s, max, color, faded, paidMinDr,
+}: {
+  kind: BlKind; person: string; label: string; s: BacklinkMonthStat; max: number; color: string; faded?: boolean; paidMinDr: number;
+}) {
+  const done = kind === "free" ? s.free : s.paid;
+  const below = kind === "paid" ? s.paidBelow : 0;
+  const target = kind === "free" ? s.freeTarget : s.paidTarget;
+  const met = target !== null && target > 0 && done >= target;
+  const pctOf = (n: number) => Math.min(100, (n / max) * 100);
+  const tip = (kind === "free"
+    ? [
+        `${person} · ${label}`,
+        `${done} free link${done === 1 ? "" : "s"}${target !== null ? ` of ${target} target` : ""}`,
+        s.avgDr !== null ? `avg DR ${s.avgDr} (all links this month)` : null,
+      ]
+    : [
+        `${person} · ${label}`,
+        `${done} paid at DR ${paidMinDr}+${target !== null ? ` of ${target} target` : ""} · ${fmtUsd(s.paidUsd)} spent`,
+        below > 0 ? `+${below} paid under DR ${paidMinDr} · ${fmtUsd(s.paidBelowUsd)} spent (not counted)` : null,
+        `Total paid spend ${fmtUsd(s.paidUsd + s.paidBelowUsd)}`,
+      ]
+  ).filter((t): t is string => !!t);
+
+  return (
+    <div className="group relative flex items-center gap-2">
+      <div className="w-12 shrink-0 text-[10.5px] text-muted-foreground">{label}</div>
+      <div className="relative h-3.5 min-w-0 flex-1 rounded bg-muted/60">
+        {target !== null && target > done && (
+          <div className="absolute inset-y-0" style={{ left: `${pctOf(done)}%`, width: `${pctOf(target) - pctOf(done)}%`, ...stripes(color) }} />
+        )}
+        <div className="absolute inset-y-0 left-0 rounded" style={{ width: `${pctOf(done)}%`, background: color, opacity: faded ? 0.5 : 1 }} />
+        {below > 0 && (
+          <div className="absolute inset-y-0 bg-slate-400/70" style={{ left: `${pctOf(done)}%`, width: `${pctOf(below)}%` }} />
+        )}
+        {target !== null && target > 0 && (
+          <div className="absolute -inset-y-0.5 w-0.5 rounded bg-foreground/70" style={{ left: `calc(${pctOf(target)}% - 1px)` }} />
+        )}
+      </div>
+      <div className={cn(
+        "w-14 shrink-0 text-right font-mono text-[11.5px] tabular-nums",
+        met ? "font-semibold text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
+      )}>
+        {done}{target !== null ? `/${target}` : ""}{met ? " ✓" : ""}
+      </div>
+      <div className="pointer-events-none absolute bottom-full left-14 z-20 mb-1.5 hidden whitespace-nowrap rounded-lg border border-border bg-popover px-2.5 py-1.5 text-[11.5px] text-popover-foreground shadow-lg group-hover:block">
+        {tip.map((t, i) => <div key={i} className={i === 0 ? "font-semibold" : undefined}>{t}</div>)}
+      </div>
     </div>
   );
 }

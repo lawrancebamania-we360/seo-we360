@@ -333,6 +333,126 @@ async function getBacklinksEarned(projectId: string, range: DateRange): Promise<
   return { ready: true, count: rows.length, free, paid, paidUsd: Math.round(paidUsd), avgDr: avg(drs), byPerson };
 }
 
+// ---------------------------------------------------------------------------
+// Backlinks: last month vs this month, per person, against each month's target.
+// Always the two calendar months (not the range filter), per direction.
+// ---------------------------------------------------------------------------
+
+// Team Targets keeps only a target's CURRENT number, so a month whose target
+// was different is recorded here (per person). Months not listed use the
+// current Team Targets numbers. October 2026: 5 free + 2 paid each.
+const BACKLINK_TARGET_HISTORY: Record<string, { free: number; paid: number }> = {
+  "2026-10": { free: 5, paid: 2 },
+};
+
+export interface BacklinkMonthStat {
+  free: number;          // unpaid links (exchange, guest post, free)
+  paid: number;          // paid links at/above the paid target's DR bar: count toward it
+  paidBelow: number;     // paid links under the DR bar: shown, not counted
+  paidUsd: number;       // spent on `paid`
+  paidBelowUsd: number;  // spent on `paidBelow`
+  avgDr: number | null;
+  freeTarget: number | null;
+  paidTarget: number | null;
+}
+export interface BacklinkPersonMonths { id: string; name: string; last: BacklinkMonthStat; current: BacklinkMonthStat }
+export interface BacklinkComparison {
+  ready: boolean;
+  lastLabel: string;
+  currentLabel: string;
+  paidMinDr: number;
+  people: BacklinkPersonMonths[];
+}
+
+const blankStat = (): BacklinkMonthStat => ({
+  free: 0, paid: 0, paidBelow: 0, paidUsd: 0, paidBelowUsd: 0, avgDr: null, freeTarget: null, paidTarget: null,
+});
+
+function shiftMonth(key: string, by: number): string {
+  const [y, m] = key.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + by, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthlyTarget(t: { target: number; frequency: string }): number {
+  if (t.frequency === "monthly") return t.target;
+  if (t.frequency === "weekly") return Math.round((t.target * 52) / 12);
+  return Math.round(t.target * 22); // daily -> ~22 working days
+}
+
+async function getBacklinkComparison(projectId: string, today: string, team: TeamTargetsDashboard): Promise<BacklinkComparison> {
+  const currentKey = today.slice(0, 7);
+  const lastKey = shiftMonth(currentKey, -1);
+  const base = { lastLabel: monthLabel(lastKey), currentLabel: monthLabel(currentKey) };
+
+  const people = new Map<string, BacklinkPersonMonths>();
+  const ensure = (id: string, name: string | null): BacklinkPersonMonths => {
+    let p = people.get(id);
+    if (!p) { p = { id, name: name ?? "Unknown", last: blankStat(), current: blankStat() }; people.set(id, p); }
+    else if (p.name === "Unknown" && name) p.name = name;
+    return p;
+  };
+
+  // This month's targets per person come from Team Targets' backlink tasks;
+  // every owner shows, even with zero links.
+  let paidMinDr = 70;
+  for (const t of team.targets) {
+    const rule = backlinkRuleFor(t.task);
+    if (!rule || !t.ownerId) continue;
+    if (rule.paid && rule.minDr !== null) paidMinDr = rule.minDr;
+    const p = ensure(t.ownerId, t.ownerName);
+    const n = monthlyTarget(t);
+    if (rule.paid) p.current.paidTarget = (p.current.paidTarget ?? 0) + n;
+    else p.current.freeTarget = (p.current.freeTarget ?? 0) + n;
+  }
+  const hist = BACKLINK_TARGET_HISTORY[lastKey];
+  for (const p of people.values()) {
+    p.last.freeTarget = p.current.freeTarget === null ? null : hist ? hist.free : p.current.freeTarget;
+    p.last.paidTarget = p.current.paidTarget === null ? null : hist ? hist.paid : p.current.paidTarget;
+  }
+
+  const supabase = await createClient();
+  const BASE = "acquired_date, domain_rating, assigned_to, amount_paid, currency, profiles!earned_backlinks_assigned_to_fkey ( name )";
+  const sel = (cols: string) => supabase
+    .from("earned_backlinks")
+    .select(cols)
+    .eq("project_id", projectId)
+    .gte("acquired_date", `${lastKey}-01`)
+    .lte("acquired_date", monthEnd(currentKey));
+  let res = await sel(`${BASE}, link_type`);
+  if (res.error && isMissingColumn(res.error.message)) res = await sel(BASE);
+  if (res.error) {
+    if (isMissingTable(res.error.message) || isMissingColumn(res.error.message)) return { ...base, ready: false, paidMinDr, people: [] };
+    throw new Error(res.error.message);
+  }
+
+  const usd = (amount: unknown, currency: unknown) => (currency === "INR" ? toNum(amount) * USD_PER_INR : toNum(amount));
+  const drs = new Map<BacklinkMonthStat, number[]>();
+  for (const r of (res.data ?? []) as unknown as (BacklinkRow & { acquired_date: string })[]) {
+    const p = ensure(r.assigned_to ?? "none", r.assigned_to ? r.profiles?.name ?? null : "Unassigned");
+    const month = r.acquired_date.slice(0, 7);
+    const s = month === currentKey ? p.current : month === lastKey ? p.last : null;
+    if (!s) continue;
+    const paid = toNum(r.amount_paid) > 0 || /^paid$/i.test((r.link_type ?? "").trim());
+    if (!paid) s.free++;
+    else if ((r.domain_rating ?? 0) >= paidMinDr) { s.paid++; s.paidUsd += usd(r.amount_paid, r.currency); }
+    else { s.paidBelow++; s.paidBelowUsd += usd(r.amount_paid, r.currency); }
+    if (typeof r.domain_rating === "number") drs.set(s, [...(drs.get(s) ?? []), r.domain_rating]);
+  }
+  for (const p of people.values()) {
+    for (const s of [p.last, p.current]) {
+      const d = drs.get(s) ?? [];
+      s.avgDr = d.length ? Math.round(d.reduce((a, b) => a + b, 0) / d.length) : null;
+      s.paidUsd = Math.round(s.paidUsd);
+      s.paidBelowUsd = Math.round(s.paidBelowUsd);
+    }
+  }
+
+  const total = (s: BacklinkMonthStat) => s.free + s.paid;
+  const list = [...people.values()].sort((a, b) => total(b.current) - total(a.current) || a.name.localeCompare(b.name));
+  return { ...base, ready: true, paidMinDr, people: list };
+}
+
 /** Everyone who owns a backlink target shows on the chart, even with zero links in range. */
 function withBacklinkOwners(b: BacklinksEarned, team: TeamTargetsDashboard): BacklinksEarned {
   if (!b.ready) return b;
@@ -367,6 +487,7 @@ export interface ExecutiveDashboard {
   manualPoints: ManualPoint[]; // every hand-entered DR / traffic point (the editor's list)
   spend: SpendSummary;
   backlinks: BacklinksEarned;
+  backlinkMonths: BacklinkComparison; // last month vs this month, per person
   team: TeamTargetsDashboard;
   // Cost efficiency (USD), null when the denominator is missing/zero.
   costPerDrPoint: number | null;
@@ -389,6 +510,7 @@ export async function getExecutiveDashboard(
   ]);
 
   const backlinks = withBacklinkOwners(backlinksRaw, team);
+  const backlinkMonths = await getBacklinkComparison(projectId, today, team);
   const pts = manual.rows;
   const strip =(p: ManualPoint): MetricPoint => ({ id: p.id, date: p.date, value: p.value, note: p.note });
   const of = (metric: "dr" | "traffic", kind: "actual" | "target") =>
@@ -410,7 +532,7 @@ export async function getExecutiveDashboard(
   return {
     rangeKey: key, rangeLabel: label, range, today,
     traffic, dr, manualPoints: pts,
-    spend, backlinks, team,
+    spend, backlinks, backlinkMonths, team,
     costPerDrPoint, costPerBacklink,
   };
 }
