@@ -8,7 +8,10 @@ import { useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Combobox } from "@/components/ui/combobox";
-import { TRAFFIC_RANGE_PRESETS } from "@/lib/data/executive";
+// Import the presets from the pure range module, NOT lib/data/executive — the
+// latter also exports server-only readers (next/headers), which can't be pulled
+// into this client component's bundle.
+import { TRAFFIC_RANGE_PRESETS } from "@/lib/data/analytics-range";
 
 export function ExecutiveRangeFilter({ rangeKey }: { rangeKey: string }) {
   const router = useRouter();
