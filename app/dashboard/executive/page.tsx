@@ -45,11 +45,12 @@ export default async function ExecutivePage({
         trafficSources={
           // The exact Analytics > Traffic sources card (same component, same GA4
           // numbers), streamed so a slow Google round-trip doesn't block the page.
+          // Defaults to Last 30 days like Analytics until a range is picked.
           <Suspense fallback={<div className="h-[300px] animate-pulse rounded-2xl border border-border bg-card" />}>
             <TrafficSourcesStreamed
               propertyId={ctx.activeProject.ga4_property_id ?? null}
               projectId={ctx.activeProject.id}
-              range={data.rangeKey}
+              range={sp.range ? data.rangeKey : "last_30_days"}
             />
           </Suspense>
         }
