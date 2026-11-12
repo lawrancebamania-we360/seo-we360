@@ -55,7 +55,10 @@ export function ExecutiveView({ data, trafficSources }: { data: ExecutiveDashboa
 
       <SpendEffect data={data} />
 
-      <TeamChart data={data} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <BacklinksChart data={data} />
+        <TeamChart data={data} />
+      </div>
 
       <TeamWorkload data={data} />
     </div>
@@ -343,6 +346,39 @@ function SpendEffect({ data }: { data: ExecutiveDashboard }) {
             { label: line === "dr" ? "Domain Rating" : "Traffic", color: lineColor, line: true },
           ]} />
         </>
+      )}
+    </ChartCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Backlinks earned, by person (straight from the Backlinks page)
+// ---------------------------------------------------------------------------
+
+function BacklinksChart({ data }: { data: ExecutiveDashboard }) {
+  const b = data.backlinks;
+  const rows = b.byPerson.map((p) => ({ name: p.name.split(" ")[0], full: p.name, count: p.count, avgDr: p.avgDr }));
+  return (
+    <ChartCard title="Backlinks earned" icon={Link2}
+      subtitle={`${b.count} in ${data.rangeLabel.toLowerCase()}${b.avgDr !== null ? ` · avg DR ${b.avgDr}` : ""} · from the Backlinks page`}>
+      {!b.ready ? (
+        <Empty>The Backlinks table isn’t set up yet.</Empty>
+      ) : rows.length === 0 ? (
+        <Empty>No backlinks recorded in this range. Try a longer range.</Empty>
+      ) : (
+        <ResponsiveContainer width="100%" height={Math.max(160, rows.length * 34)}>
+          <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 36, left: 8, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
+            <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "var(--foreground)" }} tickLine={false} axisLine={false} width={70} />
+            <Tooltip contentStyle={TOOLTIP}
+              formatter={(v, _n, item) => {
+                const p = (item as { payload?: { full?: string; avgDr?: number | null } })?.payload;
+                return [`${fmtNum(Number(v))} links${p?.avgDr != null ? ` · avg DR ${p.avgDr}` : ""}`, p?.full ?? "Backlinks"];
+              }} />
+            <Bar dataKey="count" name="Backlinks" fill={C.backlinks} radius={[0, 4, 4, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       )}
     </ChartCard>
   );

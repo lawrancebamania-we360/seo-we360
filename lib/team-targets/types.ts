@@ -50,6 +50,9 @@ export interface TargetLog {
   reportedAt: string;
   verifiedByName: string | null;
   verifiedAt: string | null;
+  /** Counted automatically from the Backlinks page (earned_backlinks), not a
+   *  manual log: read-only in the drawer - edit or remove it on Backlinks. */
+  auto?: boolean;
 }
 
 export interface DashboardTarget {

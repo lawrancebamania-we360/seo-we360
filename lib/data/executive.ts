@@ -269,24 +269,37 @@ async function getSpendSummary(projectId: string, range: DateRange): Promise<Spe
 // Backlinks earned (count + DR context, for the "effect" story)
 // ---------------------------------------------------------------------------
 
-export interface BacklinksEarned { ready: boolean; count: number; avgDr: number | null }
+export interface BacklinksByPerson { name: string; count: number; avgDr: number | null }
+export interface BacklinksEarned { ready: boolean; count: number; avgDr: number | null; byPerson: BacklinksByPerson[] }
 
 async function getBacklinksEarned(projectId: string, range: DateRange): Promise<BacklinksEarned> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("earned_backlinks")
-    .select("domain_rating")
+    .select("domain_rating, assigned_to, profiles!earned_backlinks_assigned_to_fkey ( name )")
     .eq("project_id", projectId)
     .gte("acquired_date", range.start)
     .lte("acquired_date", range.end);
   if (error) {
-    if (isMissingTable(error.message) || isMissingColumn(error.message)) return { ready: false, count: 0, avgDr: null };
+    if (isMissingTable(error.message) || isMissingColumn(error.message)) return { ready: false, count: 0, avgDr: null, byPerson: [] };
     throw new Error(error.message);
   }
-  const rows = (data ?? []) as { domain_rating: number | null }[];
+  const rows = (data ?? []) as unknown as { domain_rating: number | null; assigned_to: string | null; profiles: { name: string | null } | null }[];
+  const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
   const drs = rows.map((r) => r.domain_rating).filter((d): d is number => typeof d === "number");
-  const avgDr = drs.length ? Math.round(drs.reduce((a, b) => a + b, 0) / drs.length) : null;
-  return { ready: true, count: rows.length, avgDr };
+
+  const per = new Map<string, { name: string; drs: number[]; count: number }>();
+  for (const r of rows) {
+    const k = r.assigned_to ?? "none";
+    const e = per.get(k) ?? { name: r.profiles?.name ?? "Unassigned", drs: [], count: 0 };
+    e.count++;
+    if (typeof r.domain_rating === "number") e.drs.push(r.domain_rating);
+    per.set(k, e);
+  }
+  const byPerson = [...per.values()]
+    .map((e) => ({ name: e.name, count: e.count, avgDr: avg(e.drs) }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  return { ready: true, count: rows.length, avgDr: avg(drs), byPerson };
 }
 
 // ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, ExternalLink, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { Check, ExternalLink, Link2, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { toExternalUrl } from "@/lib/url";
@@ -118,9 +118,10 @@ function LogRow({
 }) {
   const href = log.link ? toExternalUrl(log.link) : null;
   const busy = busyId === log.id;
-  const canRecheck = canLog && target.logMode === "link" && !!log.link;
-  const canOwnerVerify = isOwner && log.reportedBy !== currentUserId && !isVerified(log.status);
-  const canDelete = canLog && (log.reportedBy === currentUserId || isOwner || canLog);
+  // Backlink-page entries are read-only here: they're edited/removed on Backlinks.
+  const canRecheck = !log.auto && canLog && target.logMode === "link" && !!log.link;
+  const canOwnerVerify = !log.auto && isOwner && log.reportedBy !== currentUserId && !isVerified(log.status);
+  const canDelete = !log.auto && canLog && (log.reportedBy === currentUserId || isOwner || canLog);
 
   return (
     <li className="px-4 py-2.5">
@@ -137,7 +138,13 @@ function LogRow({
             {formatDay(log.logDate)}{log.reportedByName ? ` · ${log.reportedByName}` : ""}{target.logMode === "count" ? ` · ${log.quantity.toLocaleString()}` : ""}
           </div>
         </div>
-        <VerificationBadge status={log.status} />
+        {log.auto ? (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-success-300/60 bg-success-500/10 px-2 py-0.5 text-[10.5px] font-semibold text-success-700 dark:text-success-400">
+            <Link2 className="size-3" /> From Backlinks
+          </span>
+        ) : (
+          <VerificationBadge status={log.status} />
+        )}
       </div>
       {log.reason && <p className="mt-1 text-[11px] text-muted-foreground">{log.reason}</p>}
       {log.note && <p className="mt-0.5 text-[11px] italic text-muted-foreground">&ldquo;{log.note}&rdquo;</p>}
