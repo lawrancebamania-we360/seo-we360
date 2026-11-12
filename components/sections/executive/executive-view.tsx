@@ -41,7 +41,7 @@ function alignToBuckets(points: { date: string; value: number }[], keys: string[
   });
 }
 
-export function ExecutiveView({ data }: { data: ExecutiveDashboard }) {
+export function ExecutiveView({ data, trafficSources }: { data: ExecutiveDashboard; trafficSources?: React.ReactNode }) {
   return (
     <div className="space-y-6">
       <KpiRow data={data} />
@@ -50,6 +50,8 @@ export function ExecutiveView({ data }: { data: ExecutiveDashboard }) {
         <GoalCard title="Traffic goal" icon={TrendingUp} color={C.traffic} series={data.traffic} today={data.today} />
         <GoalCard title="Domain Rating goal" icon={Gauge} color={C.dr} series={data.dr} today={data.today} />
       </div>
+
+      {trafficSources}
 
       <SpendEffect data={data} />
 

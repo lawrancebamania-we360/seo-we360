@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { requireAdmin } from "@/lib/auth/get-user";
+import { TrafficSourcesStreamed } from "@/components/sections/traffic-sources-section";
 import { getExecutiveDashboard } from "@/lib/data/executive";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
@@ -38,7 +40,20 @@ export default async function ExecutivePage({
           </>
         }
       />
-      <ExecutiveView data={data} />
+      <ExecutiveView
+        data={data}
+        trafficSources={
+          // The exact Analytics > Traffic sources card (same component, same GA4
+          // numbers), streamed so a slow Google round-trip doesn't block the page.
+          <Suspense fallback={<div className="h-[300px] animate-pulse rounded-2xl border border-border bg-card" />}>
+            <TrafficSourcesStreamed
+              propertyId={ctx.activeProject.ga4_property_id ?? null}
+              projectId={ctx.activeProject.id}
+              range={data.rangeKey}
+            />
+          </Suspense>
+        }
+      />
     </div>
   );
 }
