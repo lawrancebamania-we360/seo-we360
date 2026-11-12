@@ -98,7 +98,8 @@ const DEFAULT_NAV: NavItem[] = [
   // { href: "/dashboard/sprint",     label: "Blog Sprint", icon: CalendarRange,  tone: "primary" },
   { href: "/dashboard/blog-clusters", label: "Blog Clusters", icon: Network,   tone: "primary" },
   { href: "/dashboard/to-publish", label: "To Publish",   icon: Upload,        tone: "primary" },
-  // Blog audit folded into Reports (one unified page); route still works by URL.
+  // Blog audit folded into Reports (one unified page, "Audit worklist" tab);
+  // the old /dashboard/blog-audit route redirects there (?tab=audit).
   // { href: "/dashboard/blog-audit", label: "Blog audit",  icon: FileSearch,     tone: "primary" },
   { href: "/dashboard/reports",    label: "Reports",     icon: BarChart3,      tone: "primary" },
   { href: "/dashboard/backlinks",  label: "Backlink Submissions",   icon: Link2,          tone: "primary" },
