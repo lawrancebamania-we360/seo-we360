@@ -18,6 +18,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { toExternalUrl, hostFromUrl } from "@/lib/url";
 import { matchMember, parseTargetPaste, targetKey, parseLogPaste, linkKey, normalizeLogDate, type SkippedLine } from "@/lib/team-targets/parse";
 import { isMissingTable, MIGRATION_NOTICE } from "@/lib/team-targets/db";
+import { isMissingColumn } from "@/lib/ai-citation/run-state";
 import { todayIst } from "@/lib/team-targets/week";
 import type { TargetFrequency } from "@/lib/team-targets/types";
 
@@ -217,44 +218,56 @@ const SaveInput = z.object({
   project_id: ID,
   id: ID.optional(),
   ...TargetFields,
+  // Round 3: a 2nd co-owner, and one-time deliverables with a deadline + detail.
+  co_owner_2_id: ID.nullable().optional(),
+  one_time: z.boolean().optional(),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-11-30.").nullable().optional(),
+  detail: z.string().trim().max(2000, "The detail note is too long (2000 characters at most).").nullable().optional(),
 });
 
 export async function saveTeamTarget(input: z.infer<typeof SaveInput>): Promise<Result> {
   const parsed = SaveInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
-  const { project_id, id, task, owner_id, co_owner_id, target, frequency } = parsed.data;
+  const { project_id, id, task, owner_id, co_owner_id, target, frequency, co_owner_2_id, one_time, due_date, detail } = parsed.data;
   const auth = await authorizeAdmin(project_id);
   if ("error" in auth) return { ok: false, error: auth.error };
 
   const memberIds = new Set((await loadMembers()).map((m) => m.id));
   const coOwner = co_owner_id && co_owner_id !== owner_id ? co_owner_id : null;
+  // A 2nd co-owner must be a real member and different from both the owner and
+  // the first co-owner (no duplicates); anything else is dropped to null.
+  const coOwner2 = co_owner_2_id && co_owner_2_id !== owner_id && co_owner_2_id !== coOwner ? co_owner_2_id : null;
   if (!memberIds.has(owner_id)) return { ok: false, error: "Pick an owner from the team." };
   if (coOwner && !memberIds.has(coOwner)) return { ok: false, error: "Pick a co-owner from the team, or leave it empty." };
+  if (coOwner2 && !memberIds.has(coOwner2)) return { ok: false, error: "Pick a second co-owner from the team, or leave it empty." };
 
   const existing = await loadExistingTargets(project_id);
   if (existing.error) return { ok: false, error: existing.error };
   const clash = indexTargets(existing.targets ?? []).get(targetKey(task, owner_id));
   const admin = createAdminClient();
   const now = new Date().toISOString();
+  // The round-3 columns; stripped and retried if the migration isn't applied yet.
+  const extra = { co_owner_2_id: coOwner2, one_time: !!one_time, due_date: due_date || null, detail: detail?.trim() || null };
 
   if (id) {
     if (clash && clash.id !== id && !clash.removed_at) return { ok: false, error: "That owner already has a target with this task name." };
-    const { data, error } = await admin.from("team_targets")
-      .update({ task, owner_id, co_owner_id: coOwner, target, frequency, updated_at: now })
-      .eq("id", id).eq("project_id", project_id).select("id");
-    if (error) return { ok: false, error: "Could not save that target." };
-    if (!data?.length) return { ok: false, error: "That target was not found." };
+    const base = { task, owner_id, co_owner_id: coOwner, target, frequency, updated_at: now };
+    let r = await admin.from("team_targets").update({ ...base, ...extra }).eq("id", id).eq("project_id", project_id).select("id");
+    if (r.error && isMissingColumn(r.error.message)) r = await admin.from("team_targets").update(base).eq("id", id).eq("project_id", project_id).select("id");
+    if (r.error) return { ok: false, error: "Could not save that target." };
+    if (!r.data?.length) return { ok: false, error: "That target was not found." };
   } else if (clash) {
     if (!clash.removed_at) return { ok: false, error: "That owner already has a target with this task name." };
     // Same task and owner as a removed one: bring it back with its history.
-    const { error } = await admin.from("team_targets")
-      .update({ co_owner_id: coOwner, target, frequency, removed_at: null, updated_at: now })
-      .eq("id", clash.id).eq("project_id", project_id);
-    if (error) return { ok: false, error: "Could not save that target." };
+    const base = { co_owner_id: coOwner, target, frequency, removed_at: null, updated_at: now };
+    let r = await admin.from("team_targets").update({ ...base, ...extra }).eq("id", clash.id).eq("project_id", project_id);
+    if (r.error && isMissingColumn(r.error.message)) r = await admin.from("team_targets").update(base).eq("id", clash.id).eq("project_id", project_id);
+    if (r.error) return { ok: false, error: "Could not save that target." };
   } else {
-    const { error } = await admin.from("team_targets")
-      .insert({ project_id, task, owner_id, co_owner_id: coOwner, target, frequency, created_by: auth.actor.userId });
-    if (error) return { ok: false, error: "Could not save that target." };
+    const base = { project_id, task, owner_id, co_owner_id: coOwner, target, frequency, created_by: auth.actor.userId };
+    let r = await admin.from("team_targets").insert({ ...base, ...extra });
+    if (r.error && isMissingColumn(r.error.message)) r = await admin.from("team_targets").insert(base);
+    if (r.error) return { ok: false, error: "Could not save that target." };
   }
 
   revalidatePath(PAGE);

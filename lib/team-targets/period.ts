@@ -138,6 +138,32 @@ export function periodEnded(p: Period, now: Date = new Date()): boolean {
   return p.end < todayIst(now);
 }
 
+// ---- One-time deliverables (a single `target` of work by a due date) --------
+// These are not a per-day/week/month cadence, so they use their own expected /
+// pace. A one-time target counts its full goal only in the period that CONTAINS
+// its due date: before that it isn't due yet, after that it has moved on. With
+// no due date it's a standing one-off, always expected, never under pace.
+
+/** The full goal, but only inside the period that owns the deadline. */
+export function oneTimeExpected(target: number, dueDate: string | null, p: Period): number {
+  if (!dueDate) return target;             // no deadline: a standing one-off
+  if (dueDate < p.start) return 0;         // was due before this window
+  if (dueDate > p.end) return 0;           // not due until a later window
+  return target;
+}
+
+/** Expected SO FAR: ramps start -> due date by calendar days; full once due. */
+export function oneTimeToDate(target: number, dueDate: string | null, p: Period, now: Date = new Date()): number {
+  const expected = oneTimeExpected(target, dueDate, p);
+  if (expected <= 0) return 0;
+  if (!dueDate) return 0;                   // no deadline: never reads as behind
+  const today = todayIst(now);
+  if (today > dueDate) return expected;     // past the deadline: fully owed
+  const yesterday = addDays(today, -1);
+  const frac = calendarDaysBetween(p.start, yesterday) / Math.max(1, calendarDaysBetween(p.start, dueDate));
+  return expected * Math.min(1, Math.max(0, frac));
+}
+
 /**
  * Expected SO FAR, pro-rated through YESTERDAY's closed days, so nobody reads as
  * "behind" at 9am on a day they haven't finished. 0 before the window opens, the

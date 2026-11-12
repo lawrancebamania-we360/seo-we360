@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { initials } from "@/lib/ui-helpers";
 import { isBehindStatus, targetStatus, type TargetStatus } from "@/lib/team-targets/period";
 import { FREQUENCY_LABEL } from "@/lib/team-targets/types";
+import { formatDay } from "@/lib/format-datetime";
 import { fmtNum, fmtPctFloor, firstName, ProgressBar, StatusChip } from "@/components/sections/team-targets/ui";
 import { TargetDrawer } from "@/components/sections/team-targets/target-drawer";
 import type { DashboardTarget } from "@/lib/team-targets/types";
@@ -219,7 +220,10 @@ function ProgressCell({ ratio, awaitingFraction, strong, label }: { ratio: numbe
 function TargetRow({ row, onOpen }: { row: DashboardTarget; onOpen: () => void }) {
   const ratio = row.expectedPeriod > 0 ? row.doneVerified / row.expectedPeriod : null;
   const awaitFrac = row.expectedPeriod > 0 ? row.awaiting / row.expectedPeriod : 0;
-  const cadence = `${row.target} / ${FREQUENCY_LABEL[row.frequency].replace("per ", "")}`;
+  const cadence = row.oneTime
+    ? (row.dueDate ? `${row.target} · due ${formatDay(row.dueDate)}` : `${row.target} · one-time`)
+    : `${row.target} / ${FREQUENCY_LABEL[row.frequency].replace("per ", "")}`;
+  const withNames = [row.coOwnerName, row.coOwner2Name].filter(Boolean).join(", ");
   return (
     <div
       role="button" tabIndex={0} onClick={onOpen}
@@ -231,8 +235,9 @@ function TargetRow({ row, onOpen }: { row: DashboardTarget; onOpen: () => void }
         <span className="absolute left-[11px] top-[-10px] bottom-[-10px] w-px bg-border" aria-hidden />
         <div className="truncate text-[13px] font-medium text-foreground" title={row.task}>{row.task}</div>
         <div className="truncate text-[11px] text-muted-foreground">
-          <span className="font-mono">{cadence}</span>{row.coOwnerName && <span> · with {row.coOwnerName}</span>}
+          <span className="font-mono">{cadence}</span>{withNames && <span> · with {withNames}</span>}
         </div>
+        {row.detail && <div className="truncate text-[11px] text-muted-foreground/80" title={row.detail}>{row.detail}</div>}
       </div>
       <Num v={row.expectedPeriod} />
       <Num v={row.doneVerified} strong />

@@ -11,6 +11,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { removeTeamTarget, saveTeamTarget } from "@/lib/actions/team-targets";
 import { safely } from "@/lib/team-targets/safely";
@@ -18,7 +19,7 @@ import type { DashboardTarget } from "@/lib/team-targets/types";
 import type { TargetFrequency } from "@/lib/team-targets/types";
 
 // The fields the add/edit/remove dialogs need; DashboardTarget is a superset.
-type TargetRow = Pick<DashboardTarget, "id" | "task" | "ownerId" | "coOwnerId" | "target" | "frequency" | "ownerName">;
+type TargetRow = Pick<DashboardTarget, "id" | "task" | "ownerId" | "coOwnerId" | "coOwner2Id" | "target" | "frequency" | "ownerName" | "oneTime" | "dueDate" | "detail">;
 
 export type MemberOption = { id: string; name: string };
 
@@ -42,13 +43,18 @@ export function TargetFormDialog({
   const [task, setTask] = useState(target?.task ?? "");
   const [ownerId, setOwnerId] = useState(target?.ownerId ?? "");
   const [coOwnerId, setCoOwnerId] = useState(target?.coOwnerId ?? NONE);
+  const [coOwner2Id, setCoOwner2Id] = useState(target?.coOwner2Id ?? NONE);
   const [goal, setGoal] = useState(target ? String(target.target) : "");
   const [frequency, setFrequency] = useState<TargetFrequency>(target?.frequency ?? "weekly");
+  const [oneTime, setOneTime] = useState(target?.oneTime ?? false);
+  const [dueDate, setDueDate] = useState(target?.dueDate ?? "");
+  const [detail, setDetail] = useState(target?.detail ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const ownerItems = members.map((m) => ({ value: m.id, label: m.name }));
   const coOwnerItems = [{ value: NONE, label: "No co-owner" }, ...ownerItems.filter((m) => m.value !== ownerId)];
+  const coOwner2Items = [{ value: NONE, label: "No 2nd co-owner" }, ...ownerItems.filter((m) => m.value !== ownerId && m.value !== coOwnerId)];
   const valid = task.trim() && ownerId && /^\d+$/.test(goal.trim()) && Number(goal) > 0;
 
   const submit = async () => {
@@ -61,8 +67,12 @@ export function TargetFormDialog({
       task: task.trim(),
       owner_id: ownerId,
       co_owner_id: coOwnerId === NONE || coOwnerId === ownerId ? null : coOwnerId,
+      co_owner_2_id: coOwner2Id === NONE || coOwner2Id === ownerId || coOwner2Id === coOwnerId ? null : coOwner2Id,
       target: Number(goal.trim()),
       frequency,
+      one_time: oneTime,
+      due_date: oneTime && dueDate ? dueDate : null,
+      detail: detail.trim() || null,
     }));
     setBusy(false);
     if (!r.ok) { setError(r.error ?? "Could not save that target."); return; }
@@ -93,6 +103,10 @@ export function TargetFormDialog({
               <Combobox id="tt-coowner" items={coOwnerItems} value={coOwnerId} onValueChange={setCoOwnerId} placeholder="No co-owner" searchPlaceholder="Search people" className="h-9 w-full" />
             </div>
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="tt-coowner2">Second co-owner (optional)</label>
+            <Combobox id="tt-coowner2" items={coOwner2Items} value={coOwner2Id} onValueChange={setCoOwner2Id} placeholder="No 2nd co-owner" searchPlaceholder="Search people" className="h-9 w-full" />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="tt-goal">Target</label>
@@ -100,8 +114,26 @@ export function TargetFormDialog({
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="tt-frequency">How often</label>
-              <Combobox id="tt-frequency" items={FREQUENCY_ITEMS} value={frequency} onValueChange={(v) => setFrequency(v as TargetFrequency)} className="h-9 w-full" />
+              <Combobox id="tt-frequency" items={FREQUENCY_ITEMS} value={frequency} onValueChange={(v) => setFrequency(v as TargetFrequency)} disabled={oneTime} className="h-9 w-full" />
             </div>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/20 p-2.5">
+            <label className="flex items-center gap-2 text-xs font-medium text-foreground">
+              <input type="checkbox" checked={oneTime} onChange={(e) => setOneTime(e.target.checked)} className="size-3.5 accent-[#5B45E0]" />
+              One-time deliverable (a deadline, not a repeating cadence)
+            </label>
+            {oneTime && (
+              <div className="mt-2">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="tt-due">Due date</label>
+                <Input id="tt-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-9" />
+                <p className="mt-1 text-[11px] text-muted-foreground">The target counts in full in the period that contains this date. “How often” is ignored.</p>
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="tt-detail">Detail (optional)</label>
+            <Textarea id="tt-detail" rows={2} maxLength={2000} value={detail} onChange={(e) => setDetail(e.target.value)}
+              placeholder="Notes, ranges or rules — e.g. “min 7, 3 at DR 30–40, rest 40+; SaaS only”." className="text-[13px]" />
           </div>
           {error && <p className="text-xs text-error-600">{error}</p>}
         </div>

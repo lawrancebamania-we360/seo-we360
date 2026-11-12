@@ -59,8 +59,17 @@ export interface DashboardTarget {
   ownerName: string | null;
   coOwnerId: string | null;
   coOwnerName: string | null;
+  /** A second co-owner (some tasks are shared three ways). */
+  coOwner2Id: string | null;
+  coOwner2Name: string | null;
   target: number;
   frequency: TargetFrequency;
+  /** true = a one-off deliverable of `target` by dueDate, not a recurring cadence. */
+  oneTime: boolean;
+  /** Deadline (YYYY-MM-DD) for a one-time deliverable; null otherwise. */
+  dueDate: string | null;
+  /** Free-text qualifier shown under the task (ranges, quality rules, notes). */
+  detail: string | null;
   logMode: LogMode;
   isVolume: boolean;
   doneVerified: number;

@@ -54,8 +54,14 @@ export function TargetDrawer({
         <SheetHeader>
           <SheetTitle>{target.task}</SheetTitle>
           <SheetDescription>
-            {target.ownerName ?? "No owner"}{target.coOwnerName ? ` · with ${target.coOwnerName}` : ""} · goal {target.target.toLocaleString()} {FREQUENCY_LABEL[target.frequency]}
+            {target.ownerName ?? "No owner"}
+            {[target.coOwnerName, target.coOwner2Name].filter(Boolean).length > 0 ? ` · with ${[target.coOwnerName, target.coOwner2Name].filter(Boolean).join(", ")}` : ""}
+            {" · "}goal {target.target.toLocaleString()}{" "}
+            {target.oneTime
+              ? (target.dueDate ? `· due ${formatDay(target.dueDate)}` : "· one-time")
+              : FREQUENCY_LABEL[target.frequency]}
           </SheetDescription>
+          {target.detail && <p className="pt-0.5 text-[12px] text-muted-foreground">{target.detail}</p>}
         </SheetHeader>
 
         <div className="grid grid-cols-3 gap-2 px-4 pb-3">

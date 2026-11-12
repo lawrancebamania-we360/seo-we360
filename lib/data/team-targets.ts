@@ -13,9 +13,10 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTable } from "@/lib/team-targets/db";
+import { isMissingColumn } from "@/lib/ai-citation/run-state";
 import {
-  calendarDaysBetween, expectedToDate, isBehindStatus, periodEnded,
-  periodExpected, targetStatus, workingDaysBetween, type Period, type TargetStatus,
+  calendarDaysBetween, expectedToDate, isBehindStatus, oneTimeExpected, oneTimeToDate,
+  periodEnded, periodExpected, targetStatus, workingDaysBetween, type Period, type TargetStatus,
 } from "@/lib/team-targets/period";
 import { addDays } from "@/lib/team-targets/week";
 import { isVerified, isAwaiting } from "@/lib/team-targets/types";
@@ -36,6 +37,8 @@ export { isVerified, isAwaiting, isFailed } from "@/lib/team-targets/types";
 interface TargetDb {
   id: string; task: string; owner_id: string | null; co_owner_id: string | null;
   target: number; frequency: TargetFrequency; log_mode: LogMode; is_volume: boolean; created_at: string;
+  // Round 3 (migration 20261112000001); absent/defaulted before it is applied.
+  co_owner_2_id?: string | null; one_time?: boolean | null; due_date?: string | null; detail?: string | null;
 }
 interface LogDb {
   id: string; target_id: string; log_date: string; link: string | null; quantity: number; note: string | null;
@@ -64,17 +67,21 @@ export async function getTeamTargetsDashboard(
     burnup: [],
   });
 
-  const { data: targetsData, error } = await supabase
-    .from("team_targets")
-    .select("id, task, owner_id, co_owner_id, target, frequency, log_mode, is_volume, created_at")
-    .eq("project_id", projectId)
-    .is("removed_at", null)
-    .order("created_at", { ascending: true });
+  const COLS_NEW = "id, task, owner_id, co_owner_id, co_owner_2_id, target, frequency, log_mode, is_volume, one_time, due_date, detail, created_at";
+  const COLS_OLD = "id, task, owner_id, co_owner_id, target, frequency, log_mode, is_volume, created_at";
+  const load = (cols: string) =>
+    supabase.from("team_targets").select(cols)
+      .eq("project_id", projectId).is("removed_at", null).order("created_at", { ascending: true });
+  // The round-3 columns don't exist until their migration is applied: fall back
+  // to the old column set so the board keeps working in the meantime.
+  let res = await load(COLS_NEW);
+  if (res.error && isMissingColumn(res.error.message)) res = await load(COLS_OLD);
+  const { data: targetsData, error } = res;
   if (error) {
     if (isMissingTable(error)) return empty(false);
     throw new Error(`Could not load team targets: ${error.message}`);
   }
-  let targets = (targetsData ?? []) as TargetDb[];
+  let targets = (targetsData ?? []) as unknown as TargetDb[];
   // Person filter: keep the targets that person owns or co-owns, so every tile,
   // chart and the burn-up all narrow to them.
   if (personId) targets = targets.filter((t) => t.owner_id === personId || t.co_owner_id === personId);
@@ -91,7 +98,7 @@ export async function getTeamTargetsDashboard(
   const logs = ((logsData ?? []) as LogDb[]).filter((l) => targetIds.has(l.target_id));
 
   const ids = new Set<string>();
-  for (const t of targets) { if (t.owner_id) ids.add(t.owner_id); if (t.co_owner_id) ids.add(t.co_owner_id); }
+  for (const t of targets) { if (t.owner_id) ids.add(t.owner_id); if (t.co_owner_id) ids.add(t.co_owner_id); if (t.co_owner_2_id) ids.add(t.co_owner_2_id); }
   for (const l of logs) { if (l.reported_by) ids.add(l.reported_by); if (l.verified_by) ids.add(l.verified_by); }
   const names = new Map<string, string>();
   if (ids.size) {
@@ -113,12 +120,16 @@ export async function getTeamTargetsDashboard(
       else if (isAwaiting(l.verification_status)) { awaiting += l.quantity; needs++; }
       else failed += l.quantity;
     }
-    const expPeriod = Math.round(periodExpected(t.frequency, t.target, period));
-    const expToDate = expectedToDate(t.frequency, t.target, period, now);
+    const oneTime = !!t.one_time;
+    const dueDate = t.due_date ?? null;
+    const expPeriod = Math.round(oneTime ? oneTimeExpected(t.target, dueDate, period) : periodExpected(t.frequency, t.target, period));
+    const expToDate = oneTime ? oneTimeToDate(t.target, dueDate, period, now) : expectedToDate(t.frequency, t.target, period, now);
     return {
       id: t.id, task: t.task, ownerId: t.owner_id, ownerName: nameOf(t.owner_id),
       coOwnerId: t.co_owner_id, coOwnerName: nameOf(t.co_owner_id),
-      target: t.target, frequency: t.frequency, logMode: t.log_mode, isVolume: t.is_volume,
+      coOwner2Id: t.co_owner_2_id ?? null, coOwner2Name: nameOf(t.co_owner_2_id ?? null),
+      target: t.target, frequency: t.frequency, oneTime, dueDate, detail: t.detail ?? null,
+      logMode: t.log_mode, isVolume: t.is_volume,
       doneVerified: done, awaiting, failed,
       expectedPeriod: expPeriod, expectedToDate: expToDate,
       remaining: Math.max(0, expPeriod - done),
@@ -212,7 +223,9 @@ export async function getLoggableTargets(projectId: string, userId: string, isAd
 // Cumulative team completion (mean of per-target capped completion) vs the ideal
 // pace line, both as 0..1, sampled across the period up to today. Done is plotted
 // by the date work was LOGGED, so a link verified later raises past points.
-function buildBurnup(targets: TargetDb[], logs: LogDb[], period: Period, now: Date): BurnupPoint[] {
+function buildBurnup(allTargets: TargetDb[], logs: LogDb[], period: Period, now: Date): BurnupPoint[] {
+  // One-time deliverables aren't a steady pace line; leave them out of the burn-up.
+  const targets = allTargets.filter((t) => !t.one_time);
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
   const lastDay = today < period.end ? today : period.end;
   if (lastDay < period.start) return [];
