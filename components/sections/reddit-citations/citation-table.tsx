@@ -8,11 +8,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Loader2, ExternalLink, Pencil, Trash2, Check, Upload } from "lucide-react";
+import { Plus, Loader2, ExternalLink, Pencil, Trash2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { toExternalUrl } from "@/lib/url";
 import {
   addRedditCitation, updateRedditCitation, deleteRedditCitation, setCitationPublished,
@@ -46,7 +47,7 @@ export function CitationTable({ clusterId, items, members, currentUserId, canMan
               <th className="px-3 py-2.5 font-semibold">Prompt</th>
               <th className="px-3 py-2.5 font-semibold">Source</th>
               <th className="px-3 py-2.5 font-semibold">Reddit link</th>
-              <th className="px-3 py-2.5 font-semibold">Examples</th>
+              <th className="px-3 py-2.5 font-semibold">Comment Content</th>
               <th className="px-3 py-2.5 font-semibold">Owner</th>
               <th className="px-3 py-2.5 font-semibold">Published</th>
               <th className="px-3 py-2.5" />
@@ -118,61 +119,33 @@ function DeleteButton({ itemId, onDone }: { itemId: string; onDone: () => void }
   );
 }
 
+// Leena flips this Yes/No. Yes logs the "Publish Reddit citations" target
+// (done toward 15); No removes that log.
 function PublishCell({ row }: { row: RedditCitationRow }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const publish = async () => {
-    if (busy) return;
+  const set = async (published: boolean) => {
+    if (busy || published === row.published) return;
     setBusy(true);
     try {
-      const r = await setCitationPublished({ item_id: row.id, published: true, published_url: url.trim() || undefined });
-      if (!r.ok) { toast.error(r.error ?? "Could not mark published."); return; }
-      toast.success("Marked published."); setOpen(false); setUrl(""); router.refresh();
-    } finally { setBusy(false); }
-  };
-  const undo = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const r = await setCitationPublished({ item_id: row.id, published: false });
-      if (!r.ok) { toast.error(r.error ?? "Could not undo."); return; }
-      toast.success("Returned to the list."); router.refresh();
+      const r = await setCitationPublished({ item_id: row.id, published });
+      if (!r.ok) { toast.error(r.error ?? "Could not update that."); return; }
+      router.refresh();
     } finally { setBusy(false); }
   };
 
-  const liveUrl = toExternalUrl(row.publishedUrl);
-  if (row.published) {
-    return (
-      <div className="flex items-center gap-2 text-[12.5px]">
-        <span className="inline-flex items-center gap-1 text-success-700 dark:text-success-400"><Check className="size-3.5" /> Published</span>
-        {liveUrl && <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><ExternalLink className="size-3" /></a>}
-        <button type="button" onClick={undo} disabled={busy} className="text-[11px] text-muted-foreground hover:text-error-600 disabled:opacity-50">Undo</button>
-      </div>
-    );
-  }
   return (
-    <>
-      <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs" onClick={() => setOpen(true)}>
-        <Upload className="size-3" /> Mark published
-      </Button>
-      <Dialog open={open} onOpenChange={(v) => { if (!busy) setOpen(v); }}>
-        <DialogContent className="sm:max-w-[460px]">
-          <DialogHeader>
-            <DialogTitle>Mark published</DialogTitle>
-            <DialogDescription>Paste the live Reddit comment link (optional). This counts toward the publish target.</DialogDescription>
-          </DialogHeader>
-          <Input autoFocus value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.reddit.com/r/.../comment/..." className="h-9"
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); publish(); } }} />
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>
-            <Button variant="brand" onClick={publish} disabled={busy} className="gap-1.5">{busy && <Loader2 className="size-3.5 animate-spin" />} Mark published</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <div className="inline-flex overflow-hidden rounded-md border border-border text-xs">
+      <button type="button" onClick={() => set(true)} disabled={busy}
+        className={cn("px-2.5 py-1 transition-colors", row.published ? "bg-success-500/15 font-medium text-success-700 dark:text-success-400" : "text-muted-foreground hover:bg-muted")}>
+        {busy && row.published ? <Loader2 className="size-3 animate-spin" /> : "Yes"}
+      </button>
+      <button type="button" onClick={() => set(false)} disabled={busy}
+        className={cn("border-l border-border px-2.5 py-1 transition-colors", !row.published ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted")}>
+        {busy && !row.published ? <Loader2 className="size-3 animate-spin" /> : "No"}
+      </button>
+    </div>
   );
 }
 
@@ -229,9 +202,9 @@ function CitationDialog({ clusterId, row, members, currentUserId, onClose }: {
           <Field label="Reddit link">
             <Input value={d.reddit_link} onChange={(e) => set("reddit_link", e.target.value)} placeholder="https://www.reddit.com/r/..." maxLength={2000} />
           </Field>
-          <Field label="Examples">
+          <Field label="Comment Content">
             <textarea value={d.example} onChange={(e) => set("example", e.target.value)}
-              placeholder="The comment to post, or a status note (e.g. removed by a Reddit filter)."
+              placeholder="The comment to post on the Reddit thread, or a status note (e.g. removed by a Reddit filter)."
               className="h-32 w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-[13px] leading-relaxed outline-none focus:border-primary/40" maxLength={8000} />
           </Field>
           {error && <p className="text-xs text-error-600">{error}</p>}

@@ -5,7 +5,6 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTable } from "@/lib/team-targets/db";
-import { ADD_TASK, PUBLISH_TASK } from "@/lib/reddit-citations/target-log";
 
 // "2026-10" -> "Oct 26". Falls back to the raw key if it isn't YYYY-MM.
 export function monthLabel(monthKey: string): string {
@@ -48,14 +47,6 @@ export interface RedditCitationRow {
   publishedUrl: string | null;
 }
 
-export interface OwnerProgress {
-  personId: string;
-  name: string;
-  kind: "contributor" | "publisher";
-  done: number;
-  target: number | null;
-}
-
 export interface RedditClusterDetail {
   id: string;
   monthKey: string;
@@ -63,7 +54,6 @@ export interface RedditClusterDetail {
   title: string | null;
   keywordPlanUrl: string | null;
   items: RedditCitationRow[];
-  owners: OwnerProgress[];
 }
 
 async function nameMap(
@@ -136,18 +126,7 @@ export async function getRedditClusterDetail(projectId: string, clusterId: strin
     example: string | null; owner_id: string | null; published: boolean; published_url: string | null;
   }[];
 
-  // The targets this tab feeds define who the owners are and their goals.
-  const { data: targetsData } = await supabase
-    .from("team_targets")
-    .select("task, owner_id, target")
-    .eq("project_id", projectId).is("removed_at", null)
-    .in("task", [ADD_TASK, PUBLISH_TASK]);
-  const targets = (targetsData ?? []) as { task: string; owner_id: string | null; target: number }[];
-
-  const names = await nameMap(supabase, [
-    ...rows.map((r) => r.owner_id ?? ""),
-    ...targets.map((t) => t.owner_id ?? ""),
-  ].filter(Boolean));
+  const names = await nameMap(supabase, rows.map((r) => r.owner_id ?? "").filter(Boolean));
 
   const items: RedditCitationRow[] = rows.map((r) => ({
     id: r.id, position: r.position, prompt: r.prompt, source: r.source, redditLink: r.reddit_link,
@@ -155,29 +134,8 @@ export async function getRedditClusterDetail(projectId: string, clusterId: strin
     published: r.published, publishedUrl: r.published_url,
   }));
 
-  const owners: OwnerProgress[] = [];
-  const seen = new Set<string>();
-  // Contributors (add 5): their count of rows in this cluster.
-  for (const t of targets.filter((t) => t.task === ADD_TASK && t.owner_id)) {
-    const pid = t.owner_id!;
-    if (seen.has(pid)) continue;
-    seen.add(pid);
-    owners.push({ personId: pid, name: names.get(pid) ?? "Member", kind: "contributor", target: t.target, done: rows.filter((r) => r.owner_id === pid).length });
-  }
-  // Any ad-hoc owner with rows but no "Reddit citations" target: show, no goal.
-  for (const pid of [...new Set(rows.map((r) => r.owner_id).filter((x): x is string => !!x))]) {
-    if (seen.has(pid)) continue;
-    seen.add(pid);
-    owners.push({ personId: pid, name: names.get(pid) ?? "Member", kind: "contributor", target: null, done: rows.filter((r) => r.owner_id === pid).length });
-  }
-  // Publisher (Leena, publish 15): count of published rows in this cluster.
-  for (const t of targets.filter((t) => t.task === PUBLISH_TASK && t.owner_id)) {
-    const pid = t.owner_id!;
-    owners.push({ personId: pid, name: names.get(pid) ?? "Member", kind: "publisher", target: t.target, done: rows.filter((r) => r.published).length });
-  }
-
   return {
     id: c.id, monthKey: c.month_key, label: c.title?.trim() || monthLabel(c.month_key),
-    title: c.title, keywordPlanUrl: c.keyword_plan_url, items, owners,
+    title: c.title, keywordPlanUrl: c.keyword_plan_url, items,
   };
 }

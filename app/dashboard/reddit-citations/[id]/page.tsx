@@ -7,7 +7,6 @@ import { getTeamMembers } from "@/lib/data/tasks";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { CitationTable } from "@/components/sections/reddit-citations/citation-table";
-import { OwnersProgress } from "@/components/sections/reddit-citations/owners-progress";
 import { KeywordPlanEditor } from "@/components/sections/reddit-citations/keyword-plan-editor";
 
 export default async function RedditCitationDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -31,8 +30,6 @@ export default async function RedditCitationDetailPage({ params }: { params: Pro
         description={`${cluster.items.length} citation${cluster.items.length === 1 ? "" : "s"} this month. Add a prompt + Reddit thread; Leena marks each one published.`}
         actions={<KeywordPlanEditor clusterId={cluster.id} url={cluster.keywordPlanUrl} />}
       />
-
-      <OwnersProgress owners={cluster.owners} />
 
       <CitationTable
         clusterId={cluster.id}
