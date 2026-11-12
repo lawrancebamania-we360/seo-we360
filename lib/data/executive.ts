@@ -1,14 +1,13 @@
 // Executive Dashboard data layer.
 //
 // One concise, leadership-facing view: target vs achieved (traffic & DR),
-// money spent and the effect it bought, content shipped, and what each person
-// is working on - all for a selectable date range (default: this month).
+// money spent and the effect it bought, and what each person is working on -
+// all for a selectable date range (default: this month).
 //
 // Everything here is DB-backed so it works the same locally and in prod (GA4
 // and GSC return 403 off the Vercel runtime). Traffic and DR come from the
 // hand-entered seo_metric_points table; money from earned_backlinks +
-// influencer_collabs; content from topic_cluster_items.published_at; team from
-// the existing Team Targets dashboard. Each reader degrades (ready=false, zero
+// influencer_collabs; team from the existing Team Targets dashboard. Each reader degrades (ready=false, zero
 // rows) when its table/column isn't there yet, so the page never 500s before
 // the migration is applied.
 
@@ -194,36 +193,6 @@ async function getSpendSummary(projectId: string, range: DateRange): Promise<Spe
   };
 }
 
-export interface ContentShipped {
-  ready: boolean;
-  buckets: { key: string; label: string; count: number }[];
-  total: number;
-}
-
-async function getContentShipped(projectId: string, range: DateRange): Promise<ContentShipped> {
-  const supabase = await createClient();
-  const keys = monthBuckets(range);
-  const counts = new Map<string, number>(keys.map((k) => [k, 0]));
-  // published_at is a timestamptz; compare on the date prefix.
-  const { data, error } = await supabase
-    .from("topic_cluster_items")
-    .select("published_at")
-    .eq("project_id", projectId)
-    .not("published_at", "is", null)
-    .gte("published_at", `${range.start}T00:00:00`)
-    .lte("published_at", `${range.end}T23:59:59`);
-  if (error) {
-    if (isMissingTable(error.message) || isMissingColumn(error.message)) return { ready: false, buckets: keys.map((k) => ({ key: k, label: monthLabel(k), count: 0 })), total: 0 };
-    throw new Error(`Could not load published content: ${error.message}`);
-  }
-  let total = 0;
-  for (const r of (data ?? []) as { published_at: string }[]) {
-    const k = monthKey(r.published_at);
-    if (counts.has(k)) { counts.set(k, (counts.get(k) ?? 0) + 1); total++; }
-  }
-  return { ready: true, buckets: keys.map((k) => ({ key: k, label: monthLabel(k), count: counts.get(k) ?? 0 })), total };
-}
-
 // ---------------------------------------------------------------------------
 // Backlinks earned (count + DR context, for the "effect" story)
 // ---------------------------------------------------------------------------
@@ -259,35 +228,31 @@ export interface ExecutiveDashboard {
   traffic: MetricSeries;
   dr: MetricSeries;
   spend: SpendSummary;
-  content: ContentShipped;
   backlinks: BacklinksEarned;
   team: TeamTargetsDashboard;
   // Cost efficiency (USD), null when the denominator is missing/zero.
   costPerDrPoint: number | null;
   costPerBacklink: number | null;
-  costPerPost: number | null;
 }
 
 export async function getExecutiveDashboard(projectId: string, rangeKey: string): Promise<ExecutiveDashboard> {
   const { range, label, key } = resolveExecRange(rangeKey);
   const teamPeriod: Period = { key: "custom", start: range.start, end: range.end, label };
 
-  const [traffic, dr, spend, content, backlinks, team] = await Promise.all([
+  const [traffic, dr, spend, backlinks, team] = await Promise.all([
     getMetricSeries(projectId, "traffic", range),
     getMetricSeries(projectId, "dr", range),
     getSpendSummary(projectId, range),
-    getContentShipped(projectId, range),
     getBacklinksEarned(projectId, range),
     getTeamTargetsDashboard(projectId, teamPeriod),
   ]);
 
   const costPerDrPoint = dr.delta && dr.delta > 0 ? Math.round(spend.totalUsd / dr.delta) : null;
   const costPerBacklink = spend.backlinksCount > 0 ? Math.round(spend.backlinksUsd / spend.backlinksCount) : null;
-  const costPerPost = content.total > 0 ? Math.round(spend.totalUsd / content.total) : null;
 
   return {
     rangeKey: key, rangeLabel: label, range,
-    traffic, dr, spend, content, backlinks, team,
-    costPerDrPoint, costPerBacklink, costPerPost,
+    traffic, dr, spend, backlinks, team,
+    costPerDrPoint, costPerBacklink,
   };
 }

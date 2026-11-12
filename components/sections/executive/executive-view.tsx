@@ -2,7 +2,7 @@
 
 // Executive dashboard — the whole render. One concise, interactive view for
 // leadership: target vs achieved (traffic & DR), money spent and the effect it
-// bought, content shipped, and what each person is working on. All charts are
+// bought, and what each person is working on. All charts are
 // Recharts and respond to the global date-range filter (in the URL).
 
 import { useMemo, useState } from "react";
@@ -11,7 +11,7 @@ import {
   Tooltip, ResponsiveContainer, ReferenceLine, Cell,
 } from "recharts";
 import {
-  TrendingUp, TrendingDown, DollarSign, FileText, Link2, Gauge, Target, Users,
+  TrendingUp, TrendingDown, DollarSign, Link2, Gauge, Target, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ExecutiveDashboard, MetricSeries } from "@/lib/data/executive";
@@ -22,7 +22,6 @@ const C = {
   target: "#94a3b8",
   backlinks: "#8b5cf6",
   collabs: "#f59e0b",
-  content: "#10b981",
   bar: "#5B45E0",
 };
 
@@ -54,10 +53,7 @@ export function ExecutiveView({ data }: { data: ExecutiveDashboard }) {
 
       <SpendEffect data={data} />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ContentChart data={data} />
-        <TeamChart data={data} />
-      </div>
+      <TeamChart data={data} />
 
       <TeamWorkload data={data} />
     </div>
@@ -73,7 +69,7 @@ function KpiRow({ data }: { data: ExecutiveDashboard }) {
   const trafficToGoal = t.latestActual !== null && t.latestTarget ? t.latestActual / t.latestTarget : null;
   const drToGoal = d.latestActual !== null && d.latestTarget ? d.latestActual / d.latestTarget : null;
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
       <Tile
         icon={TrendingUp} label="Organic traffic"
         value={t.latestActual !== null ? fmtNum(t.latestActual) : "—"}
@@ -91,12 +87,6 @@ function KpiRow({ data }: { data: ExecutiveDashboard }) {
         value={data.spend.ready ? fmtUsd(data.spend.totalUsd) : "—"}
         sub={`${data.spend.backlinksCount} links · ${data.spend.collabsCount} collabs`}
         color={C.collabs}
-      />
-      <Tile
-        icon={FileText} label="Content shipped"
-        value={data.content.ready ? fmtNum(data.content.total) : "—"}
-        sub={data.costPerPost !== null ? `${fmtUsd(data.costPerPost)} / post` : "posts published"}
-        color={C.content}
       />
       <Tile
         icon={Link2} label="Backlinks earned"
@@ -227,34 +217,6 @@ function SpendEffect({ data }: { data: ExecutiveDashboard }) {
             { label: line === "dr" ? "Domain Rating" : "Organic traffic", color: lineColor, line: true },
           ]} />
         </>
-      )}
-    </ChartCard>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Content shipped
-// ---------------------------------------------------------------------------
-
-function ContentChart({ data }: { data: ExecutiveDashboard }) {
-  const rows = data.content.buckets;
-  const has = data.content.total > 0;
-  return (
-    <ChartCard title="Content shipped" icon={FileText} subtitle={`${data.content.total} published${data.costPerPost !== null ? ` · ${fmtUsd(data.costPerPost)} / post` : ""}`}>
-      {!data.content.ready ? (
-        <Empty>Publishing data isn’t available yet.</Empty>
-      ) : !has ? (
-        <Empty>No posts published in this range.</Empty>
-      ) : (
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={rows} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} width={32} />
-            <Tooltip contentStyle={TOOLTIP} formatter={(v) => [fmtNum(Number(v)), "Posts"]} />
-            <Bar dataKey="count" name="Posts" fill={C.content} radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
       )}
     </ChartCard>
   );
