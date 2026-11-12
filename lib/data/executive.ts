@@ -25,7 +25,7 @@ import {
   type DateRange,
 } from "@/lib/data/analytics-range";
 import { getGa4OrganicMonthly, getGa4MonthlySessions } from "@/lib/google/ga4";
-import { getTeamTargetsDashboard } from "@/lib/data/team-targets";
+import { getTeamTargetsDashboard, backlinkRuleFor } from "@/lib/data/team-targets";
 import type { Period } from "@/lib/team-targets/period";
 import type { TeamTargetsDashboard } from "@/lib/team-targets/types";
 
@@ -272,37 +272,85 @@ async function getSpendSummary(projectId: string, range: DateRange): Promise<Spe
 // Backlinks earned (count + DR context, for the "effect" story)
 // ---------------------------------------------------------------------------
 
-export interface BacklinksByPerson { name: string; count: number; avgDr: number | null }
-export interface BacklinksEarned { ready: boolean; count: number; avgDr: number | null; byPerson: BacklinksByPerson[] }
+export interface BacklinksByPerson {
+  id: string; name: string;
+  count: number; free: number; paid: number;
+  paidUsd: number;          // spent on this person's paid links in range (USD)
+  avgDr: number | null;
+}
+export interface BacklinksEarned {
+  ready: boolean; count: number; free: number; paid: number; paidUsd: number;
+  avgDr: number | null; byPerson: BacklinksByPerson[];
+}
+
+type BacklinkRow = {
+  domain_rating: number | null; assigned_to: string | null;
+  amount_paid: number | string | null; currency: string | null; link_type?: string | null;
+  profiles: { name: string | null } | null;
+};
 
 async function getBacklinksEarned(projectId: string, range: DateRange): Promise<BacklinksEarned> {
+  const empty: BacklinksEarned = { ready: false, count: 0, free: 0, paid: 0, paidUsd: 0, avgDr: null, byPerson: [] };
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const BASE = "domain_rating, assigned_to, amount_paid, currency, profiles!earned_backlinks_assigned_to_fkey ( name )";
+  const sel = (cols: string) => supabase
     .from("earned_backlinks")
-    .select("domain_rating, assigned_to, profiles!earned_backlinks_assigned_to_fkey ( name )")
+    .select(cols)
     .eq("project_id", projectId)
     .gte("acquired_date", range.start)
     .lte("acquired_date", range.end);
-  if (error) {
-    if (isMissingTable(error.message) || isMissingColumn(error.message)) return { ready: false, count: 0, avgDr: null, byPerson: [] };
-    throw new Error(error.message);
+  let res = await sel(`${BASE}, link_type`);
+  if (res.error && isMissingColumn(res.error.message)) res = await sel(BASE);
+  if (res.error) {
+    if (isMissingTable(res.error.message) || isMissingColumn(res.error.message)) return empty;
+    throw new Error(res.error.message);
   }
-  const rows = (data ?? []) as unknown as { domain_rating: number | null; assigned_to: string | null; profiles: { name: string | null } | null }[];
+  const rows = (res.data ?? []) as unknown as BacklinkRow[];
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
-  const drs = rows.map((r) => r.domain_rating).filter((d): d is number => typeof d === "number");
+  const usd = (amount: unknown, currency: unknown) => (currency === "INR" ? toNum(amount) * USD_PER_INR : toNum(amount));
+  // Same "paid" rule as Team Targets: an amount was paid, or the link type is "Paid".
+  const isPaid = (r: BacklinkRow) => toNum(r.amount_paid) > 0 || /^paid$/i.test((r.link_type ?? "").trim());
 
-  const per = new Map<string, { name: string; drs: number[]; count: number }>();
+  let free = 0, paid = 0, paidUsd = 0;
+  const drs: number[] = [];
+  const per = new Map<string, { id: string; name: string; drs: number[]; free: number; paid: number; paidUsd: number }>();
   for (const r of rows) {
     const k = r.assigned_to ?? "none";
-    const e = per.get(k) ?? { name: r.profiles?.name ?? "Unassigned", drs: [], count: 0 };
-    e.count++;
-    if (typeof r.domain_rating === "number") e.drs.push(r.domain_rating);
+    const e = per.get(k) ?? { id: k, name: r.profiles?.name ?? "Unassigned", drs: [], free: 0, paid: 0, paidUsd: 0 };
+    if (isPaid(r)) {
+      const spent = usd(r.amount_paid, r.currency);
+      e.paid++; e.paidUsd += spent; paid++; paidUsd += spent;
+    } else {
+      e.free++; free++;
+    }
+    if (typeof r.domain_rating === "number") { e.drs.push(r.domain_rating); drs.push(r.domain_rating); }
     per.set(k, e);
   }
-  const byPerson = [...per.values()]
-    .map((e) => ({ name: e.name, count: e.count, avgDr: avg(e.drs) }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-  return { ready: true, count: rows.length, avgDr: avg(drs), byPerson };
+  const byPerson = [...per.values()].map((e) => ({
+    id: e.id, name: e.name, count: e.free + e.paid, free: e.free, paid: e.paid,
+    paidUsd: Math.round(e.paidUsd), avgDr: avg(e.drs),
+  }));
+  return { ready: true, count: rows.length, free, paid, paidUsd: Math.round(paidUsd), avgDr: avg(drs), byPerson };
+}
+
+/** Everyone who owns a backlink target shows on the chart, even with zero links in range. */
+function withBacklinkOwners(b: BacklinksEarned, team: TeamTargetsDashboard): BacklinksEarned {
+  if (!b.ready) return b;
+  const seen = new Set(b.byPerson.map((p) => p.id));
+  const people = [...b.byPerson];
+  for (const t of team.targets) {
+    if (!backlinkRuleFor(t.task)) continue;
+    const owners: [string | null, string | null][] = [
+      [t.ownerId, t.ownerName], [t.coOwnerId, t.coOwnerName], [t.coOwner2Id, t.coOwner2Name],
+    ];
+    for (const [id, name] of owners) {
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      people.push({ id, name: name ?? "Unknown", count: 0, free: 0, paid: 0, paidUsd: 0, avgDr: null });
+    }
+  }
+  people.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  return { ...b, byPerson: people };
 }
 
 // ---------------------------------------------------------------------------
@@ -332,7 +380,7 @@ export async function getExecutiveDashboard(
   const teamPeriod: Period = { key: "custom", start: range.start, end: range.end, label };
   const today = istToday();
 
-  const [manual, trafficActuals, spend, backlinks, team] = await Promise.all([
+  const [manual, trafficActuals, spend, backlinksRaw, team] = await Promise.all([
     getManualPoints(projectId),
     getTrafficActuals(ga4PropertyId, today),
     getSpendSummary(projectId, range),
@@ -340,8 +388,9 @@ export async function getExecutiveDashboard(
     getTeamTargetsDashboard(projectId, teamPeriod),
   ]);
 
+  const backlinks = withBacklinkOwners(backlinksRaw, team);
   const pts = manual.rows;
-  const strip = (p: ManualPoint): MetricPoint => ({ id: p.id, date: p.date, value: p.value, note: p.note });
+  const strip =(p: ManualPoint): MetricPoint => ({ id: p.id, date: p.date, value: p.value, note: p.note });
   const of = (metric: "dr" | "traffic", kind: "actual" | "target") =>
     pts.filter((p) => p.metric === metric && p.kind === kind).map(strip);
 

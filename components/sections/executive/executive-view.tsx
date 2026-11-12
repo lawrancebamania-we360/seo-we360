@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react";
 import {
   ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine, Cell,
+  Tooltip, ResponsiveContainer, ReferenceLine, Cell, LabelList,
 } from "recharts";
 import {
   TrendingUp, TrendingDown, DollarSign, Link2, Gauge, Target, Users,
@@ -22,6 +22,8 @@ const C = {
   target: "#94a3b8",
   backlinks: "#8b5cf6",
   collabs: "#f59e0b",
+  blFree: "#a78bfa",
+  blPaid: "#6d28d9",
   bar: "#5B45E0",
 };
 
@@ -355,32 +357,59 @@ function SpendEffect({ data }: { data: ExecutiveDashboard }) {
 // Backlinks earned, by person (straight from the Backlinks page)
 // ---------------------------------------------------------------------------
 
+interface BacklinkBar { name: string; full: string; count: number; free: number; paid: number; paidUsd: number; avgDr: number | null }
+
 function BacklinksChart({ data }: { data: ExecutiveDashboard }) {
   const b = data.backlinks;
-  const rows = b.byPerson.map((p) => ({ name: p.name.split(" ")[0], full: p.name, count: p.count, avgDr: p.avgDr }));
+  const rows: BacklinkBar[] = b.byPerson.map((p) => ({
+    name: p.name.split(" ")[0], full: p.name, count: p.count, free: p.free, paid: p.paid, paidUsd: p.paidUsd, avgDr: p.avgDr,
+  }));
+  const subtitle = `${b.count} in ${data.rangeLabel.toLowerCase()} · ${b.free} free · ${b.paid} paid${b.paidUsd > 0 ? ` (${fmtUsd(b.paidUsd)})` : ""}${b.avgDr !== null ? ` · avg DR ${b.avgDr}` : ""}`;
   return (
-    <ChartCard title="Backlinks earned" icon={Link2}
-      subtitle={`${b.count} in ${data.rangeLabel.toLowerCase()}${b.avgDr !== null ? ` · avg DR ${b.avgDr}` : ""} · from the Backlinks page`}>
+    <ChartCard title="Backlinks earned" icon={Link2} subtitle={subtitle}>
       {!b.ready ? (
         <Empty>The Backlinks table isn’t set up yet.</Empty>
       ) : rows.length === 0 ? (
         <Empty>No backlinks recorded in this range. Try a longer range.</Empty>
       ) : (
-        <ResponsiveContainer width="100%" height={Math.max(160, rows.length * 34)}>
-          <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 36, left: 8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
-            <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "var(--foreground)" }} tickLine={false} axisLine={false} width={70} />
-            <Tooltip contentStyle={TOOLTIP}
-              formatter={(v, _n, item) => {
-                const p = (item as { payload?: { full?: string; avgDr?: number | null } })?.payload;
-                return [`${fmtNum(Number(v))} links${p?.avgDr != null ? ` · avg DR ${p.avgDr}` : ""}`, p?.full ?? "Backlinks"];
-              }} />
-            <Bar dataKey="count" name="Backlinks" fill={C.backlinks} radius={[0, 4, 4, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        <>
+          <ResponsiveContainer width="100%" height={Math.max(160, rows.length * 38)}>
+            <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 36, left: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "var(--foreground)" }} tickLine={false} axisLine={false} width={70} />
+              <Tooltip content={<BacklinkTip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
+              <Bar dataKey="free" name="Free" stackId="bl" fill={C.blFree} />
+              <Bar dataKey="paid" name="Paid" stackId="bl" fill={C.blPaid} radius={[0, 4, 4, 0]}>
+                <LabelList dataKey="count" position="right" style={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+          <Legend2 items={[
+            { label: "Free (exchange, guest post, free)", color: C.blFree },
+            { label: "Paid", color: C.blPaid },
+          ]} />
+        </>
       )}
     </ChartCard>
+  );
+}
+
+function BacklinkTip({ active, payload }: { active?: boolean; payload?: { payload?: BacklinkBar }[] }) {
+  const p = active ? payload?.[0]?.payload : undefined;
+  if (!p) return null;
+  return (
+    <div style={TOOLTIP} className="space-y-0.5 px-3 py-2">
+      <div className="font-semibold">{p.full}</div>
+      <div className="flex items-center gap-1.5">
+        <span className="inline-block size-2.5 rounded-sm" style={{ background: C.blFree }} /> Free: {p.free}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="inline-block size-2.5 rounded-sm" style={{ background: C.blPaid }} />
+        Paid: {p.paid}{p.paid > 0 ? ` · ${fmtUsd(p.paidUsd)} spent` : ""}
+      </div>
+      <div className="text-muted-foreground">{p.count} total{p.avgDr != null ? ` · avg DR ${p.avgDr}` : ""}</div>
+    </div>
   );
 }
 
