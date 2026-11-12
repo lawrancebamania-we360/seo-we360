@@ -26,7 +26,7 @@ import {
 } from "@/lib/data/analytics-range";
 import { getGa4OrganicMonthly, getGa4MonthlySessions } from "@/lib/google/ga4";
 import { getTeamTargetsDashboard, backlinkRuleFor } from "@/lib/data/team-targets";
-import type { Period } from "@/lib/team-targets/period";
+import type { Period, TargetStatus } from "@/lib/team-targets/period";
 import { addDays, currentWeekStart, formatWeekRange } from "@/lib/team-targets/week";
 import type { TeamTargetsDashboard } from "@/lib/team-targets/types";
 
@@ -211,13 +211,14 @@ function collabSpendDate(r: CollabRow): string | null {
 }
 
 // Monthly budgets in USD, per direction (2026-11-12). Returns null where an
-// activity has no budget that month.
+// activity has no budget that month (shown as "—", not compared).
 //   Paid backlinks   $1,000 / month
-//   YouTube collabs  $1,000 / quarter from Nov 2026 -> ~$333 / month
+//   YouTube collabs  Oct 2026: $700. No November comparison yet (the
+//                    $1K/quarter from Nov is on hold until confirmed).
 //   LinkedIn collabs Oct 2026: $300 for 5 posts
 function budgetFor(activity: string, month: string): { usd: number | null; items: number | null } {
   if (activity === "backlinks") return month >= "2026-10" ? { usd: 1000, items: null } : { usd: null, items: null };
-  if (activity === "youtube") return month >= "2026-11" ? { usd: Math.round(1000 / 3), items: null } : { usd: null, items: null };
+  if (activity === "youtube") return month === "2026-10" ? { usd: 700, items: null } : { usd: null, items: null };
   if (activity === "linkedin") return month === "2026-10" ? { usd: 300, items: 5 } : { usd: null, items: null };
   return { usd: null, items: null };
 }
@@ -318,46 +319,40 @@ async function getSpendComparison(projectId: string, today: string): Promise<Spe
 // Team completion: this week vs last week, per person (Team Targets' own math)
 // ---------------------------------------------------------------------------
 
-export interface WeekTask { task: string; done: number; expected: number }
-export interface TeamWeekPerson {
-  id: string; name: string;
-  thisWeek: number;          // 0..1 completion, mean of their targets (Team Targets' rule)
-  pace: number;              // 0..1 where they should be by today
-  lastWeek: number | null;   // 0..1, null when they had nothing due last week
-  tasks: WeekTask[];         // this week's targets with something expected
+export interface WeekRow {
+  id: string; task: string;
+  expected: number; done: number; awaiting: number; left: number; expToDate: number;
+  status: TargetStatus;
+  lastExpected: number; lastDone: number; // the same target, last week
 }
+export interface TeamWeekPerson { id: string; name: string; rows: WeekRow[] }
 export interface TeamWeekComparison {
   ready: boolean;
+  ended: boolean;   // this week is over (it never is mid-week)
   thisLabel: string;
   lastLabel: string;
-  team: { thisWeek: number; lastWeek: number };
   people: TeamWeekPerson[];
 }
 
 function buildTeamWeek(thisW: TeamTargetsDashboard, lastW: TeamTargetsDashboard, thisLabel: string, lastLabel: string): TeamWeekComparison {
-  const lastBy = new Map(lastW.people.map((p) => [p.personId, p]));
-  const lastHasWork = new Set(lastW.targets.filter((t) => t.expectedPeriod > 0 && t.ownerId).map((t) => t.ownerId as string));
-  const people: TeamWeekPerson[] = [];
-  for (const p of thisW.people) {
-    const tasks = thisW.targets
-      .filter((t) => t.ownerId === p.personId && t.expectedPeriod > 0)
-      .map((t) => ({ task: t.task, done: t.doneVerified, expected: t.expectedPeriod }))
-      .sort((a, b) => Number(a.done >= a.expected) - Number(b.done >= b.expected) || a.task.localeCompare(b.task));
-    if (!tasks.length) continue; // nothing due for them this week
-    const last = lastBy.get(p.personId);
-    people.push({
-      id: p.personId, name: p.name,
-      thisWeek: p.completion, pace: p.paceCompletion,
-      lastWeek: last && lastHasWork.has(p.personId) ? last.completion : null,
-      tasks,
+  const lastById = new Map(lastW.targets.map((t) => [t.id, t]));
+  const byPerson = new Map<string, TeamWeekPerson>();
+  for (const t of thisW.targets) {
+    if (t.expectedPeriod <= 0) continue; // nothing due this week
+    const key = t.ownerId ?? "none";
+    const p = byPerson.get(key) ?? { id: key, name: t.ownerName ?? "No owner", rows: [] };
+    const last = lastById.get(t.id);
+    p.rows.push({
+      id: t.id, task: t.task,
+      expected: t.expectedPeriod, done: t.doneVerified, awaiting: t.awaiting, left: t.remaining,
+      expToDate: t.expectedToDate, status: t.status,
+      lastExpected: last?.expectedPeriod ?? 0, lastDone: last?.doneVerified ?? 0,
     });
+    byPerson.set(key, p);
   }
-  people.sort((a, b) => b.thisWeek - a.thisWeek || a.name.localeCompare(b.name));
-  return {
-    ready: thisW.ready, thisLabel, lastLabel,
-    team: { thisWeek: thisW.totals.completion, lastWeek: lastW.totals.completion },
-    people,
-  };
+  const people = [...byPerson.values()].sort((a, b) => a.name.localeCompare(b.name));
+  for (const p of people) p.rows.sort((a, b) => a.task.localeCompare(b.task));
+  return { ready: thisW.ready, ended: thisW.ended, thisLabel, lastLabel, people };
 }
 
 export interface SpendBucket { key: string; label: string; backlinks: number; collabs: number; total: number }

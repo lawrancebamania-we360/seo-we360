@@ -6,18 +6,22 @@
 // backlinks compare fixed periods (deadline / last vs this month / last vs
 // this week); the KPI tiles and Traffic sources follow the range filter.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ComposedChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import {
-  TrendingUp, TrendingDown, DollarSign, Link2, Gauge, Target, Users,
+  TrendingUp, TrendingDown, DollarSign, Link2, Gauge, Target, Users, Check, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { initials } from "@/lib/ui-helpers";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { targetStatus } from "@/lib/team-targets/period";
+import { fmtPctFloor, ProgressBar, StatusChip } from "@/components/sections/team-targets/ui";
 import type {
   ExecutiveDashboard, MetricSeries, BacklinkComparison, BacklinkPersonMonths, BacklinkMonthStat,
-  SpendMonth, TeamWeekPerson,
+  SpendMonth, WeekRow,
 } from "@/lib/data/executive";
 
 const C = {
@@ -534,84 +538,119 @@ function MonthBar({
 }
 
 // ---------------------------------------------------------------------------
-// Team completion: this week vs last week, per person - Team Targets' own math
-// (mean of each target's capped completion; daily x5, monthly split by week,
-// one-time only in its due week). The tick marks where they should be by today.
+// Team completion: this week vs last week - the Targets table, concise. Same
+// numbers as Team Targets for a Mon-Sun week; a person row expands to targets.
 // ---------------------------------------------------------------------------
+
+const WEEK_GRID: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(200px,1fr) 68px 60px 56px 170px 84px 112px",
+  columnGap: 14,
+  alignItems: "center",
+};
 
 function TeamWeekCard({ data }: { data: ExecutiveDashboard }) {
   const w = data.teamWeek;
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const allOpen = w.people.length > 0 && w.people.every((p) => open[p.id]);
   return (
     <ChartCard title="Team completion" icon={Users}
-      subtitle={`${w.thisLabel} vs ${w.lastLabel} · counted like the Team Targets page`}
-      right={
-        <span className="shrink-0 text-[11.5px] text-muted-foreground">
-          Team <span className="font-semibold text-foreground">{pct(w.team.thisWeek)}</span> · last wk {pct(w.team.lastWeek)}
-        </span>
-      }>
+      subtitle={`${w.thisLabel} vs ${w.lastLabel} · same numbers as the Targets table`}
+      right={w.people.length > 0 ? (
+        <button type="button" onClick={() => setOpen(Object.fromEntries(w.people.map((p) => [p.id, !allOpen])))}
+          className="shrink-0 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+          {allOpen ? "Collapse all" : "Expand all"}
+        </button>
+      ) : undefined}>
       {!w.ready ? (
         <Empty>Team targets aren’t set up yet.</Empty>
       ) : w.people.length === 0 ? (
         <Empty>Nothing is due this week.</Empty>
       ) : (
-        <>
-          <div className="grid gap-x-8 gap-y-5 lg:grid-cols-2">
-            {w.people.map((p) => <WeekPerson key={p.id} p={p} />)}
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <div className="min-w-[820px]">
+            <div style={WEEK_GRID} className="border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div>Person / target</div>
+              <div className="text-right">Expected</div>
+              <div className="text-right">Done</div>
+              <div className="text-right">Left</div>
+              <div>This week</div>
+              <div className="text-right">Last week</div>
+              <div>Status</div>
+            </div>
+            {w.people.map((p) => {
+              const sum = (f: (r: WeekRow) => number) => p.rows.reduce((a, r) => a + f(r), 0);
+              const expected = sum((r) => r.expected);
+              const done = sum((r) => r.done);
+              const awaiting = sum((r) => r.awaiting);
+              const left = sum((r) => r.left);
+              const expToDate = sum((r) => r.expToDate);
+              const lastExp = sum((r) => r.lastExpected);
+              const lastDone = sum((r) => r.lastDone);
+              const isOpen = !!open[p.id];
+              return (
+                <div key={p.id}>
+                  <button type="button" aria-expanded={isOpen} onClick={() => setOpen((o) => ({ ...o, [p.id]: !o[p.id] }))}
+                    style={WEEK_GRID} className="w-full border-t border-border bg-muted/50 px-4 py-2.5 text-left transition-colors hover:bg-muted/70">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {isOpen ? <ChevronDown className="size-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
+                      <Avatar className="size-6 shrink-0"><AvatarFallback className="text-[9px]">{initials(p.name)}</AvatarFallback></Avatar>
+                      <span className="truncate text-sm font-semibold text-foreground">{p.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{p.rows.length} target{p.rows.length === 1 ? "" : "s"}</span>
+                    </div>
+                    <WNum v={expected} />
+                    <WNum v={done} strong />
+                    <WNum v={left} strong />
+                    <WeekProgress ratio={expected > 0 ? done / expected : null} awaitingFraction={expected > 0 ? awaiting / expected : 0} strong />
+                    <LastWeek ratio={lastExp > 0 ? lastDone / lastExp : null} />
+                    <div><StatusChip status={targetStatus(done, expected, expToDate, w.ended)} /></div>
+                  </button>
+                  {isOpen && p.rows.map((r) => (
+                    <div key={r.id} style={WEEK_GRID} className="border-t border-border/60 px-4 py-2">
+                      <div className="min-w-0 truncate pl-[46px] text-[13px] text-foreground" title={r.task}>{r.task}</div>
+                      <WNum v={r.expected} />
+                      <WNum v={r.done} strong />
+                      <WNum v={r.left} />
+                      <WeekProgress ratio={r.expected > 0 ? r.done / r.expected : null} awaitingFraction={r.expected > 0 ? r.awaiting / r.expected : 0} />
+                      <LastWeek ratio={r.lastExpected > 0 ? r.lastDone / r.lastExpected : null} />
+                      <div><StatusChip status={r.status} /></div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm" style={{ background: C.bar }} /> Done this week</span>
-            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm border border-slate-400" style={stripes(C.bar)} /> Pending</span>
-            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-0.5 rounded bg-foreground/70" /> Where they should be by today (the week is still running)</span>
-          </div>
-        </>
+        </div>
       )}
     </ChartCard>
   );
 }
 
-function WeekPerson({ p }: { p: TeamWeekPerson }) {
-  const done = Math.round(p.thisWeek * 100);
-  const pace = Math.round(p.pace * 100);
-  const delta = p.lastWeek !== null ? Math.round((p.thisWeek - p.lastWeek) * 100) : null;
-  const tone = p.thisWeek >= p.pace - 0.05
-    ? "text-emerald-600 dark:text-emerald-400"
-    : p.thisWeek >= p.pace * 0.7 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400";
-  const shown = p.tasks.slice(0, 4);
+function WNum({ v, strong }: { v: number; strong?: boolean }) {
   return (
-    <div className="min-w-0">
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="truncate text-[13px] font-semibold text-foreground">{p.name}</span>
-        <span className="flex shrink-0 items-center gap-1.5 text-[12px]">
-          <span className={cn("font-semibold tabular-nums", tone)}>{done}%</span>
-          {delta !== null && delta !== 0 && (
-            <span className={cn("inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold",
-              delta > 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400")}>
-              {delta > 0 ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}{delta > 0 ? "+" : ""}{delta}
-            </span>
-          )}
-          <span className="text-muted-foreground">last wk {p.lastWeek !== null ? pct(p.lastWeek) : "—"}</span>
-        </span>
-      </div>
-      <div className="relative h-3 rounded-full bg-muted">
-        <div className="absolute inset-y-0 rounded-r-full" style={{ left: `${done}%`, width: `${100 - done}%`, ...stripes(C.bar) }} />
-        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${done}%`, background: C.bar }} />
-        <div className="absolute -inset-y-1 w-0.5 rounded bg-foreground/70" style={{ left: `calc(${pace}% - 1px)` }} title={`Should be at ${pace}% by today`} />
-      </div>
-      <div className="mt-1.5 text-[11.5px] leading-relaxed text-slate-600 dark:text-foreground/75"
-        title={p.tasks.map((t) => `${t.task}: ${t.done}/${t.expected}`).join("\n")}>
-        {shown.map((t, i) => {
-          const met = t.done >= t.expected;
-          return (
-            <span key={i}>
-              {i > 0 && " · "}
-              <span className={met ? "text-emerald-600 dark:text-emerald-400" : undefined}>
-                {t.task} {fmtNum(t.done)}/{fmtNum(t.expected)}{met ? " ✓" : ""}
-              </span>
-            </span>
-          );
-        })}
-        {p.tasks.length > shown.length && <span className="text-muted-foreground"> · +{p.tasks.length - shown.length} more</span>}
-      </div>
+    <div className={cn("text-right font-mono text-[13px] tabular-nums", strong ? "font-medium text-foreground" : "text-muted-foreground")}>
+      {fmtNum(v)}
+    </div>
+  );
+}
+
+function WeekProgress({ ratio, awaitingFraction, strong }: { ratio: number | null; awaitingFraction: number; strong?: boolean }) {
+  const complete = ratio != null && ratio >= 1;
+  return (
+    <div className="flex items-center gap-2">
+      <ProgressBar value={ratio} awaitingFraction={awaitingFraction} strong={strong} className="flex-1" />
+      <span className="flex w-11 shrink-0 items-center justify-end gap-0.5 font-mono text-xs tabular-nums text-foreground">
+        {complete && <Check className="size-3 text-success-600" />}{fmtPctFloor(ratio)}
+      </span>
+    </div>
+  );
+}
+
+function LastWeek({ ratio }: { ratio: number | null }) {
+  return (
+    <div className="flex items-center justify-end gap-0.5 font-mono text-xs tabular-nums text-muted-foreground">
+      {ratio != null && ratio >= 1 && <Check className="size-3 text-success-600" />}
+      {ratio == null ? "—" : fmtPctFloor(ratio)}
     </div>
   );
 }
