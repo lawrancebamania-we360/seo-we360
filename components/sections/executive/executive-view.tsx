@@ -1,14 +1,15 @@
 "use client";
 
 // Executive dashboard — the whole render. One concise, interactive view for
-// leadership: target vs achieved (traffic & DR), money spent and the effect it
-// bought, and what each person is working on. All charts are
-// Recharts and respond to the global date-range filter (in the URL).
+// leadership: target vs achieved (traffic & DR), traffic sources, money spent
+// vs budget, backlinks earned, and weekly team completion. Goals, money and
+// backlinks compare fixed periods (deadline / last vs this month / last vs
+// this week); the KPI tiles and Traffic sources follow the range filter.
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
-  ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine, Cell,
+  ComposedChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import {
   TrendingUp, TrendingDown, DollarSign, Link2, Gauge, Target, Users,
@@ -16,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import type {
   ExecutiveDashboard, MetricSeries, BacklinkComparison, BacklinkPersonMonths, BacklinkMonthStat,
+  SpendMonth, TeamWeekPerson,
 } from "@/lib/data/executive";
 
 const C = {
@@ -26,24 +28,14 @@ const C = {
   collabs: "#f59e0b",
   blFree: "#a78bfa",
   blPaid: "#6d28d9",
+  spend: "#10b981",
+  over: "#f43f5e",
   bar: "#5B45E0",
 };
 
 const fmtUsd = (n: number) => `$${Math.round(n).toLocaleString()}`;
 const fmtNum = (n: number) => Math.round(n).toLocaleString();
 const pct = (n: number) => `${Math.round(n * 100)}%`;
-
-// Last actual value on/before each month bucket, carried forward — so a sparse
-// DR/traffic reading history lines up against the monthly spend bars.
-function alignToBuckets(points: { date: string; value: number }[], keys: string[]): (number | null)[] {
-  const pts = [...points].sort((a, b) => a.date.localeCompare(b.date));
-  let i = 0; let last: number | null = null;
-  return keys.map((k) => {
-    const monthEnd = `${k}-99`; // string upper-bound for any day in month k (YYYY-MM)
-    while (i < pts.length && pts[i].date <= monthEnd) { last = pts[i].value; i++; }
-    return last;
-  });
-}
 
 export function ExecutiveView({ data, trafficSources }: { data: ExecutiveDashboard; trafficSources?: React.ReactNode }) {
   return (
@@ -57,14 +49,12 @@ export function ExecutiveView({ data, trafficSources }: { data: ExecutiveDashboa
 
       {trafficSources}
 
-      <SpendEffect data={data} />
-
       <div className="grid gap-4 lg:grid-cols-2">
+        <SpendChart data={data} />
         <BacklinksChart data={data} />
-        <TeamChart data={data} />
       </div>
 
-      <TeamWorkload data={data} />
+      <TeamWeekCard data={data} />
     </div>
   );
 }
@@ -294,64 +284,104 @@ function Stat({ label, value, sub, color }: { label: string; value: string; sub:
 }
 
 // ---------------------------------------------------------------------------
-// Spend -> effect combo
+// Money spent: per activity, last month vs this month, against each month's
+// budget (not tied to the range filter, same as Backlinks earned beside it)
 // ---------------------------------------------------------------------------
 
-function SpendEffect({ data }: { data: ExecutiveDashboard }) {
-  const [line, setLine] = useState<"dr" | "traffic">("dr");
-  const keys = data.spend.buckets.map((b) => b.key);
-  const effect = useMemo(
-    () => alignToBuckets((line === "dr" ? data.dr : data.traffic).history, keys),
-    [line, data.dr, data.traffic, keys],
-  );
-  const rows = data.spend.buckets.map((b, i) => ({
-    label: b.label, backlinks: b.backlinks, collabs: b.collabs, effect: effect[i],
-  }));
-  const hasSpend = data.spend.totalUsd > 0;
-  const hasEffect = rows.some((r) => r.effect != null);
-  const lineColor = line === "dr" ? C.dr : C.traffic;
-
+function SpendChart({ data }: { data: ExecutiveDashboard }) {
+  const s = data.spendMonths;
   return (
-    <ChartCard
-      title="Money spent → effect"
-      icon={DollarSign}
-      subtitle={`${fmtUsd(data.spend.totalUsd)} this range · backlinks ${fmtUsd(data.spend.backlinksUsd)} + collabs ${fmtUsd(data.spend.collabsUsd)}${data.costPerDrPoint !== null ? ` · ${fmtUsd(data.costPerDrPoint)} per DR point` : ""}`}
-      right={
-        <div className="inline-flex rounded-md border border-border p-0.5 text-[11px]">
-          <Toggle active={line === "dr"} onClick={() => setLine("dr")}>DR</Toggle>
-          <Toggle active={line === "traffic"} onClick={() => setLine("traffic")}>Traffic</Toggle>
-        </div>
-      }
-    >
-      {!data.spend.ready ? (
+    <ChartCard title="Money spent" icon={DollarSign}
+      subtitle={`${s.lastLabel} vs ${s.currentLabel} · per activity, against each month’s budget`}>
+      {!s.ready ? (
         <Empty>No spend tables yet.</Empty>
-      ) : !hasSpend && !hasEffect ? (
-        <Empty>No spend or {line === "dr" ? "DR" : "traffic"} readings in this range.</Empty>
+      ) : s.activities.length === 0 ? (
+        <Empty>No budgets or spend recorded yet.</Empty>
       ) : (
-        <>
-          <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -4, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
-              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} width={52}
-                tickFormatter={(v: number) => (v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`)} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: lineColor }} tickLine={false} axisLine={false} width={44}
-                domain={line === "dr" ? [0, 100] : ["auto", "auto"]} />
-              <Tooltip contentStyle={TOOLTIP} formatter={(v, name) =>
-                name === (line === "dr" ? "DR" : "Traffic") ? [fmtNum(Number(v)), name] : [fmtUsd(Number(v)), name]} />
-              <Bar yAxisId="left" dataKey="backlinks" name="Backlinks" stackId="s" fill={C.backlinks} radius={[0, 0, 0, 0]} />
-              <Bar yAxisId="left" dataKey="collabs" name="Collabs" stackId="s" fill={C.collabs} radius={[4, 4, 0, 0]} />
-              <Line yAxisId="right" type="monotone" dataKey="effect" name={line === "dr" ? "DR" : "Traffic"} stroke={lineColor} strokeWidth={2.5} dot={{ r: 3, fill: lineColor }} connectNulls />
-            </ComposedChart>
-          </ResponsiveContainer>
-          <Legend2 items={[
-            { label: "Backlinks spend", color: C.backlinks },
-            { label: "Collabs spend", color: C.collabs },
-            { label: line === "dr" ? "Domain Rating" : "Traffic", color: lineColor, line: true },
-          ]} />
-        </>
+        <div className="space-y-4">
+          {s.activities.map((a) => {
+            const max = Math.max(1, a.last.budget ?? 0, a.current.budget ?? 0, a.last.spent, a.current.spent);
+            const items = (m: SpendMonth) => `${m.items}${m.itemsTarget !== null ? `/${m.itemsTarget}` : ""}`;
+            return (
+              <div key={a.key}>
+                <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3">
+                  <span className="text-[12.5px] font-semibold text-foreground">{a.label}</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {s.lastLabel} {items(a.last)} · {s.currentLabel} {items(a.current)} {a.unit}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <SpendBar label={s.lastLabel} activity={a.label} unit={a.unit} m={a.last} max={max} faded />
+                  <SpendBar label={s.currentLabel} activity={a.label} unit={a.unit} m={a.current} max={max} />
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-border pt-3 text-[12px]">
+            <span className="font-semibold text-foreground">Total</span>
+            <span className="text-muted-foreground">
+              {s.lastLabel} <span className="font-mono">{fmtUsd(s.total.last.spent)} / {fmtUsd(s.total.last.budget)}</span>
+              {" · "}{s.currentLabel}{" "}
+              <span className="font-mono font-semibold text-foreground">{fmtUsd(s.total.current.spent)} / {fmtUsd(s.total.current.budget)}</span>
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm opacity-50" style={{ background: C.spend }} /> {s.lastLabel}</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm" style={{ background: C.spend }} /> {s.currentLabel}</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm border border-slate-400" style={stripes(C.spend)} /> Budget left</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-0.5 rounded bg-foreground/70" /> Budget</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm" style={{ background: C.over }} /> Over budget</span>
+          </div>
+        </div>
       )}
     </ChartCard>
+  );
+}
+
+function SpendBar({
+  label, activity, unit, m, max, faded,
+}: {
+  label: string; activity: string; unit: string; m: SpendMonth; max: number; faded?: boolean;
+}) {
+  const pctOf = (n: number) => Math.min(100, (n / max) * 100);
+  const has = m.budget !== null || m.spent > 0 || m.items > 0;
+  const over = m.budget !== null && m.spent > m.budget;
+  const tip = [
+    `${activity} · ${label}`,
+    m.budget !== null ? `${fmtUsd(m.spent)} spent of ${fmtUsd(m.budget)} budget` : `${fmtUsd(m.spent)} spent · no budget set`,
+    `${m.items}${m.itemsTarget !== null ? ` of ${m.itemsTarget}` : ""} ${unit}${m.items > 0 && m.spent > 0 ? ` · ${fmtUsd(m.spent / m.items)} each` : ""}`,
+    m.budget !== null ? (over ? `Over budget by ${fmtUsd(m.spent - m.budget)}` : `${fmtUsd(m.budget - m.spent)} left`) : null,
+  ].filter((t): t is string => !!t);
+
+  return (
+    <div className="group relative flex items-center gap-2">
+      <div className="w-12 shrink-0 text-[10.5px] text-muted-foreground">{label}</div>
+      <div className="relative h-3.5 min-w-0 flex-1 rounded bg-muted/60">
+        {m.budget !== null && m.budget > m.spent && (
+          <div className="absolute inset-y-0" style={{ left: `${pctOf(m.spent)}%`, width: `${pctOf(m.budget) - pctOf(m.spent)}%`, ...stripes(C.spend) }} />
+        )}
+        <div className="absolute inset-y-0 left-0 rounded"
+          style={{ width: `${pctOf(over ? (m.budget as number) : m.spent)}%`, background: C.spend, opacity: faded ? 0.5 : 1 }} />
+        {over && (
+          <div className="absolute inset-y-0 rounded-r"
+            style={{ left: `${pctOf(m.budget as number)}%`, width: `${pctOf(m.spent) - pctOf(m.budget as number)}%`, background: C.over, opacity: faded ? 0.6 : 1 }} />
+        )}
+        {m.budget !== null && m.budget > 0 && (
+          <div className="absolute -inset-y-0.5 w-0.5 rounded bg-foreground/70" style={{ left: `calc(${pctOf(m.budget)}% - 1px)` }} />
+        )}
+      </div>
+      <div className={cn(
+        "w-[112px] shrink-0 text-right font-mono text-[11px] tabular-nums",
+        over ? "font-semibold text-rose-600 dark:text-rose-400" : "text-muted-foreground",
+      )}>
+        {has ? `${fmtUsd(m.spent)}${m.budget !== null ? ` / ${fmtUsd(m.budget)}` : ""}` : "—"}
+      </div>
+      {has && (
+        <div className="pointer-events-none absolute bottom-full left-14 z-20 mb-1.5 hidden whitespace-nowrap rounded-lg border border-border bg-popover px-2.5 py-1.5 text-[11.5px] text-popover-foreground shadow-lg group-hover:block">
+          {tip.map((t, i) => <div key={i} className={i === 0 ? "font-semibold" : undefined}>{t}</div>)}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -504,76 +534,85 @@ function MonthBar({
 }
 
 // ---------------------------------------------------------------------------
-// Team completion
+// Team completion: this week vs last week, per person - Team Targets' own math
+// (mean of each target's capped completion; daily x5, monthly split by week,
+// one-time only in its due week). The tick marks where they should be by today.
 // ---------------------------------------------------------------------------
 
-function TeamChart({ data }: { data: ExecutiveDashboard }) {
-  const people = [...data.team.people].sort((a, b) => b.completion - a.completion);
-  const rows = people.map((p) => ({ name: p.name.split(" ")[0], completion: Math.round(p.completion * 100), full: p.name }));
+function TeamWeekCard({ data }: { data: ExecutiveDashboard }) {
+  const w = data.teamWeek;
   return (
-    <ChartCard title="Team completion" icon={Users} subtitle={`${data.team.people.length} people · ${pct(data.team.totals.completion)} overall`}>
-      {!data.team.ready ? (
+    <ChartCard title="Team completion" icon={Users}
+      subtitle={`${w.thisLabel} vs ${w.lastLabel} · counted like the Team Targets page`}
+      right={
+        <span className="shrink-0 text-[11.5px] text-muted-foreground">
+          Team <span className="font-semibold text-foreground">{pct(w.team.thisWeek)}</span> · last wk {pct(w.team.lastWeek)}
+        </span>
+      }>
+      {!w.ready ? (
         <Empty>Team targets aren’t set up yet.</Empty>
-      ) : rows.length === 0 ? (
-        <Empty>No targets assigned in this range.</Empty>
+      ) : w.people.length === 0 ? (
+        <Empty>Nothing is due this week.</Empty>
       ) : (
-        <ResponsiveContainer width="100%" height={Math.max(160, rows.length * 34)}>
-          <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 36, left: 8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} unit="%" />
-            <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "var(--foreground)" }} tickLine={false} axisLine={false} width={70} />
-            <Tooltip contentStyle={TOOLTIP} formatter={(v, _n, item) => [`${Math.round(Number(v))}%`, ((item as { payload?: { full?: string } })?.payload)?.full ?? "Completion"]} />
-            <Bar dataKey="completion" name="Completion" radius={[0, 4, 4, 0]}>
-              {rows.map((r, i) => (
-                <Cell key={i} fill={r.completion >= 80 ? "#10b981" : r.completion >= 50 ? "#f59e0b" : "#f43f5e"} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <>
+          <div className="grid gap-x-8 gap-y-5 lg:grid-cols-2">
+            {w.people.map((p) => <WeekPerson key={p.id} p={p} />)}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm" style={{ background: C.bar }} /> Done this week</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-sm border border-slate-400" style={stripes(C.bar)} /> Pending</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-0.5 rounded bg-foreground/70" /> Where they should be by today (the week is still running)</span>
+          </div>
+        </>
       )}
     </ChartCard>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Who's working on what
-// ---------------------------------------------------------------------------
-
-function TeamWorkload({ data }: { data: ExecutiveDashboard }) {
-  const byPerson = useMemo(() => {
-    const map = new Map<string, { name: string; tasks: string[]; completion: number }>();
-    for (const p of data.team.people) map.set(p.personId, { name: p.name, tasks: [], completion: p.completion });
-    for (const t of data.team.targets) {
-      for (const id of [t.ownerId, t.coOwnerId, t.coOwner2Id]) {
-        if (id && map.has(id)) map.get(id)!.tasks.push(t.task);
-      }
-    }
-    return [...map.values()].filter((p) => p.tasks.length > 0).sort((a, b) => b.completion - a.completion);
-  }, [data.team]);
-
-  if (!data.team.ready || byPerson.length === 0) return null;
+function WeekPerson({ p }: { p: TeamWeekPerson }) {
+  const done = Math.round(p.thisWeek * 100);
+  const pace = Math.round(p.pace * 100);
+  const delta = p.lastWeek !== null ? Math.round((p.thisWeek - p.lastWeek) * 100) : null;
+  const tone = p.thisWeek >= p.pace - 0.05
+    ? "text-emerald-600 dark:text-emerald-400"
+    : p.thisWeek >= p.pace * 0.7 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400";
+  const shown = p.tasks.slice(0, 4);
   return (
-    <ChartCard title="Who’s working on what" icon={Users} subtitle="Current targets owned, by person">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {byPerson.map((p, i) => (
-          <div key={i} className="rounded-xl border border-border bg-muted/20 p-3">
-            <div className="mb-1.5 flex items-center justify-between gap-2">
-              <span className="text-[13px] font-semibold text-foreground">{p.name}</span>
-              <span className={cn("rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold",
-                p.completion >= 0.8 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                : p.completion >= 0.5 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                : "bg-rose-500/10 text-rose-600 dark:text-rose-400")}>{pct(p.completion)}</span>
-            </div>
-            <ul className="space-y-0.5">
-              {p.tasks.slice(0, 5).map((t, j) => (
-                <li key={j} className="truncate text-[12px] text-slate-600 dark:text-foreground/75" title={t}>• {t}</li>
-              ))}
-              {p.tasks.length > 5 && <li className="text-[11px] text-muted-foreground">+{p.tasks.length - 5} more</li>}
-            </ul>
-          </div>
-        ))}
+    <div className="min-w-0">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="truncate text-[13px] font-semibold text-foreground">{p.name}</span>
+        <span className="flex shrink-0 items-center gap-1.5 text-[12px]">
+          <span className={cn("font-semibold tabular-nums", tone)}>{done}%</span>
+          {delta !== null && delta !== 0 && (
+            <span className={cn("inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold",
+              delta > 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400")}>
+              {delta > 0 ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}{delta > 0 ? "+" : ""}{delta}
+            </span>
+          )}
+          <span className="text-muted-foreground">last wk {p.lastWeek !== null ? pct(p.lastWeek) : "—"}</span>
+        </span>
       </div>
-    </ChartCard>
+      <div className="relative h-3 rounded-full bg-muted">
+        <div className="absolute inset-y-0 rounded-r-full" style={{ left: `${done}%`, width: `${100 - done}%`, ...stripes(C.bar) }} />
+        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${done}%`, background: C.bar }} />
+        <div className="absolute -inset-y-1 w-0.5 rounded bg-foreground/70" style={{ left: `calc(${pace}% - 1px)` }} title={`Should be at ${pace}% by today`} />
+      </div>
+      <div className="mt-1.5 text-[11.5px] leading-relaxed text-slate-600 dark:text-foreground/75"
+        title={p.tasks.map((t) => `${t.task}: ${t.done}/${t.expected}`).join("\n")}>
+        {shown.map((t, i) => {
+          const met = t.done >= t.expected;
+          return (
+            <span key={i}>
+              {i > 0 && " · "}
+              <span className={met ? "text-emerald-600 dark:text-emerald-400" : undefined}>
+                {t.task} {fmtNum(t.done)}/{fmtNum(t.expected)}{met ? " ✓" : ""}
+              </span>
+            </span>
+          );
+        })}
+        {p.tasks.length > shown.length && <span className="text-muted-foreground"> · +{p.tasks.length - shown.length} more</span>}
+      </div>
+    </div>
   );
 }
 
@@ -611,14 +650,6 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <div className="flex h-[180px] items-center justify-center rounded-xl border border-dashed border-border px-6 text-center text-[12.5px] text-muted-foreground">{children}</div>;
 }
 
-function Toggle({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick}
-      className={cn("rounded px-2 py-0.5 font-medium transition", active ? "bg-[#5B45E0] text-white" : "text-muted-foreground hover:text-foreground")}>
-      {children}
-    </button>
-  );
-}
 
 function Legend2({ items }: { items: { label: string; color: string; line?: boolean }[] }) {
   return (

@@ -27,6 +27,7 @@ import {
 import { getGa4OrganicMonthly, getGa4MonthlySessions } from "@/lib/google/ga4";
 import { getTeamTargetsDashboard, backlinkRuleFor } from "@/lib/data/team-targets";
 import type { Period } from "@/lib/team-targets/period";
+import { addDays, currentWeekStart, formatWeekRange } from "@/lib/team-targets/week";
 import type { TeamTargetsDashboard } from "@/lib/team-targets/types";
 
 export { TRAFFIC_RANGE_PRESETS };
@@ -192,6 +193,173 @@ async function getTrafficActuals(ga4PropertyId: string | null, today: string): P
 // Money spent (USD)
 // ---------------------------------------------------------------------------
 
+type CollabRow = {
+  amount_paid: number | string | null; currency: string | null;
+  post_date: string | null; closing_date: string | null; platform?: string | null;
+};
+
+// Budget tracking starts October 2026.
+const SPEND_TRACKING_START = "2026-10-01";
+
+/** A collab's money counts in the month the deal CLOSED (when it's committed),
+ *  else its post date. Closes before tracking began roll into October 2026 -
+ *  per direction, the first LinkedIn batch (5 posts, ~$300) is October's. */
+function collabSpendDate(r: CollabRow): string | null {
+  const d = r.closing_date ?? r.post_date;
+  if (!d) return null;
+  return d < SPEND_TRACKING_START ? SPEND_TRACKING_START : d;
+}
+
+// Monthly budgets in USD, per direction (2026-11-12). Returns null where an
+// activity has no budget that month.
+//   Paid backlinks   $1,000 / month
+//   YouTube collabs  $1,000 / quarter from Nov 2026 -> ~$333 / month
+//   LinkedIn collabs Oct 2026: $300 for 5 posts
+function budgetFor(activity: string, month: string): { usd: number | null; items: number | null } {
+  if (activity === "backlinks") return month >= "2026-10" ? { usd: 1000, items: null } : { usd: null, items: null };
+  if (activity === "youtube") return month >= "2026-11" ? { usd: Math.round(1000 / 3), items: null } : { usd: null, items: null };
+  if (activity === "linkedin") return month === "2026-10" ? { usd: 300, items: 5 } : { usd: null, items: null };
+  return { usd: null, items: null };
+}
+
+export interface SpendMonth {
+  spent: number;              // USD
+  budget: number | null;      // USD, null = no budget that month
+  items: number;              // paid links bought / posts delivered
+  itemsTarget: number | null; // e.g. 5 posts for October's LinkedIn batch
+}
+export interface SpendActivity { key: string; label: string; unit: string; last: SpendMonth; current: SpendMonth }
+export interface SpendComparison {
+  ready: boolean;
+  lastLabel: string;
+  currentLabel: string;
+  activities: SpendActivity[];
+  total: { last: { spent: number; budget: number }; current: { spent: number; budget: number } };
+}
+
+/** Money spent per activity, last month vs this month, against each month's budget. */
+async function getSpendComparison(projectId: string, today: string): Promise<SpendComparison> {
+  const currentKey = today.slice(0, 7);
+  const lastKey = shiftMonth(currentKey, -1);
+  const supabase = await createClient();
+  const usd = (amount: unknown, currency: unknown) => (currency === "INR" ? toNum(amount) * USD_PER_INR : toNum(amount));
+
+  const acts = new Map<string, { key: string; label: string; unit: string; m: Record<string, { spent: number; items: number }> }>();
+  const act = (key: string, label: string, unit: string) => {
+    let a = acts.get(key);
+    if (!a) { a = { key, label, unit, m: { [lastKey]: { spent: 0, items: 0 }, [currentKey]: { spent: 0, items: 0 } } }; acts.set(key, a); }
+    return a;
+  };
+  act("backlinks", "Paid backlinks", "links");
+  act("linkedin", "LinkedIn collabs", "posts");
+  act("youtube", "YouTube collabs", "posts");
+  let anyTable = false;
+
+  const bl = await supabase
+    .from("earned_backlinks")
+    .select("acquired_date, amount_paid, currency")
+    .eq("project_id", projectId)
+    .gte("acquired_date", `${lastKey}-01`)
+    .lte("acquired_date", monthEnd(currentKey))
+    .not("amount_paid", "is", null);
+  if (bl.error) {
+    if (!(isMissingTable(bl.error.message) || isMissingColumn(bl.error.message))) throw new Error(bl.error.message);
+  } else {
+    anyTable = true;
+    for (const r of (bl.data ?? []) as { acquired_date: string; amount_paid: number | string; currency: string }[]) {
+      const v = usd(r.amount_paid, r.currency);
+      const slot = act("backlinks", "Paid backlinks", "links").m[r.acquired_date.slice(0, 7)];
+      if (v <= 0 || !slot) continue;
+      slot.spent += v; slot.items++;
+    }
+  }
+
+  const co = await supabase
+    .from("influencer_collabs")
+    .select("platform, amount_paid, currency, post_date, closing_date")
+    .eq("project_id", projectId);
+  if (co.error) {
+    if (!(isMissingTable(co.error.message) || isMissingColumn(co.error.message))) throw new Error(co.error.message);
+  } else {
+    anyTable = true;
+    for (const r of (co.data ?? []) as CollabRow[]) {
+      const d = collabSpendDate(r);
+      if (!d) continue;
+      const platform = (r.platform ?? "Other").trim() || "Other";
+      const key = platform.toLowerCase();
+      const label = key === "linkedin" ? "LinkedIn collabs" : key === "youtube" ? "YouTube collabs" : `${platform} collabs`;
+      const slot = act(key, label, "posts").m[d.slice(0, 7)];
+      if (!slot) continue;
+      slot.spent += usd(r.amount_paid, r.currency); // a free collab is still a post, at $0
+      slot.items++;
+    }
+  }
+
+  const month = (a: { key: string; m: Record<string, { spent: number; items: number }> }, k: string): SpendMonth => {
+    const b = budgetFor(a.key, k);
+    return { spent: Math.round(a.m[k].spent), budget: b.usd, items: a.m[k].items, itemsTarget: b.items };
+  };
+  const activities: SpendActivity[] = [...acts.values()]
+    .map((a) => ({ key: a.key, label: a.label, unit: a.unit, last: month(a, lastKey), current: month(a, currentKey) }))
+    // Show an activity when it has a budget or spend in either month.
+    .filter((a) => a.last.budget !== null || a.current.budget !== null || a.last.items > 0 || a.current.items > 0);
+
+  const sum = (pick: (a: SpendActivity) => SpendMonth) => ({
+    spent: activities.reduce((s, a) => s + pick(a).spent, 0),
+    budget: activities.reduce((s, a) => s + (pick(a).budget ?? 0), 0),
+  });
+  return {
+    ready: anyTable, lastLabel: monthLabel(lastKey), currentLabel: monthLabel(currentKey),
+    activities, total: { last: sum((a) => a.last), current: sum((a) => a.current) },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Team completion: this week vs last week, per person (Team Targets' own math)
+// ---------------------------------------------------------------------------
+
+export interface WeekTask { task: string; done: number; expected: number }
+export interface TeamWeekPerson {
+  id: string; name: string;
+  thisWeek: number;          // 0..1 completion, mean of their targets (Team Targets' rule)
+  pace: number;              // 0..1 where they should be by today
+  lastWeek: number | null;   // 0..1, null when they had nothing due last week
+  tasks: WeekTask[];         // this week's targets with something expected
+}
+export interface TeamWeekComparison {
+  ready: boolean;
+  thisLabel: string;
+  lastLabel: string;
+  team: { thisWeek: number; lastWeek: number };
+  people: TeamWeekPerson[];
+}
+
+function buildTeamWeek(thisW: TeamTargetsDashboard, lastW: TeamTargetsDashboard, thisLabel: string, lastLabel: string): TeamWeekComparison {
+  const lastBy = new Map(lastW.people.map((p) => [p.personId, p]));
+  const lastHasWork = new Set(lastW.targets.filter((t) => t.expectedPeriod > 0 && t.ownerId).map((t) => t.ownerId as string));
+  const people: TeamWeekPerson[] = [];
+  for (const p of thisW.people) {
+    const tasks = thisW.targets
+      .filter((t) => t.ownerId === p.personId && t.expectedPeriod > 0)
+      .map((t) => ({ task: t.task, done: t.doneVerified, expected: t.expectedPeriod }))
+      .sort((a, b) => Number(a.done >= a.expected) - Number(b.done >= b.expected) || a.task.localeCompare(b.task));
+    if (!tasks.length) continue; // nothing due for them this week
+    const last = lastBy.get(p.personId);
+    people.push({
+      id: p.personId, name: p.name,
+      thisWeek: p.completion, pace: p.paceCompletion,
+      lastWeek: last && lastHasWork.has(p.personId) ? last.completion : null,
+      tasks,
+    });
+  }
+  people.sort((a, b) => b.thisWeek - a.thisWeek || a.name.localeCompare(b.name));
+  return {
+    ready: thisW.ready, thisLabel, lastLabel,
+    team: { thisWeek: thisW.totals.completion, lastWeek: lastW.totals.completion },
+    people,
+  };
+}
+
 export interface SpendBucket { key: string; label: string; backlinks: number; collabs: number; total: number }
 export interface SpendSummary {
   ready: boolean;
@@ -236,22 +404,24 @@ async function getSpendSummary(projectId: string, range: DateRange): Promise<Spe
     }
   }
 
+  // Collabs count in the month the deal closed (collabSpendDate), so the date
+  // filter is applied in code, not in the query.
   const coRes = await supabase
     .from("influencer_collabs")
-    .select("amount_paid, currency, post_date")
+    .select("amount_paid, currency, post_date, closing_date")
     .eq("project_id", projectId)
-    .gte("post_date", range.start)
-    .lte("post_date", range.end)
     .not("amount_paid", "is", null);
   if (coRes.error) {
     if (!(isMissingTable(coRes.error.message) || isMissingColumn(coRes.error.message))) throw new Error(coRes.error.message);
   } else {
     anyTable = true;
-    for (const r of (coRes.data ?? []) as { amount_paid: number; currency: string; post_date: string }[]) {
+    for (const r of (coRes.data ?? []) as CollabRow[]) {
+      const d = collabSpendDate(r);
+      if (!d || d < range.start || d > range.end) continue;
       const v = usd(r.amount_paid, r.currency);
       if (v <= 0) continue;
       collabsUsd += v; collabsCount++;
-      const k = monthKey(r.post_date);
+      const k = monthKey(d);
       co.set(k, (co.get(k) ?? 0) + v);
     }
   }
@@ -485,10 +655,11 @@ export interface ExecutiveDashboard {
   traffic: MetricSeries;
   dr: MetricSeries;
   manualPoints: ManualPoint[]; // every hand-entered DR / traffic point (the editor's list)
-  spend: SpendSummary;
+  spend: SpendSummary;                 // range-based (the Money spent tile)
+  spendMonths: SpendComparison;        // per activity, last month vs this month, vs budget
   backlinks: BacklinksEarned;
-  backlinkMonths: BacklinkComparison; // last month vs this month, per person
-  team: TeamTargetsDashboard;
+  backlinkMonths: BacklinkComparison;  // last month vs this month, per person
+  teamWeek: TeamWeekComparison;        // this week vs last week, per person
   // Cost efficiency (USD), null when the denominator is missing/zero.
   costPerDrPoint: number | null;
   costPerBacklink: number | null;
@@ -498,19 +669,29 @@ export async function getExecutiveDashboard(
   projectId: string, rangeKey: string, ga4PropertyId: string | null = null,
 ): Promise<ExecutiveDashboard> {
   const { range, label, key } = resolveExecRange(rangeKey);
-  const teamPeriod: Period = { key: "custom", start: range.start, end: range.end, label };
   const today = istToday();
+  // Weeks run Monday-Sunday, exactly as on the Team Targets page.
+  const weekStart = currentWeekStart();
+  const lastWeekStart = addDays(weekStart, -7);
+  const thisWeek: Period = { key: "custom", start: weekStart, end: addDays(weekStart, 6), label: "This week" };
+  const lastWeek: Period = { key: "custom", start: lastWeekStart, end: addDays(lastWeekStart, 6), label: "Last week" };
 
-  const [manual, trafficActuals, spend, backlinksRaw, team] = await Promise.all([
+  const [manual, trafficActuals, spend, spendMonths, backlinksRaw, teamThis, teamLast] = await Promise.all([
     getManualPoints(projectId),
     getTrafficActuals(ga4PropertyId, today),
     getSpendSummary(projectId, range),
+    getSpendComparison(projectId, today),
     getBacklinksEarned(projectId, range),
-    getTeamTargetsDashboard(projectId, teamPeriod),
+    getTeamTargetsDashboard(projectId, thisWeek),
+    getTeamTargetsDashboard(projectId, lastWeek),
   ]);
 
-  const backlinks = withBacklinkOwners(backlinksRaw, team);
-  const backlinkMonths = await getBacklinkComparison(projectId, today, team);
+  const backlinks = withBacklinkOwners(backlinksRaw, teamThis);
+  const backlinkMonths = await getBacklinkComparison(projectId, today, teamThis);
+  const teamWeek = buildTeamWeek(
+    teamThis, teamLast,
+    `This week (${formatWeekRange(weekStart)})`, `last week (${formatWeekRange(lastWeekStart)})`,
+  );
   const pts = manual.rows;
   const strip =(p: ManualPoint): MetricPoint => ({ id: p.id, date: p.date, value: p.value, note: p.note });
   const of = (metric: "dr" | "traffic", kind: "actual" | "target") =>
@@ -532,7 +713,7 @@ export async function getExecutiveDashboard(
   return {
     rangeKey: key, rangeLabel: label, range, today,
     traffic, dr, manualPoints: pts,
-    spend, backlinks, backlinkMonths, team,
+    spend, spendMonths, backlinks, backlinkMonths, teamWeek,
     costPerDrPoint, costPerBacklink,
   };
 }
