@@ -89,14 +89,17 @@ type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; exac
 // the blog-task "Generate with AI" flow.
 const DEFAULT_NAV: NavItem[] = [
   { href: "/dashboard/overview",   label: "Overview",    icon: LayoutDashboard, exact: true, tone: "primary" },
-  { href: "/dashboard/timeline",   label: "Timeline",    icon: GitBranch,      tone: "primary" },
-  { href: "/dashboard/tasks",      label: "Web Tasks",   icon: ListChecks,     tone: "primary" },
-  { href: "/dashboard/keywords",   label: "Keywords",    icon: Search,         tone: "primary" },
+  // Hidden from the sidebar per direction (not needed right now). The routes
+  // still work by URL — uncomment any line to bring it back.
+  // { href: "/dashboard/timeline",   label: "Timeline",    icon: GitBranch,      tone: "primary" },
+  // { href: "/dashboard/tasks",      label: "Web Tasks",   icon: ListChecks,     tone: "primary" },
+  // { href: "/dashboard/keywords",   label: "Keywords",    icon: Search,         tone: "primary" },
   { href: "/dashboard/competitors", label: "Competitors", icon: Swords,        tone: "primary" },
-  { href: "/dashboard/sprint",     label: "Blog Sprint", icon: CalendarRange,  tone: "primary" },
+  // { href: "/dashboard/sprint",     label: "Blog Sprint", icon: CalendarRange,  tone: "primary" },
   { href: "/dashboard/blog-clusters", label: "Blog Clusters", icon: Network,   tone: "primary" },
   { href: "/dashboard/to-publish", label: "To Publish",   icon: Upload,        tone: "primary" },
-  { href: "/dashboard/blog-audit", label: "Blog audit",  icon: FileSearch,     tone: "primary" },
+  // Blog audit folded into Reports (one unified page); route still works by URL.
+  // { href: "/dashboard/blog-audit", label: "Blog audit",  icon: FileSearch,     tone: "primary" },
   { href: "/dashboard/reports",    label: "Reports",     icon: BarChart3,      tone: "primary" },
   { href: "/dashboard/backlinks",  label: "Backlink Submissions",   icon: Link2,          tone: "primary" },
   { href: "/dashboard/link-building", label: "Backlinks", icon: Magnet,        tone: "primary" },

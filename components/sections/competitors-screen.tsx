@@ -34,6 +34,8 @@ import { Megaphone, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TimeRangeFilter, rangeDayLabel, type RangePreset } from "@/components/ui/time-range-filter";
 import { CompanyLogo } from "@/components/dashboard/company-logo";
+import { TopPagesBoard, type TopPagesBrand } from "@/components/sections/competitors/top-pages-board";
+import type { CompetitorTopPagesGroup } from "@/lib/types/competitor-top-pages";
 import { NewCompetitorDialog, DeleteCompetitorButton } from "@/components/sections/competitor-dialogs";
 import type { Competitor } from "@/lib/types/database";
 import type { CompetitorCitationStats } from "@/lib/data/competitor-citations";
@@ -242,6 +244,7 @@ export function CompetitorsScreen({
   keywordSnapshots,
   keywordGaps,
   domainRatings,
+  topPages,
   rangeValue,
   rangeLabel,
   rangeFrom = null,
@@ -253,6 +256,9 @@ export function CompetitorsScreen({
   projectDomain: string;
   canManage: boolean;
   citationStats: CompetitorCitationStats;
+  // Top pages by organic traffic (Ahrefs via Apify), keyed by competitor.id or
+  // PROJECT_KEY for the project's own domain.
+  topPages: Map<string, CompetitorTopPagesGroup>;
   // Real per-competitor keyword data (santhej/website-traffic-intel, monthly)
   // and Domain Rating (zhorex/domain-authority-checker, monthly) — see
   // lib/data/competitor-keyword-intel.ts. Keyed by competitor.id / clean domain.
@@ -325,29 +331,11 @@ export function CompetitorsScreen({
     };
   });
 
-  // Trend + donut mirror the comp's 5-brand layout; scorecard + boards show all.
-  const donutBrands = brands.slice(0, 5);
-
+  // Category leader per scorecard column (green highlight in the table).
   const bestOf = (key: BenchKey, asc = false) => {
     const vals = brands.map((r) => r[key]);
     return asc ? Math.min(...vals) : Math.max(...vals);
   };
-
-  // KPI headline + delta — real once a citation run exists. No historical
-  // comparison is computed yet, so a real value gets a neutral delta rather
-  // than the comp's fabricated "+3.2 pts" sitting next to a real number.
-  const kpiSov = citationStats.hasData ? `${citationStats.project.sov}%` : DEMO_KPIS[0].value;
-  const kpiSovDelta = citationStats.hasData ? "—" : DEMO_KPIS[0].delta;
-  const kpiCitations = citationStats.hasData ? String(citationStats.project.citations) : DEMO_KPIS[1].value;
-  const kpiCitationsDelta = citationStats.hasData ? "—" : DEMO_KPIS[1].delta;
-  const donutTotal = donutBrands.reduce((s, b) => s + b.sov, 0) || 1;
-  const donutSegs: string[] = [];
-  let sweep = 0;
-  for (const b of donutBrands) {
-    const start = sweep;
-    sweep += (b.sov / donutTotal) * 360;
-    donutSegs.push(`${b.color} ${start.toFixed(1)}deg ${sweep.toFixed(1)}deg`);
-  }
 
   return (
     <div className="space-y-6 px-6 pb-12 pt-6 lg:px-10" data-tour-feature="comp-list">
@@ -386,22 +374,7 @@ export function CompetitorsScreen({
         Showing data for <strong className="font-semibold text-slate-700">{RANGE}</strong>
       </div>
 
-      {/* 3 · KPI STRIP */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-4">
-        {DEMO_KPIS.map((k, i) => (
-          <StatCard
-            key={k.label}
-            label={k.label}
-            value={i === 0 ? kpiSov : kpiCitations}
-            rank={k.rank}
-            delta={i === 0 ? kpiSovDelta : kpiCitationsDelta}
-            icon={k.icon}
-            tint={k.tint}
-          />
-        ))}
-      </div>
-
-      {/* 5 · HEAD-TO-HEAD SCORECARD */}
+      {/* HEAD-TO-HEAD SCORECARD */}
       <section>
         <div className="mb-3">
           <h2 className="font-heading text-lg font-semibold tracking-tight text-foreground">Head-to-head scorecard</h2>
@@ -458,116 +431,15 @@ export function CompetitorsScreen({
         </div>
       </section>
 
-      {/* 6 + 7 · SHARE OF VOICE + KEYWORD GAP */}
-      <div className="grid items-start gap-4 md:grid-cols-2">
-        {/* 6 · Share of voice */}
-        <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="font-heading text-[17px] font-semibold tracking-tight text-foreground">Share of voice</h2>
-          <p className="mt-0.5 mb-4 text-[12.5px] text-slate-400">Who owns the conversation across tracked keywords.</p>
-          <div className="flex flex-wrap items-center gap-6">
-            <div className="relative size-[150px] shrink-0 rounded-full" style={{ background: `conic-gradient(${donutSegs.join(",")})` }}>
-              <div className="absolute inset-[26px] flex flex-col items-center justify-center rounded-full bg-card">
-                <span className="text-[11px] font-semibold text-slate-400">You</span>
-                <span className="text-2xl font-medium leading-none tabular-nums text-primary">{donutBrands[0].sov}%</span>
-              </div>
-            </div>
-            <div className="flex min-w-[150px] flex-1 flex-col gap-2.5">
-              {donutBrands.map((b) => (
-                <div key={b.name} className="flex items-center gap-2.5">
-                  <span className="size-2.5 shrink-0 rounded-[3px]" style={{ backgroundColor: b.color }} />
-                  <span className="flex-1 truncate text-[13px] font-semibold text-slate-700">{b.name}</span>
-                  <span className="text-[13px] tabular-nums text-foreground">{b.sov}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* 7 · Keyword gap */}
-        <section className="rounded-2xl border border-border bg-card px-6 pb-3 pt-6 shadow-sm">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="font-heading text-[17px] font-semibold tracking-tight text-foreground">Keyword gap</h2>
-            {keywordGaps.length > 0 && (
-              <span className="rounded-full bg-ember-50 px-2.5 py-0.5 text-xs font-semibold text-ember-600">
-                {keywordGaps.length} opportunities
-              </span>
-            )}
-          </div>
-          <p className="mt-1 mb-2 text-[12.5px] text-slate-400">
-            High-value terms rivals rank for where you&rsquo;re weak or absent.
-          </p>
-          {keywordGaps.length === 0 && (
-            <p className="border-t border-slate-150 py-6 text-center text-[13px] text-slate-400">
-              Competitor keyword gaps will appear here once rank tracking is live.
-            </p>
-          )}
-          <div>
-            {keywordGaps.map((g) => {
-              const leader = brands.find((b) => b.competitorId === g.competitorId) ?? brands[0];
-              const missing = g.ourPosition == null;
-              const vol = formatVolume(g.volume)?.replace(/\/mo$/, "") ?? "—";
-              return (
-                <div key={`${g.competitorId}-${g.keyword}`} className="flex items-center gap-3 border-t border-slate-150 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13.5px] font-semibold text-slate-800">{g.keyword}</div>
-                    <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-slate-400">
-                      <span>{vol}/mo</span>
-                      {g.intent && (
-                        <>
-                          <span>·</span>
-                          <span>{g.intent}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <CompanyLogo
-                    name={leader.name}
-                    domain={leader.domain}
-                    size={22}
-                    rounded="rounded-full"
-                    className="shrink-0 ring-1 ring-border"
-                  />
-                  <span
-                    className={cn(
-                      "w-9 shrink-0 text-center font-mono text-[12px] tabular-nums",
-                      missing ? "text-slate-350" : "text-slate-600",
-                    )}
-                  >
-                    {missing ? "—" : `#${g.ourPosition}`}
-                  </span>
-                  <span
-                    className={cn(
-                      "shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold",
-                      g.priority === "High"
-                        ? "bg-ember-50 text-ember-600"
-                        : g.priority === "Medium"
-                          ? "bg-warning/15 text-warning-strong"
-                          : "bg-muted text-slate-500",
-                    )}
-                  >
-                    {g.priority}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      </div>
-
-      {/* 8 · WHAT THEY RANK FOR */}
-      <section>
-        <div className="mb-3">
-          <h2 className="font-heading text-lg font-semibold tracking-tight text-foreground">What they rank for</h2>
-          <p className="mt-1 text-[13px] text-slate-400">
-            Domain rating and the top keywords each competitor currently ranks for.
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {brands.map((b) => (
-            <RivalBoard key={`${b.name}-${b.competitorId ?? "demo"}`} brand={b} canManage={canManage} />
-          ))}
-        </div>
-      </section>
+      {/* TOP 10 PAGES — per-brand, by organic traffic (Ahrefs via Apify) */}
+      <TopPagesBoard
+        brands={brands
+          .filter((b): b is typeof b & { domain: string } => !!b.domain && (b.you || !!b.competitorId))
+          .map((b) => ({ name: b.name, domain: b.domain, competitorId: b.competitorId, you: b.you } satisfies TopPagesBrand))}
+        groups={topPages}
+        projectId={projectId}
+        canManage={canManage}
+      />
     </div>
   );
 }

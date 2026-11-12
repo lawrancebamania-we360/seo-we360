@@ -415,3 +415,56 @@ export async function runAiOverviewTracker(args: {
     return { results: [], cost_estimate_usd: 0, error: e instanceof Error ? e.message : String(e) };
   }
 }
+
+// ── Traffic Overview → a domain's TOP PAGES by organic traffic ───────────────
+// Powers the Competitors page's "Top 10 pages" board. Same actor as the
+// backlink profile, different searchType. Returns one item per domain with a
+// topPages array; field names vary by actor version, so we read defensively.
+export interface AhrefsTopPage {
+  url: string;
+  estimated_traffic: number | null;
+  traffic_share: number | null;
+}
+interface RawTopPage {
+  url?: string; page?: string; pageUrl?: string;
+  traffic?: unknown; estimatedTraffic?: unknown; organicTraffic?: unknown; trafficEstimate?: unknown;
+  share?: unknown; trafficShare?: unknown; sharePercent?: unknown; percent?: unknown;
+}
+interface TrafficOverviewItem { topPages?: RawTopPage[]; top_pages?: RawTopPage[]; pages?: RawTopPage[] }
+
+function numOrNull(v: unknown): number | null {
+  if (v == null) return null;
+  const n = typeof v === "number" ? v : parseFloat(String(v).replace(/[,%\s]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+export async function runTrafficOverview(args: {
+  token: string;
+  domain: string;
+  maxResults?: number;
+}): Promise<{ topPages: AhrefsTopPage[]; cost_estimate_usd: number; error: string | null }> {
+  const actorId = "pro100chok/ahrefs-seo-tools";
+  const limit = args.maxResults ?? 10;
+  const domain = args.domain.trim();
+  if (!domain) return { topPages: [], cost_estimate_usd: 0, error: "No domain." };
+  try {
+    const items = await runActor<object, TrafficOverviewItem>(actorId, args.token, {
+      searchType: "traffic_overview",
+      urls: [domain],
+      mode: "domain",
+    });
+    if (!items || items.length === 0) return { topPages: [], cost_estimate_usd: 0, error: "No data returned for this domain." };
+    const raw = (items[0]?.topPages ?? items[0]?.top_pages ?? items[0]?.pages ?? []) as RawTopPage[];
+    const topPages: AhrefsTopPage[] = raw
+      .map((p) => ({
+        url: String(p.url ?? p.page ?? p.pageUrl ?? "").trim(),
+        estimated_traffic: numOrNull(p.traffic ?? p.estimatedTraffic ?? p.organicTraffic ?? p.trafficEstimate),
+        traffic_share: numOrNull(p.share ?? p.trafficShare ?? p.sharePercent ?? p.percent),
+      }))
+      .filter((p) => p.url.length > 0)
+      .slice(0, limit);
+    return { topPages, cost_estimate_usd: 0, error: topPages.length === 0 ? "No pages in the response." : null };
+  } catch (e) {
+    return { topPages: [], cost_estimate_usd: 0, error: e instanceof Error ? e.message : String(e) };
+  }
+}

@@ -8,6 +8,7 @@ import {
   getCompetitorKeywordGaps,
   getCompetitorDomainRatings,
 } from "@/lib/data/competitor-keyword-intel";
+import { getCompetitorTopPages } from "@/lib/data/competitor-top-pages";
 import type { Competitor } from "@/lib/types/database";
 
 export const metadata = { title: "Competitors" };
@@ -41,7 +42,7 @@ export default async function CompetitorsPage({
   const isCustom = customFrom != null && customTo != null && new Date(customFrom) <= new Date(customTo);
 
   const supabase = await createClient();
-  const [{ data }, citationStats, keywordSnapshots, keywordGaps, domainRatings] = await Promise.all([
+  const [{ data }, citationStats, keywordSnapshots, keywordGaps, domainRatings, topPages] = await Promise.all([
     supabase
       .from("competitors")
       .select("*")
@@ -51,6 +52,7 @@ export default async function CompetitorsPage({
     getCompetitorKeywordSnapshots(ctx.activeProject.id),
     getCompetitorKeywordGaps(ctx.activeProject.id),
     getCompetitorDomainRatings(ctx.activeProject.id),
+    getCompetitorTopPages(ctx.activeProject.id),
   ]);
   // Site-health (live PageSpeed, up to 60s) was blocking the whole page but the
   // comp screen no longer renders it — pass an empty map instead of fetching.
@@ -67,6 +69,7 @@ export default async function CompetitorsPage({
       keywordSnapshots={keywordSnapshots}
       keywordGaps={keywordGaps}
       domainRatings={domainRatings}
+      topPages={topPages.groups}
       siteHealth={{}}
       rangeValue={isCustom ? "" : rangeKey}
       rangeLabel={isCustom ? `${fmtDay(customFrom!)} – ${fmtDay(customTo!)}` : RANGE_LABEL[rangeKey]}
