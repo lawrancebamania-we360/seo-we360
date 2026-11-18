@@ -1,15 +1,12 @@
-import { Suspense } from "react";
 import { getUserContext } from "@/lib/auth/get-user";
 import { getInfluencerAttribution } from "@/lib/data/influencer-attribution";
-import type { InfluencerCollabRow } from "@/lib/data/influencer-collabs";
-import type { Member } from "@/components/sections/assignee-picker";
 import { getInfluencerCollabs } from "@/lib/data/influencer-collabs";
 import { resolveBacklinkRange } from "@/lib/data/backlinks";
 import { getTeamMembers } from "@/lib/data/tasks";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { BacklinkDateFilter } from "@/components/sections/backlinks/backlink-date-filter";
-import { InfluencerCollabsTable } from "@/components/sections/influencer-collabs/influencer-collabs-table";
+import { InfluencerCollabsTableLive } from "@/components/sections/influencer-collabs/influencer-collabs-table-live";
 import { AddInfluencerCollabButton } from "@/components/sections/influencer-collabs/add-influencer-collab-button";
 
 export const metadata = { title: "Influencer Collabs" };
@@ -47,17 +44,16 @@ export default async function InfluencerCollabsPage({
         }
       />
 
-      {/* Visits / demos per post come from GA4 - streamed in so the table shows at once. */}
-      <Suspense fallback={<InfluencerCollabsTable collabs={collabs} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} attribution={null} />}>
-        <TableWithAttribution collabs={collabs} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} ga4PropertyId={ctx.activeProject.ga4_property_id ?? null} />
-      </Suspense>
+      {/* Visits / demos / deals per post come from GA4 + HubSpot: started here, not
+          awaited, and filled in by the table when they arrive - so the table shows at once. */}
+      <InfluencerCollabsTableLive
+        collabs={collabs}
+        projectId={ctx.activeProject.id}
+        members={members}
+        canManage={ctx.canManageTeam}
+        attributionPromise={getInfluencerAttribution(collabs, ctx.activeProject.ga4_property_id ?? null)}
+      />
     </div>
   );
 }
 
-async function TableWithAttribution({ collabs, projectId, members, canManage, ga4PropertyId }: {
-  collabs: InfluencerCollabRow[]; projectId: string; members: Member[]; canManage: boolean; ga4PropertyId: string | null;
-}) {
-  const attribution = await getInfluencerAttribution(collabs, ga4PropertyId);
-  return <InfluencerCollabsTable collabs={collabs} projectId={projectId} members={members} canManage={canManage} attribution={attribution} />;
-}

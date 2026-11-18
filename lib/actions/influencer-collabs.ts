@@ -321,6 +321,69 @@ export async function deleteInfluencerCollab(input: z.infer<typeof DeleteInput>)
   return { ok: true };
 }
 
+const UpdateInput = AddInput.extend({ collab_id: z.string().uuid() });
+
+/** Edit a collab's details - same rules as addInfluencerCollab (dates, cost,
+ *  no second row with the same influencer + platform + post date). A post link
+ *  that really changed is a different post, so its one-time link lookup and
+ *  last scrape error are reset, like saveInfluencerPostLink. */
+export async function updateInfluencerCollab(input: z.infer<typeof UpdateInput>): Promise<AddInfluencerCollabResult> {
+  const parsed = UpdateInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Check the fields." };
+  const { project_id, collab_id, influencer_name, profile_link, platform, post_date, closing_date, is_free, amount_paid, currency, post_link, assigned_to } = parsed.data;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const postDate = normalizeDate(post_date);
+  if (!postDate) return { ok: false, error: "Invalid post date." };
+  const closingDate = closing_date?.trim() ? normalizeDate(closing_date) : null;
+  if (closing_date?.trim() && !closingDate) return { ok: false, error: "Invalid date of closing." };
+
+  const { data: current } = await supabase
+    .from("influencer_collabs").select("post_link").eq("id", collab_id).eq("project_id", project_id).maybeSingle();
+  if (!current) return { ok: false, error: "That collab no longer exists." };
+
+  const { data: dup } = await supabase
+    .from("influencer_collabs")
+    .select("id")
+    .eq("project_id", project_id)
+    .eq("influencer_name", influencer_name)
+    .eq("platform", platform)
+    .eq("post_date", postDate)
+    .neq("id", collab_id)
+    .limit(1)
+    .maybeSingle();
+  if (dup) return { ok: false, error: "Another collab with the same influencer, platform, and post date is already logged.", duplicate: true };
+
+  const link = normalizeStoredUrl(post_link);
+  // Compare normalized, so re-saving an old un-normalized link doesn't trigger
+  // a fresh lookup that would overwrite hand-corrected we360.ai links.
+  const linkChanged = link !== normalizeStoredUrl(current.post_link as string | null);
+  const fields = {
+    influencer_name,
+    profile_link: normalizeStoredUrl(profile_link) ?? profile_link,
+    platform,
+    post_date: postDate,
+    closing_date: closingDate,
+    is_free: is_free ?? false,
+    amount_paid: is_free ? null : parseAmount(amount_paid),
+    currency: currency ?? "INR",
+    post_link: link,
+    ...(assigned_to !== undefined ? { assigned_to } : {}),
+  };
+  const save = (extra: Record<string, null>) => supabase
+    .from("influencer_collabs").update({ ...fields, ...extra }).eq("id", collab_id).eq("project_id", project_id).select("id");
+
+  let { data: saved, error } = await save(linkChanged ? { links_scraped_at: null, scrape_error: null } : {});
+  // Before the tracking migration only post_link exists.
+  if (error && linkChanged && isMissing(error.message)) ({ data: saved, error } = await save({}));
+  if (error || !saved?.length) return { ok: false, error: "Could not save that collab." };
+
+  revalidatePath("/dashboard/influencer-collabs");
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------------------
 // Post tracking: hand edits (anyone on the project) + a manual "refresh now".
 // ---------------------------------------------------------------------------

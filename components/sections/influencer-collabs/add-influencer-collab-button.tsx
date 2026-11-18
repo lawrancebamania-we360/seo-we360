@@ -2,28 +2,20 @@
 
 // Influencer Collabs: the single entry point - same form/paste/review
 // three-view shape as Backlink Submissions' AddSubmissionButton / Earned
-// Backlinks' AddEarnedBacklinkButton. Field order (Influencer Name, Platform,
-// Profile Link, Date of Closing, Post Date, Amount Paid, Post Link, Assignee)
-// is a deliberate call: closing the deal logically precedes the content
-// going live, so Date of Closing sits before Post Date even though the
-// user's own verbatim list had them the other way around.
+// Backlinks' AddEarnedBacklinkButton. The single-entry form is the shared
+// CollabFormFields (collab-form.tsx), the same one Edit uses.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Plus, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Combobox } from "@/components/ui/combobox";
 import { addInfluencerCollab, previewInfluencerCollabsImport, commitInfluencerCollabsImport } from "@/lib/actions/influencer-collabs";
+import { CollabFormFields, UNASSIGNED, draftToInput, emptyDraft, isDraftComplete, type CollabDraft } from "@/components/sections/influencer-collabs/collab-form";
 import type { Member } from "@/components/sections/assignee-picker";
-
-const UNASSIGNED = "__unassigned__";
-const PLATFORM_ITEMS = ["YouTube", "Instagram", "Facebook", "Twitter", "LinkedIn"].map((p) => ({ value: p, label: p }));
-const CURRENCY_ITEMS = [{ value: "INR", label: "INR" }, { value: "USD", label: "USD" }];
-const today = (): string => new Date().toISOString().slice(0, 10);
 
 type ParsedRow = {
   tempId: string; influencer_name: string; profile_link: string; platform: string; post_date: string;
@@ -37,16 +29,7 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
   const [view, setView] = useState<View>("form");
 
   // Single-entry form state
-  const [influencerName, setInfluencerName] = useState("");
-  const [platform, setPlatform] = useState("YouTube");
-  const [profileLink, setProfileLink] = useState("");
-  const [closingDate, setClosingDate] = useState(today());
-  const [postDate, setPostDate] = useState(today());
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState<"USD" | "INR">("INR");
-  const [isFree, setIsFree] = useState(false);
-  const [postLink, setPostLink] = useState("");
-  const [assignedTo, setAssignedTo] = useState(UNASSIGNED);
+  const [draft, setDraft] = useState<CollabDraft>(emptyDraft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,10 +48,7 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
 
   const reset = () => {
     setView("form");
-    setInfluencerName(""); setPlatform("YouTube"); setProfileLink("");
-    setClosingDate(today()); setPostDate(today());
-    setAmount(""); setCurrency("INR"); setIsFree(false);
-    setPostLink(""); setAssignedTo(UNASSIGNED);
+    setDraft(emptyDraft());
     setError(null);
     setPastedText(""); setPasteError(null);
     setRows([]); setRowAssignments({}); setSelected(new Set());
@@ -76,22 +56,10 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
   };
 
   const submitSingle = async () => {
-    if (!influencerName.trim() || !profileLink.trim() || busy) return;
+    if (!isDraftComplete(draft) || busy) return;
     setBusy(true);
     setError(null);
-    const r = await addInfluencerCollab({
-      project_id: projectId,
-      influencer_name: influencerName.trim(),
-      profile_link: profileLink.trim(),
-      platform: platform as "YouTube" | "Instagram" | "Facebook" | "Twitter" | "LinkedIn",
-      post_date: postDate,
-      closing_date: closingDate || undefined,
-      is_free: isFree,
-      amount_paid: isFree ? undefined : (amount.trim() || undefined),
-      currency,
-      post_link: postLink.trim() || undefined,
-      assigned_to: assignedTo === UNASSIGNED ? null : assignedTo,
-    });
+    const r = await addInfluencerCollab({ project_id: projectId, ...draftToInput(draft) });
     setBusy(false);
     if (!r.ok) { setError(r.error ?? "Could not add that collab."); return; }
     toast.success("Collab added.");
@@ -177,61 +145,7 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
                 <DialogDescription>For logging one influencer collab at a time instead of pasting a batch.</DialogDescription>
               </DialogHeader>
               <div className="max-h-[65vh] space-y-3 overflow-y-auto pr-1">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-name">Influencer name</label>
-                  <Input id="ic-name" value={influencerName} onChange={(e) => setInfluencerName(e.target.value)} placeholder="Jane Doe" className="h-9" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-platform">Platform</label>
-                  <Combobox id="ic-platform" items={PLATFORM_ITEMS} value={platform} onValueChange={setPlatform} placeholder="Pick a platform" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-profile">Profile link</label>
-                  <Input id="ic-profile" value={profileLink} onChange={(e) => setProfileLink(e.target.value)} placeholder="https://..." className="h-9" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-closing">Date of closing</label>
-                  <Input id="ic-closing" type="date" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} className="h-9" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-post-date">Post date</label>
-                  <Input id="ic-post-date" type="date" value={postDate} onChange={(e) => setPostDate(e.target.value)} className="h-9" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-amount">Amount paid (optional)</label>
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      id="ic-amount"
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="0.00"
-                      disabled={isFree}
-                      className="h-9"
-                    />
-                    <Combobox
-                      items={CURRENCY_ITEMS}
-                      value={currency}
-                      onValueChange={(v) => setCurrency(v as "USD" | "INR")}
-                      disabled={isFree}
-                      className="h-9 w-24 shrink-0"
-                    />
-                  </div>
-                  <label className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Checkbox checked={isFree} onCheckedChange={(v) => { setIsFree(!!v); if (v) setAmount(""); }} />
-                    This was a free collab
-                  </label>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-post-link">Post link (optional)</label>
-                  <Input id="ic-post-link" value={postLink} onChange={(e) => setPostLink(e.target.value)} placeholder="https://... (if already live)" className="h-9" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="ic-assignee">Assign to (optional)</label>
-                  <Combobox id="ic-assignee" items={memberItems} value={assignedTo} onValueChange={setAssignedTo} placeholder="Unassigned" />
-                </div>
+                <CollabFormFields draft={draft} onChange={(p) => setDraft((d) => ({ ...d, ...p }))} members={members} />
                 {error && <p className="text-xs text-error-600">{error}</p>}
               </div>
               <DialogFooter className="sm:justify-between">
@@ -240,7 +154,7 @@ export function AddInfluencerCollabButton({ projectId, members }: { projectId: s
                 </Button>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>
-                  <Button variant="brand" onClick={submitSingle} disabled={busy || !influencerName.trim() || !profileLink.trim()} className="gap-1.5">
+                  <Button variant="brand" onClick={submitSingle} disabled={busy || !isDraftComplete(draft)} className="gap-1.5">
                     {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />} Add
                   </Button>
                 </div>
