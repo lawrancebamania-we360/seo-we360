@@ -13,7 +13,9 @@
 import { Fragment, useMemo, useState } from "react";
 import { ExternalLink, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Combobox } from "@/components/ui/combobox";
 import { toExternalUrl } from "@/lib/url";
+import { BacklinkDateFilter } from "@/components/sections/backlinks/backlink-date-filter";
 import { EarnedBacklinkActions } from "@/components/sections/earned-backlinks/earned-backlink-actions";
 import type { EarnedBacklinkRow } from "@/lib/data/earned-backlinks";
 import type { Member } from "@/components/sections/assignee-picker";
@@ -94,7 +96,7 @@ function formatTraffic(b: EarnedBacklinkRow): string {
   return b.traffic ? b.traffic.sessions.toLocaleString() : "—";
 }
 
-export function EarnedBacklinksTable({ websites, projectId, members, canManage, exchangeReady, traffic }: {
+export function EarnedBacklinksTable({ websites, projectId, members, canManage, exchangeReady, traffic, range, start, end }: {
   websites: EarnedBacklinkRow[];
   projectId: string;
   members: Member[];
@@ -102,6 +104,11 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
   exchangeReady: boolean;
   // GA4 connection status for the Traffic column; null/undefined = status unknown.
   traffic?: { connected: boolean; reason?: string };
+  // Date-range filter state (URL params), rendered alongside the cost/assignee
+  // dropdowns so all three filters sit together on the left.
+  range: string;
+  start: string;
+  end: string;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("acquiredDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -196,26 +203,29 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
           Traffic column unavailable — {traffic.reason ?? "GA4 not connected."} Each backlink&apos;s we360.ai target needs <span className="font-mono">utm_source</span>/<span className="font-mono">utm_campaign</span>/<span className="font-mono">utm_content</span> for referral traffic to show here.
         </p>
       )}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {COST_BUCKETS.map((bucket) => (
-            <FilterChip key={bucket.key} active={costFilter === bucket.key} onClick={() => setCostFilter(bucket.key)}>
-              {bucket.label} <span className="tabular-nums opacity-60">{costCounts[bucket.key]}</span>
-            </FilterChip>
-          ))}
-        </div>
-        <select
-          value={assigneeFilter}
-          onChange={(e) => setAssigneeFilter(e.target.value)}
-          aria-label="Filter by assignee"
-          className="ml-auto h-8 rounded-md border bg-background px-2 text-xs"
-        >
-          <option value="all">All assignees</option>
-          {assigneeOptions.map((m) => (
-            <option key={m.id} value={m.id}>{m.name ?? "Unnamed"}</option>
-          ))}
-          {hasUnassigned && <option value="__none__">Unassigned</option>}
-        </select>
+      {/* All three filters grouped on the left as labeled dropdowns. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <BacklinkDateFilter range={range} start={start} end={end} label="Date" />
+        <LabeledFilter label="Cost">
+          <Combobox
+            items={COST_BUCKETS.map((b) => ({ value: b.key, label: `${b.label} (${costCounts[b.key]})` }))}
+            value={costFilter}
+            onValueChange={(v) => setCostFilter(v as CostBucket)}
+            className="h-8 w-fit"
+          />
+        </LabeledFilter>
+        <LabeledFilter label="Assignee">
+          <Combobox
+            items={[
+              { value: "all", label: "All assignees" },
+              ...assigneeOptions.map((m) => ({ value: m.id, label: m.name ?? "Unnamed" })),
+              ...(hasUnassigned ? [{ value: "__none__", label: "Unassigned" }] : []),
+            ]}
+            value={assigneeFilter}
+            onValueChange={setAssigneeFilter}
+            className="h-8 w-fit"
+          />
+        </LabeledFilter>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border">
@@ -357,18 +367,13 @@ function RowDetail({ b }: { b: EarnedBacklinkRow }) {
   );
 }
 
-function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+// A filter control with its label to the left, matching the date filter's style.
+function LabeledFilter({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <button
-      type="button" onClick={onClick} aria-pressed={active}
-      className={`cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-        active
-          ? "border-[#5B45E0]/40 bg-[#5B45E0]/10 text-[#5B45E0] dark:text-[#7B62FF]"
-          : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-      }`}
-    >
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
       {children}
-    </button>
+    </div>
   );
 }
 
