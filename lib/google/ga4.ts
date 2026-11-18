@@ -1031,6 +1031,83 @@ export async function getGa4DemoCta(
 }
 
 // ============================================================================
+// Per-backlink referral traffic (BL-1). Every placed backlink points at a
+// we360.ai URL carrying the team's UTM convention (utm_source=site,
+// utm_medium=backlink|guest_post, utm_campaign=month, utm_content=person). This
+// groups sessions + users by (campaign, content, source) over the page's date
+// range so each backlink can be matched to the traffic its link actually sent.
+// Session-scoped dimensions: sessionCampaignName=utm_campaign,
+// sessionManualAdContent=utm_content, sessionSource=utm_source. No UTM-tagged
+// data exists yet, so a zero-match result (rows: []) is the normal case, NOT an
+// error — the caller renders "—" per row and this stays connected: true.
+// ============================================================================
+
+export interface Ga4BacklinkTrafficRow {
+  campaign: string;
+  content: string;
+  source: string;
+  sessions: number;
+  users: number;
+}
+
+export interface Ga4BacklinkTraffic {
+  connected: boolean;
+  reason?: string;
+  rows: Ga4BacklinkTrafficRow[];
+}
+
+export async function getGa4BacklinkTraffic(
+  propertyId: string | null,
+  range: { start?: string; end?: string },
+): Promise<Ga4BacklinkTraffic> {
+  const empty: Ga4BacklinkTraffic = { connected: false, rows: [] };
+  if (!propertyId) return { ...empty, reason: "No GA4 property ID on this project." };
+  if (!(await isGoogleServiceAccountConfigured())) return { ...empty, reason: "GA4 not connected." };
+
+  let token: string;
+  try { token = await getGoogleAccessToken(SCOPE); }
+  catch (e) { return { ...empty, reason: e instanceof Error ? e.message : "GA4 auth failed" }; }
+
+  // The Backlinks page range is open-ended for the "All" preset — GA4 needs
+  // concrete bounds, so fall back to a wide window / today.
+  const startDate = range.start || "2020-01-01";
+  const endDate = range.end || "today";
+
+  try {
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          dateRanges: [{ startDate, endDate }],
+          dimensions: [
+            { name: "sessionCampaignName" },
+            { name: "sessionManualAdContent" },
+            { name: "sessionSource" },
+          ],
+          metrics: [{ name: "sessions" }, { name: "totalUsers" }],
+          limit: 100000,
+        }),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    if (!res.ok) return { ...empty, reason: `GA4 backlink-traffic failed (${res.status}): ${(await res.text()).slice(0, 200)}` };
+    const data = (await res.json()) as { rows?: RunReportRow[] };
+    const rows: Ga4BacklinkTrafficRow[] = (data.rows ?? []).map((r) => ({
+      campaign: r.dimensionValues[0]?.value ?? "",
+      content: r.dimensionValues[1]?.value ?? "",
+      source: r.dimensionValues[2]?.value ?? "",
+      sessions: parseInt(r.metricValues[0]?.value ?? "0", 10) || 0,
+      users: parseInt(r.metricValues[1]?.value ?? "0", 10) || 0,
+    }));
+    return { connected: true, rows };
+  } catch (e) {
+    return { ...empty, reason: e instanceof Error ? e.message : "GA4 request failed" };
+  }
+}
+
+// ============================================================================
 // Content -> demo funnel (GA4 alpha runFunnelReport). Three steps: reads content
 // of a segment -> views /demo/ -> reaches /next-steps/ (booked). Segments:
 // blog (/blog/*), guide (/guides/*), marketing (high-intent: solutions/features/

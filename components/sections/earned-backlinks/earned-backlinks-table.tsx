@@ -87,15 +87,21 @@ function compareNullableNum(a: number | null, b: number | null, dir: number): nu
 
 function rowHasDetail(b: EarnedBacklinkRow): boolean {
   return !!(b.anchorText || b.anchorTarget || b.spamScore != null || b.contactEmail ||
-    b.givenUrl || b.givenAnchorText || b.givenAnchorTarget || b.givenDate);
+    b.givenUrl || b.givenAnchorText || b.givenAnchorTarget || b.givenDate || b.traffic);
 }
 
-export function EarnedBacklinksTable({ websites, projectId, members, canManage, exchangeReady }: {
+function formatTraffic(b: EarnedBacklinkRow): string {
+  return b.traffic ? b.traffic.sessions.toLocaleString() : "—";
+}
+
+export function EarnedBacklinksTable({ websites, projectId, members, canManage, exchangeReady, traffic }: {
   websites: EarnedBacklinkRow[];
   projectId: string;
   members: Member[];
   canManage: boolean;
   exchangeReady: boolean;
+  // GA4 connection status for the Traffic column; null/undefined = status unknown.
+  traffic?: { connected: boolean; reason?: string };
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("acquiredDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -120,8 +126,8 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
     () => (exchangeReady ? [WEBSITE_COL, TYPE_COL, ...REST_COLS] : [WEBSITE_COL, ...REST_COLS]),
     [exchangeReady],
   );
-  // chevron + data columns + Cost
-  const totalCols = (exchangeReady ? 1 : 0) + columns.length + 1;
+  // chevron + data columns + Cost + Traffic
+  const totalCols = (exchangeReady ? 1 : 0) + columns.length + 2;
 
   const sorted = useMemo(() => {
     const copy = [...websites];
@@ -185,6 +191,11 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
           Apply migration <span className="font-mono">20261029000001</span> in Supabase to capture link-exchange details — type, spam score, anchor text/target, contact email, and the reciprocal link you gave back.
         </p>
       )}
+      {traffic && !traffic.connected && (
+        <p className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-2 text-[11.5px] text-muted-foreground">
+          Traffic column unavailable — {traffic.reason ?? "GA4 not connected."} Each backlink&apos;s we360.ai target needs <span className="font-mono">utm_source</span>/<span className="font-mono">utm_campaign</span>/<span className="font-mono">utm_content</span> for referral traffic to show here.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           {COST_BUCKETS.map((bucket) => (
@@ -229,6 +240,7 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
                 </th>
               ))}
               <th className="px-3 py-2.5 text-right font-semibold">Cost</th>
+              <th className="px-3 py-2.5 text-right font-semibold" title="Referral sessions GA4 attributes to this link's UTM-tagged we360.ai target">Traffic</th>
             </tr>
           </thead>
           <tbody>
@@ -283,6 +295,12 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
                     <td className={`px-3 py-2.5 text-right align-top font-mono text-[12.5px] tabular-nums ${b.isFree ? "text-success-strong font-semibold" : "text-muted-foreground"}`}>
                       {formatCost(b)}
                     </td>
+                    <td
+                      className="px-3 py-2.5 text-right align-top font-mono text-[12.5px] tabular-nums text-muted-foreground"
+                      title={b.traffic ? `${b.traffic.sessions.toLocaleString()} sessions · ${b.traffic.users.toLocaleString()} users` : undefined}
+                    >
+                      {formatTraffic(b)}
+                    </td>
                   </tr>
                   {canExpand && open && (
                     <tr className="border-b border-border/60 bg-muted/20">
@@ -312,6 +330,10 @@ function RowDetail({ b }: { b: EarnedBacklinkRow }) {
         <Detail label="Anchor target" value={b.anchorTarget} link />
         <Detail label="Spam" value={b.spamScore == null ? null : `${b.spamScore}%`} />
         <Detail label="Email" value={b.contactEmail} />
+        <Detail
+          label="Traffic"
+          value={b.traffic ? `${b.traffic.sessions.toLocaleString()} sessions · ${b.traffic.users.toLocaleString()} users` : null}
+        />
       </div>
       <div className="space-y-1.5">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Link we gave back</div>

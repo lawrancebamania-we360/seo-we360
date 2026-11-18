@@ -23,8 +23,12 @@ export default async function LinkBuildingPage({
   const start = params.start ?? "";
   const end = params.end ?? "";
 
-  const [{ rows: backlinks, exchangeReady }, members] = await Promise.all([
-    getEarnedBacklinks(ctx.activeProject.id, resolveBacklinkRange(range, start, end)),
+  const [{ rows: backlinks, exchangeReady, traffic }, members] = await Promise.all([
+    getEarnedBacklinks(
+      ctx.activeProject.id,
+      resolveBacklinkRange(range, start, end),
+      ctx.activeProject.ga4_property_id ?? null,
+    ),
     getTeamMembers(),
   ]);
 
@@ -41,7 +45,7 @@ export default async function LinkBuildingPage({
         }
       />
 
-      <EarnedBacklinksTable websites={backlinks} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} exchangeReady={exchangeReady} />
+      <EarnedBacklinksTable websites={backlinks} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} exchangeReady={exchangeReady} traffic={traffic} />
     </div>
   );
 }
