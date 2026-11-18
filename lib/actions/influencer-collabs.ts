@@ -320,3 +320,125 @@ export async function deleteInfluencerCollab(input: z.infer<typeof DeleteInput>)
   revalidatePath("/dashboard/influencer-collabs");
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// Post tracking: hand edits (anyone on the project) + a manual "refresh now".
+// ---------------------------------------------------------------------------
+
+const TRACKING_HINT = "This needs migration 20261118000001 applied in Supabase first.";
+const isMissing = (m: string) => /column .* does not exist|could not find the '.+' column|schema cache|relation .* does not exist/i.test(m);
+
+const LinksInput = z.object({
+  project_id: z.string().uuid(),
+  collab_id: z.string().uuid(),
+  post_body_link: z.string().trim().max(2000).nullable(),
+  comment_link: z.string().trim().max(2000).nullable(),
+});
+
+/** Correct the we360.ai links found in the post / comment. Also marks the
+ *  one-time link lookup done, so the scraper never touches them again. */
+export async function saveInfluencerPostLinks(input: z.infer<typeof LinksInput>): Promise<{ ok: boolean; error?: string }> {
+  const parsed = LinksInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Check the links." };
+  const { project_id, collab_id, post_body_link, comment_link } = parsed.data;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { error } = await supabase.from("influencer_collabs").update({
+    post_body_link: post_body_link || null,
+    comment_link: comment_link || null,
+    links_scraped_at: new Date().toISOString(),
+  }).eq("id", collab_id).eq("project_id", project_id);
+  if (error) return { ok: false, error: isMissing(error.message) ? TRACKING_HINT : "Could not save the links." };
+
+  revalidatePath("/dashboard/influencer-collabs");
+  return { ok: true };
+}
+
+const count = z.union([z.number().int().min(0).max(100_000_000), z.null()]);
+const MetricInput = z.object({
+  project_id: z.string().uuid(),
+  collab_id: z.string().uuid(),
+  captured_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date."),
+  reactions: count,
+  comments: count,
+  reposts: count,
+});
+
+/** Enter or correct one day's numbers by hand. Saved as 'manual', which the
+ *  daily scraper never overwrites. */
+export async function saveInfluencerPostMetric(input: z.infer<typeof MetricInput>): Promise<{ ok: boolean; error?: string }> {
+  const parsed = MetricInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the numbers." };
+  const { project_id, collab_id, captured_on, reactions, comments, reposts } = parsed.data;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { error } = await supabase.from("influencer_post_metrics").upsert({
+    project_id, collab_id, captured_on, reactions, comments, reposts,
+    source: "manual", updated_by: user.id, updated_at: new Date().toISOString(),
+  }, { onConflict: "collab_id,captured_on" });
+  if (error) return { ok: false, error: isMissing(error.message) ? TRACKING_HINT : "Could not save those numbers." };
+
+  revalidatePath("/dashboard/influencer-collabs");
+  return { ok: true };
+}
+
+const RefreshInput = z.object({ project_id: z.string().uuid() });
+
+/** Run today's sync now for this project (the same job the daily cron runs):
+ *  engagement for posts in their first 15 days + the one-time link lookup. */
+export async function refreshInfluencerPosts(input: z.infer<typeof RefreshInput>): Promise<{ ok: boolean; error?: string; message?: string }> {
+  const parsed = RefreshInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Bad request." };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+  // RLS: only someone with access to the project can see it.
+  const { data: project } = await supabase.from("projects").select("id").eq("id", parsed.data.project_id).maybeSingle();
+  if (!project) return { ok: false, error: "No access to this project." };
+
+  const { runInfluencerPostSync } = await import("@/lib/cron/influencer-posts");
+  const s = await runInfluencerPostSync(createAdminClient(), { projectId: parsed.data.project_id });
+  if (!s.ok) return { ok: false, error: s.note ?? "Refresh failed." };
+
+  revalidatePath("/dashboard/influencer-collabs");
+  return {
+    ok: true,
+    message: s.checked === 0
+      ? "Nothing to refresh — no LinkedIn post is in its first 15 days or waiting for its links."
+      : `Updated ${s.metricsSaved} post${s.metricsSaved === 1 ? "" : "s"}${s.linksFound ? ` · found links for ${s.linksFound}` : ""}${s.keptManual ? ` · kept ${s.keptManual} hand-entered` : ""}${s.errors ? ` · ${s.errors} couldn't be read` : ""}.`,
+  };
+}
+
+const PostLinkInput = z.object({
+  project_id: z.string().uuid(),
+  collab_id: z.string().uuid(),
+  post_link: z.string().trim().max(2000).nullable(),
+});
+
+/** Set / fix the LinkedIn post link. A new post means a fresh one-time link
+ *  lookup, so links_scraped_at and the last error are cleared. */
+export async function saveInfluencerPostLink(input: z.infer<typeof PostLinkInput>): Promise<{ ok: boolean; error?: string }> {
+  const parsed = PostLinkInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Check the link." };
+  const { project_id, collab_id, post_link } = parsed.data;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const link = post_link ? normalizeStoredUrl(post_link) : null;
+  let { error } = await supabase.from("influencer_collabs").update({
+    post_link: link, links_scraped_at: null, scrape_error: null,
+  }).eq("id", collab_id).eq("project_id", project_id);
+  // Before the tracking migration only post_link exists.
+  if (error && isMissing(error.message)) {
+    ({ error } = await supabase.from("influencer_collabs").update({ post_link: link }).eq("id", collab_id).eq("project_id", project_id));
+  }
+  if (error) return { ok: false, error: "Could not save the post link." };
+
+  revalidatePath("/dashboard/influencer-collabs");
+  return { ok: true };
+}

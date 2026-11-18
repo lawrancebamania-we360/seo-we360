@@ -9,6 +9,8 @@ import { InfluencerCollabsTable } from "@/components/sections/influencer-collabs
 import { AddInfluencerCollabButton } from "@/components/sections/influencer-collabs/add-influencer-collab-button";
 
 export const metadata = { title: "Influencer Collabs" };
+// "Refresh now" runs the LinkedIn scraper inline (~30-60s for a few posts).
+export const maxDuration = 300;
 
 export default async function InfluencerCollabsPage({
   searchParams,

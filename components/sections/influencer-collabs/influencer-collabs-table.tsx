@@ -7,7 +7,12 @@
 // descending, per explicit instruction.
 
 import { useMemo, useState } from "react";
-import { ExternalLink, ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { ExternalLink, ArrowDown, ArrowUp, ArrowUpDown, ThumbsUp, MessageCircle, Repeat2, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PostTrackingDialog, METRIC_DAYS } from "@/components/sections/influencer-collabs/post-tracking-dialog";
+import { refreshInfluencerPosts } from "@/lib/actions/influencer-collabs";
 import { Card } from "@/components/ui/card";
 import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import { toExternalUrl } from "@/lib/url";
@@ -62,6 +67,7 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
   const [sortKey, setSortKey] = useState<SortKey>("postDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [q, setQ] = useState("");
+  const [tracking, setTracking] = useState<InfluencerCollabRow | null>(null);
 
   const sorted = useMemo(() => {
     const copy = [...collabs];
@@ -108,7 +114,8 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <RefreshButton projectId={projectId} />
         <SearchBox value={q} onChange={setQ} placeholder="Search influencers, platform..." className="w-full sm:w-72" />
       </div>
       {shown.length === 0 ? (
@@ -137,6 +144,7 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
               </th>
             ))}
             <th className="px-3 py-2.5 text-right font-semibold">Cost</th>
+            <th className="px-3 py-2.5 text-left font-semibold">Engagement</th>
             <th className="px-3 py-2.5 text-left font-semibold">Profile link</th>
             <th className="px-3 py-2.5 text-left font-semibold">Post link</th>
           </tr>
@@ -157,6 +165,9 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
                 {formatCost(c)}
               </td>
               <td className="px-3 py-2.5">
+                <EngagementCell c={c} onOpen={() => setTracking(c)} />
+              </td>
+              <td className="px-3 py-2.5">
                 <LinkCell href={c.profileLink} label="Profile" title="Open the influencer's profile" />
               </td>
               <td className="px-3 py-2.5">
@@ -168,6 +179,67 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
       </table>
     </div>
       )}
+      {tracking && (
+        <PostTrackingDialog
+          collab={collabs.find((x) => x.id === tracking.id) ?? tracking}
+          projectId={projectId}
+          onClose={() => setTracking(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function RefreshButton({ projectId }: { projectId: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await refreshInfluencerPosts({ project_id: projectId });
+      if (!r.ok) { toast.error(r.error ?? "Refresh failed."); return; }
+      toast.success(r.message ?? "Refreshed."); router.refresh();
+    } catch { toast.error("Refresh failed."); }
+    finally { setBusy(false); }
+  };
+  return (
+    <Button size="sm" variant="outline" className="gap-1.5" onClick={run} disabled={busy}
+      title="Read today's LinkedIn numbers now (runs daily on its own)">
+      {busy ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+      {busy ? "Reading LinkedIn…" : "Refresh now"}
+    </Button>
+  );
+}
+
+// Latest reactions / comments / reposts, with which day of the 15 it is. Opens
+// the post's tracking (links + daily numbers, editable by anyone).
+function EngagementCell({ c, onOpen }: { c: InfluencerCollabRow; onOpen: () => void }) {
+  if (c.platform !== "LinkedIn") return <span className="text-muted-foreground">—</span>;
+  const last = c.metrics[c.metrics.length - 1];
+  const day = last ? Math.round((Date.parse(`${last.date}T00:00:00Z`) - Date.parse(`${c.postDate}T00:00:00Z`)) / 86_400_000) : null;
+  return (
+    <button type="button" onClick={onOpen} title="Open post tracking"
+      className="group/eng -mx-1 rounded-md px-1 py-0.5 text-left hover:bg-muted/60">
+      {last ? (
+        <>
+          <span className="flex items-center gap-2 font-mono text-[12.5px] tabular-nums text-foreground">
+            <span className="inline-flex items-center gap-0.5"><ThumbsUp className="size-3 text-muted-foreground" />{last.reactions ?? "—"}</span>
+            <span className="inline-flex items-center gap-0.5"><MessageCircle className="size-3 text-muted-foreground" />{last.comments ?? "—"}</span>
+            <span className="inline-flex items-center gap-0.5"><Repeat2 className="size-3 text-muted-foreground" />{last.reposts ?? "—"}</span>
+          </span>
+          <span className="block text-[10.5px] text-muted-foreground">
+            {day !== null && day <= METRIC_DAYS ? `day ${day} of ${METRIC_DAYS}` : "final"}{last.source === "manual" ? " · edited" : ""}
+          </span>
+        </>
+      ) : c.scrapeError ? (
+        <span className="inline-flex items-center gap-1 text-[12px] text-amber-700 dark:text-amber-400"><AlertTriangle className="size-3" /> Can't read · add by hand</span>
+      ) : !c.postLink ? (
+        <span className="text-[12px] text-muted-foreground group-hover/eng:text-foreground">Add post link</span>
+      ) : c.postDate > new Date().toISOString().slice(0, 10) ? (
+        <span className="text-[12px] text-muted-foreground">Not posted yet</span>
+      ) : (
+        <span className="text-[12px] text-muted-foreground group-hover/eng:text-foreground">Pending · add</span>
+      )}
+    </button>
   );
 }
