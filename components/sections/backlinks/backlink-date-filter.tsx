@@ -27,7 +27,7 @@ const PRESETS: { key: string; label: string }[] = [
   { key: "custom", label: "Custom" },
 ];
 
-export function BacklinkDateFilter({ range, start, end }: { range: string; start: string; end: string }) {
+export function BacklinkDateFilter({ range, start, end, label = "Date filter" }: { range: string; start: string; end: string; label?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -44,7 +44,7 @@ export function BacklinkDateFilter({ range, start, end }: { range: string; start
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-medium text-muted-foreground">Date filter</span>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <Combobox
         items={PRESETS.map((p) => ({ value: p.key, label: p.label }))}
         value={range}

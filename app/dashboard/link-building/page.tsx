@@ -4,7 +4,6 @@ import { resolveBacklinkRange } from "@/lib/data/backlinks";
 import { getTeamMembers } from "@/lib/data/tasks";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
-import { BacklinkDateFilter } from "@/components/sections/backlinks/backlink-date-filter";
 import { EarnedBacklinksTable } from "@/components/sections/earned-backlinks/earned-backlinks-table";
 import { AddEarnedBacklinkButton } from "@/components/sections/earned-backlinks/add-earned-backlink-button";
 
@@ -37,15 +36,10 @@ export default async function LinkBuildingPage({
       <PageHeader
         title="Backlinks"
         description="Backlinks the team has actually landed via outreach and link-building - add one as you get it, or paste in a batch."
-        actions={
-          <div className="flex flex-nowrap items-center gap-2">
-            <BacklinkDateFilter range={range} start={start} end={end} />
-            {ctx.canManageTeam && <AddEarnedBacklinkButton projectId={ctx.activeProject.id} members={members} exchangeReady={exchangeReady} />}
-          </div>
-        }
+        actions={ctx.canManageTeam ? <AddEarnedBacklinkButton projectId={ctx.activeProject.id} members={members} exchangeReady={exchangeReady} /> : null}
       />
 
-      <EarnedBacklinksTable websites={backlinks} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} exchangeReady={exchangeReady} traffic={traffic} />
+      <EarnedBacklinksTable websites={backlinks} projectId={ctx.activeProject.id} members={members} canManage={ctx.canManageTeam} exchangeReady={exchangeReady} traffic={traffic} range={range} start={start} end={end} />
     </div>
   );
 }
