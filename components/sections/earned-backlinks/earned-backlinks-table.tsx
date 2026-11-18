@@ -13,7 +13,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { ExternalLink, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Combobox } from "@/components/ui/combobox";
+import { MultiCombobox } from "@/components/ui/multi-combobox";
 import { toExternalUrl } from "@/lib/url";
 import { BacklinkDateFilter } from "@/components/sections/backlinks/backlink-date-filter";
 import { EarnedBacklinkActions } from "@/components/sections/earned-backlinks/earned-backlink-actions";
@@ -38,7 +38,8 @@ const REST_COLS: Col[] = [
 // without a conversion rate this app doesn't have).
 const CURRENCY_SYMBOL: Record<string, string> = { USD: "$", INR: "₹" };
 function formatCost(b: Pick<EarnedBacklinkRow, "isFree" | "amountPaid" | "currency">): string {
-  if (b.isFree) return "Free";
+  // A $0 typed into the amount means the same thing as ticking Free.
+  if (b.isFree || b.amountPaid === 0) return "Free";
   if (b.amountPaid == null) return "—";
   return `${CURRENCY_SYMBOL[b.currency] ?? ""}${b.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -46,9 +47,8 @@ function formatCost(b: Pick<EarnedBacklinkRow, "isFree" | "amountPaid" | "curren
 // Cost filter. Paid amounts mix USD + INR, so dollar buckets are evaluated on a
 // USD-equivalent (INR converted at the same fixed rate the Executive dashboard
 // uses) so "$50-150" means the same thing across both currencies.
-type CostBucket = "all" | "free" | "paid" | "0-50" | "50-150" | "150+";
+type CostBucket = "free" | "paid" | "0-50" | "50-150" | "150+";
 const COST_BUCKETS: { key: CostBucket; label: string }[] = [
-  { key: "all", label: "All" },
   { key: "free", label: "Free" },
   { key: "paid", label: "Paid" },
   { key: "0-50", label: "$1–50" },
@@ -60,13 +60,20 @@ function usdAmount(b: EarnedBacklinkRow): number | null {
   if (b.amountPaid == null) return null;
   return b.currency === "INR" ? b.amountPaid * USD_PER_INR : b.amountPaid;
 }
-function matchesCost(b: EarnedBacklinkRow, bucket: CostBucket): boolean {
-  if (bucket === "all") return true;
-  if (bucket === "free") return b.isFree;
+// A link with no positive amount counts as Free — either it's ticked Free, or a
+// $0 / blank was typed into the amount instead of ticking Free. This keeps the
+// invariant Free + Paid = every row (the gap people saw was $0 rows that were
+// neither flagged Free nor had a positive amount).
+function isEffectivelyFree(b: EarnedBacklinkRow): boolean {
+  if (b.isFree) return true;
   const usd = usdAmount(b);
-  const isPaid = !b.isFree && usd != null && usd > 0;
-  if (bucket === "paid") return isPaid;
-  if (!isPaid || usd == null) return false;
+  return usd == null || usd <= 0;
+}
+function matchesCost(b: EarnedBacklinkRow, bucket: CostBucket): boolean {
+  if (bucket === "free") return isEffectivelyFree(b);
+  if (bucket === "paid") return !isEffectivelyFree(b);
+  if (isEffectivelyFree(b)) return false;
+  const usd = usdAmount(b) as number; // paid ⇒ non-null and > 0
   if (bucket === "0-50") return usd <= 50;
   if (bucket === "50-150") return usd > 50 && usd <= 150;
   return usd > 150; // "150+"
@@ -113,8 +120,9 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
   const [sortKey, setSortKey] = useState<SortKey>("acquiredDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
-  const [costFilter, setCostFilter] = useState<CostBucket>("all");
-  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+  // Multi-select; empty = no filter (show all).
+  const [costFilter, setCostFilter] = useState<CostBucket[]>([]);
+  const [assigneeFilter, setAssigneeFilter] = useState<string[]>([]);
   const toggleRow = (id: string) => setOpenRows((p) => ({ ...p, [id]: !p[id] }));
 
   // Assignees that actually have a backlink, for the assignee dropdown.
@@ -168,12 +176,13 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
 
   const visible = useMemo(
     () =>
-      sorted.filter(
-        (b) =>
-          matchesCost(b, costFilter) &&
-          (assigneeFilter === "all" ||
-            (assigneeFilter === "__none__" ? !b.assignedTo : b.assignedTo === assigneeFilter)),
-      ),
+      sorted.filter((b) => {
+        const costOk = costFilter.length === 0 || costFilter.some((bucket) => matchesCost(b, bucket));
+        const assigneeOk =
+          assigneeFilter.length === 0 ||
+          assigneeFilter.some((a) => (a === "__none__" ? !b.assignedTo : b.assignedTo === a));
+        return costOk && assigneeOk;
+      }),
     [sorted, costFilter, assigneeFilter],
   );
 
@@ -207,23 +216,26 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <BacklinkDateFilter range={range} start={start} end={end} label="Date" />
         <LabeledFilter label="Cost">
-          <Combobox
+          <MultiCombobox
             items={COST_BUCKETS.map((b) => ({ value: b.key, label: `${b.label} (${costCounts[b.key]})` }))}
             value={costFilter}
-            onValueChange={(v) => setCostFilter(v as CostBucket)}
-            className="h-8 w-fit"
+            onValueChange={(v) => setCostFilter(v as CostBucket[])}
+            placeholder={`All (${websites.length})`}
+            ariaLabel="Filter by cost"
+            className="h-8 w-fit min-w-[7rem]"
           />
         </LabeledFilter>
         <LabeledFilter label="Assignee">
-          <Combobox
+          <MultiCombobox
             items={[
-              { value: "all", label: "All assignees" },
               ...assigneeOptions.map((m) => ({ value: m.id, label: m.name ?? "Unnamed" })),
               ...(hasUnassigned ? [{ value: "__none__", label: "Unassigned" }] : []),
             ]}
             value={assigneeFilter}
             onValueChange={setAssigneeFilter}
-            className="h-8 w-fit"
+            placeholder="All assignees"
+            ariaLabel="Filter by assignee"
+            className="h-8 w-fit min-w-[9rem]"
           />
         </LabeledFilter>
       </div>
@@ -302,7 +314,7 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
                     <td className="px-3 py-2.5 align-top">
                       <EarnedBacklinkActions projectId={projectId} backlink={b} members={members} canManage={canManage} exchangeReady={exchangeReady} />
                     </td>
-                    <td className={`px-3 py-2.5 text-right align-top font-mono text-[12.5px] tabular-nums ${b.isFree ? "text-success-strong font-semibold" : "text-muted-foreground"}`}>
+                    <td className={`px-3 py-2.5 text-right align-top font-mono text-[12.5px] tabular-nums ${isEffectivelyFree(b) ? "text-success-strong font-semibold" : "text-muted-foreground"}`}>
                       {formatCost(b)}
                     </td>
                     <td
