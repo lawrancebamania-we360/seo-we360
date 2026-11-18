@@ -41,7 +41,18 @@ export function CitationTable({ clusterId, items, members, currentUserId, canMan
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full min-w-[980px] text-sm">
+        {/* Fixed layout + explicit widths: long links and comments wrap inside
+            their own column instead of spilling into the next one. */}
+        <table className="w-full min-w-[1100px] table-fixed text-sm">
+          <colgroup>
+            <col className="w-[200px]" />
+            <col className="w-[96px]" />
+            <col className="w-[240px]" />
+            <col />
+            <col className="w-[110px]" />
+            <col className="w-[112px]" />
+            <col className="w-[72px]" />
+          </colgroup>
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
               <th className="px-3 py-2.5 font-semibold">Prompt</th>
@@ -61,19 +72,19 @@ export function CitationTable({ clusterId, items, members, currentUserId, canMan
               const link = toExternalUrl(r.redditLink);
               return (
                 <tr key={r.id} className="border-b border-border/60 align-top last:border-0 hover:bg-muted/20">
-                  <td className="max-w-[220px] px-3 py-2.5 font-medium text-foreground">{r.prompt}</td>
-                  <td className="px-3 py-2.5 text-[12.5px] text-muted-foreground">{r.source || "—"}</td>
-                  <td className="max-w-[200px] px-3 py-2.5">
+                  <td className="px-3 py-2.5 font-medium text-foreground [overflow-wrap:anywhere]">{r.prompt}</td>
+                  <td className="px-3 py-2.5 text-[12.5px] text-muted-foreground [overflow-wrap:anywhere]">{r.source || "—"}</td>
+                  <td className="px-3 py-2.5">
                     {link ? (
-                      <a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 truncate text-[12.5px] text-[#5B45E0] hover:underline dark:text-[#7B62FF]">
-                        <span className="truncate">{link.replace(/^https?:\/\/(www\.)?reddit\.com/i, "reddit.com")}</span><ExternalLink className="size-3 shrink-0" />
+                      <a href={link} target="_blank" rel="noopener noreferrer"
+                        className="text-[12.5px] leading-snug text-[#5B45E0] [overflow-wrap:anywhere] hover:underline dark:text-[#7B62FF]">
+                        {link.replace(/^https?:\/\/(www\.)?reddit\.com/i, "reddit.com")}
+                        <ExternalLink className="ml-1 inline size-3 align-[-1px]" />
                       </a>
                     ) : <span className="text-muted-foreground">—</span>}
                   </td>
-                  <td className="max-w-[320px] px-3 py-2.5">
-                    <div className="line-clamp-3 whitespace-pre-wrap text-[12.5px] text-muted-foreground" title={r.example ?? ""}>{r.example || "—"}</div>
-                  </td>
-                  <td className="px-3 py-2.5 text-[12.5px] text-muted-foreground">{r.ownerName ?? "—"}</td>
+                  <td className="px-3 py-2.5"><CommentCell text={r.example} /></td>
+                  <td className="px-3 py-2.5 text-[12.5px] text-muted-foreground [overflow-wrap:anywhere]">{r.ownerName ?? "—"}</td>
                   <td className="px-3 py-2.5"><PublishCell row={r} /></td>
                   <td className="px-3 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -96,6 +107,26 @@ export function CitationTable({ clusterId, items, members, currentUserId, canMan
           currentUserId={currentUserId}
           onClose={() => setEditing(null)}
         />
+      )}
+    </div>
+  );
+}
+
+// The comment, wrapped on multiple lines (URLs inside it break too). Long ones
+// show 4 lines with a Show more / Show less toggle.
+function CommentCell({ text }: { text: string | null }) {
+  const [open, setOpen] = useState(false);
+  if (!text) return <span className="text-[12.5px] text-muted-foreground">—</span>;
+  const long = text.length > 220 || text.split("\n").length > 4;
+  return (
+    <div>
+      <div className={cn("whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted-foreground [overflow-wrap:anywhere]", long && !open && "line-clamp-4")}>
+        {text}
+      </div>
+      {long && (
+        <button type="button" onClick={() => setOpen((v) => !v)} className="mt-0.5 text-[11.5px] font-medium text-[#5B45E0] hover:underline dark:text-[#7B62FF]">
+          {open ? "Show less" : "Show more"}
+        </button>
       )}
     </div>
   );
