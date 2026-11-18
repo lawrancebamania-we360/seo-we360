@@ -4,7 +4,7 @@ import { getTeamMembers } from "@/lib/data/tasks";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyProjectState } from "@/components/dashboard/empty-project";
 import { NewClusterButton } from "@/components/sections/blog-clusters/new-cluster-button";
-import { ExportKeywordsButton } from "@/components/sections/blog-clusters/export-keywords-button";
+import { ExportButton } from "@/components/sections/blog-clusters/export-button";
 import { ClusterList } from "@/components/sections/blog-clusters/cluster-list";
 
 export const metadata = { title: "Blog Clusters" };
@@ -25,7 +25,7 @@ export default async function BlogClustersPage() {
         description="Planned content grouped by topic — paste in a cluster from your planning sheet, then assign posts to writers to turn them into real Sprint tasks."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <ExportKeywordsButton />
+            <ExportButton href="/api/blog-clusters/export" label="Export all" />
             {ctx.canManageTeam && <NewClusterButton projectId={ctx.activeProject.id} />}
           </div>
         }

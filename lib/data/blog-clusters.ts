@@ -6,6 +6,7 @@ import { buildSitemapIndex, resolveSitemapUrl, toExternalUrl } from "@/lib/url";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
 import type { ContentKind, ClusterKind, PublishState } from "@/lib/content-pipeline/content-type";
 import type { ContentTool } from "@/lib/content-pipeline/tool";
+import type { ExportItem } from "@/lib/blog-clusters/export-rows";
 
 // A cluster's kind as a safe ClusterKind (defaults to blog for an unknown/empty value).
 const asClusterKind = (v: string | null | undefined): ClusterKind => (v === "guide" ? "guide" : "blog");
@@ -725,4 +726,49 @@ export async function getBlogClusterAnalytics(
     connected: true,
     items: out.sort((a, b) => (a.position || 999) - (b.position || 999)),
   };
+}
+
+// ============================================================================
+// Export: every cluster with its posts in the ExportItem shape (the detailed
+// planning columns), for the multi-tab workbook download. Clusters in creation
+// order; posts by position. Reads with the signed-in client (RLS scopes it).
+// ============================================================================
+
+export interface ClusterForExport { name: string; items: ExportItem[] }
+
+export async function getClustersForExport(projectId: string): Promise<ClusterForExport[]> {
+  const supabase = await createClient();
+  const { data: clustersData } = await supabase
+    .from("topic_clusters").select("id, cluster_name")
+    .eq("project_id", projectId).order("created_at", { ascending: true });
+  const clusters = (clustersData ?? []) as { id: string; cluster_name: string }[];
+  if (!clusters.length) return [];
+
+  const { data: itemsData } = await supabase
+    .from("topic_cluster_items")
+    .select("cluster_id, position, title, category, funnel_stage, content_type, target_keyword, vol_mo, serp_verdict, supporting_keywords, outline, faq_candidates, interlinks_to, interlinks_from, meta_description, url_slug, primary_cta")
+    .in("cluster_id", clusters.map((c) => c.id))
+    .order("position", { ascending: true });
+  type Row = {
+    cluster_id: string; title: string; category: string | null; funnel_stage: string | null;
+    content_type: string | null; target_keyword: string | null; vol_mo: number | null; serp_verdict: string | null;
+    supporting_keywords: { keyword: string; volume: number | null }[] | null; outline: string[] | null;
+    faq_candidates: string[] | null; interlinks_to: string[] | null; interlinks_from: string[] | null;
+    meta_description: string | null; url_slug: string | null; primary_cta: string | null;
+  };
+  const rows = (itemsData ?? []) as Row[];
+
+  const byCluster = new Map<string, ExportItem[]>();
+  for (const r of rows) {
+    const arr = byCluster.get(r.cluster_id) ?? [];
+    arr.push({
+      title: r.title, category: r.category, funnelStage: r.funnel_stage, contentType: r.content_type,
+      targetKeyword: r.target_keyword, volMo: r.vol_mo, serpVerdict: r.serp_verdict,
+      supportingKeywords: r.supporting_keywords ?? [], outline: r.outline ?? [], faqCandidates: r.faq_candidates ?? [],
+      interlinksTo: r.interlinks_to ?? [], interlinksFrom: r.interlinks_from ?? [],
+      metaDescription: r.meta_description, urlSlug: r.url_slug, primaryCta: r.primary_cta,
+    });
+    byCluster.set(r.cluster_id, arr);
+  }
+  return clusters.map((c) => ({ name: c.cluster_name, items: byCluster.get(c.id) ?? [] }));
 }
