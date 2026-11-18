@@ -21,14 +21,26 @@ import type { Member } from "@/components/sections/assignee-picker";
 
 export function ClusterList({ clusters, projectId, members, canManage }: { clusters: BlogClusterSummary[]; projectId: string; members: Member[]; canManage: boolean }) {
   const [filter, setFilter] = useState<ClusterKind | "all">("all");
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [q, setQ] = useState("");
 
   const present = useMemo(() => CLUSTER_KINDS.filter((k) => clusters.some((c) => c.kind === k)), [clusters]);
+  // Owners that actually own a cluster, for the owner filter dropdown.
+  const ownerOptions = useMemo(() => {
+    const ids = new Set(clusters.map((c) => c.ownerId).filter(Boolean) as string[]);
+    return members.filter((m) => ids.has(m.id)).sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+  }, [clusters, members]);
+  const hasUnassigned = useMemo(() => clusters.some((c) => !c.ownerId), [clusters]);
   // How many of a cluster's posts match the query (0 when the query is empty).
   const postMatches = (c: BlogClusterSummary) => (q.trim() ? c.posts.filter((p) => matchesQuery(q, p.title, p.keyword)).length : 0);
   // A cluster shows if its name matches OR any of its posts match - so searching
   // a post title surfaces the cluster that holds it.
-  const shown = clusters.filter((c) => (filter === "all" || c.kind === filter) && (matchesQuery(q, c.clusterName) || postMatches(c) > 0));
+  const shown = clusters.filter(
+    (c) =>
+      (filter === "all" || c.kind === filter) &&
+      (ownerFilter === "all" || (ownerFilter === "__none__" ? !c.ownerId : c.ownerId === ownerFilter)) &&
+      (matchesQuery(q, c.clusterName) || postMatches(c) > 0),
+  );
 
   if (clusters.length === 0) {
     return (
@@ -55,7 +67,21 @@ export function ClusterList({ clusters, projectId, members, canManage }: { clust
             ))}
           </div>
         ) : <div />}
-        <SearchBox value={q} onChange={setQ} placeholder="Search clusters or posts..." className="w-full sm:w-64" />
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={ownerFilter}
+            onChange={(e) => setOwnerFilter(e.target.value)}
+            aria-label="Filter by owner"
+            className="h-9 rounded-md border bg-background px-2 text-xs"
+          >
+            <option value="all">All owners</option>
+            {ownerOptions.map((m) => (
+              <option key={m.id} value={m.id}>{m.name ?? "Unnamed"}</option>
+            ))}
+            {hasUnassigned && <option value="__none__">Unassigned</option>}
+          </select>
+          <SearchBox value={q} onChange={setQ} placeholder="Search clusters or posts..." className="w-full sm:w-64" />
+        </div>
       </div>
 
       {shown.length === 0 ? (
