@@ -10,6 +10,7 @@ import { BlogClusterTable } from "@/components/sections/blog-clusters/blog-clust
 import { DeleteClusterButton } from "@/components/sections/blog-clusters/delete-cluster-button";
 import { AddClusterPostButton } from "@/components/sections/blog-clusters/add-cluster-post-button";
 import { ClusterOwner } from "@/components/sections/blog-clusters/cluster-owner";
+import { ExportButton } from "@/components/sections/blog-clusters/export-button";
 import { ClusterKindBadge, ClusterKindSelect } from "@/components/sections/content-pipeline/item-controls";
 
 export default async function BlogClusterDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -36,6 +37,7 @@ export default async function BlogClusterDetailPage({ params }: { params: Promis
             {ctx.canManageTeam
               ? <ClusterKindSelect projectId={ctx.activeProject.id} clusterId={cluster.id} kind={cluster.kind} />
               : <ClusterKindBadge kind={cluster.kind} />}
+            <ExportButton href={`/api/blog-clusters/${cluster.id}/export`} />
             {ctx.canManageTeam && <AddClusterPostButton projectId={ctx.activeProject.id} clusterId={cluster.id} />}
             {ctx.canManageTeam && <DeleteClusterButton projectId={ctx.activeProject.id} clusterId={cluster.id} clusterName={cluster.clusterName} />}
           </div>
