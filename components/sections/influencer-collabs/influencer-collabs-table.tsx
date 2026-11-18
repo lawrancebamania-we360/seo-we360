@@ -18,6 +18,8 @@ import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import { toExternalUrl } from "@/lib/url";
 import { InfluencerCollabActions } from "@/components/sections/influencer-collabs/influencer-collab-actions";
 import type { InfluencerCollabRow } from "@/lib/data/influencer-collabs";
+import type { InfluencerAttribution } from "@/lib/data/influencer-attribution";
+import type { PostAttribution } from "@/lib/influencer/attribution";
 import type { Member } from "@/components/sections/assignee-picker";
 
 type SortKey = "influencerName" | "platform" | "closingDate" | "postDate" | "assigneeName";
@@ -58,11 +60,13 @@ function compareNullableStr(a: string | null, b: string | null, dir: number): nu
   if (b == null) return -1;
   return a.localeCompare(b) * dir;
 }
-export function InfluencerCollabsTable({ collabs, projectId, members, canManage }: {
+export function InfluencerCollabsTable({ collabs, projectId, members, canManage, attribution = null }: {
   collabs: InfluencerCollabRow[];
   projectId: string;
   members: Member[];
   canManage: boolean;
+  /** GA4 visits / demos per post; null while it streams in. */
+  attribution?: InfluencerAttribution | null;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("postDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -115,6 +119,7 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-end gap-2">
+        <InfluencerTotal attribution={attribution} />
         <RefreshButton projectId={projectId} />
         <SearchBox value={q} onChange={setQ} placeholder="Search influencers, platform..." className="w-full sm:w-72" />
       </div>
@@ -145,6 +150,8 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
             ))}
             <th className="px-3 py-2.5 text-right font-semibold">Cost</th>
             <th className="px-3 py-2.5 text-left font-semibold">Engagement</th>
+            <th className="px-3 py-2.5 text-right font-semibold" title="Website visits in the first 30 days after the post">Visits · 30d</th>
+            <th className="px-3 py-2.5 text-right font-semibold" title="Demo bookings in the first 30 days after the post">Demos · 30d</th>
             <th className="px-3 py-2.5 text-left font-semibold">Profile link</th>
             <th className="px-3 py-2.5 text-left font-semibold">Post link</th>
           </tr>
@@ -167,6 +174,8 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
               <td className="px-3 py-2.5">
                 <EngagementCell c={c} onOpen={() => setTracking(c)} />
               </td>
+              <td className="px-3 py-2.5 text-right"><AttrCell c={c} attribution={attribution} kind="visits" /></td>
+              <td className="px-3 py-2.5 text-right"><AttrCell c={c} attribution={attribution} kind="demos" /></td>
               <td className="px-3 py-2.5">
                 <LinkCell href={c.profileLink} label="Profile" title="Open the influencer's profile" />
               </td>
@@ -241,5 +250,62 @@ function EngagementCell({ c, onOpen }: { c: InfluencerCollabRow; onOpen: () => v
         <span className="text-[12px] text-muted-foreground group-hover/eng:text-foreground">Pending · add</span>
       )}
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GA4 attribution cells
+// ---------------------------------------------------------------------------
+
+function explain(a: PostAttribution, kind: "visits" | "demos"): string {
+  const what = kind === "visits" ? "visits" : "demo bookings";
+  const lines = [`First 30 days, counted to ${a.windowEnd}.`];
+  if (a.utmContent) lines.push(`Exact: ${what} through the UTM link (utm_content=${a.utmContent}).`);
+  if (a.estPath) lines.push(`Estimate: LinkedIn ${what} landing on ${a.estPath} in this post's window, minus that page's usual LinkedIn traffic. A later post to the same page takes over from its post date.`);
+  if (!a.utmContent && !a.estPath) lines.push("No we360.ai link found for this post yet — open Engagement to add one.");
+  return lines.join("\n");
+}
+
+function AttrCell({ c, attribution, kind }: { c: InfluencerCollabRow; attribution: InfluencerAttribution | null; kind: "visits" | "demos" }) {
+  if (c.platform !== "LinkedIn") return <span className="text-muted-foreground">—</span>;
+  if (!attribution) return <span className="text-muted-foreground">…</span>;
+  if (!attribution.ready) return <span className="text-muted-foreground" title={attribution.reason ?? "Google Analytics isn't reachable here."}>—</span>;
+  const a = attribution.byPost[c.id];
+  if (!a) return <span className="text-muted-foreground" title="Not posted yet">—</span>;
+  const exact = kind === "visits" ? a.visitsExact : a.demosExact;
+  const est = kind === "visits" ? a.visitsEst : a.demosEst;
+  if (!a.utmContent && !a.estPath) return <span className="text-muted-foreground" title={explain(a, kind)}>?</span>;
+  return (
+    <span className="font-mono text-[12.5px] tabular-nums text-foreground" title={explain(a, kind)}>
+      {a.utmContent ? exact.toLocaleString() : null}
+      {a.estPath && (
+        <span className="text-muted-foreground">{a.utmContent ? " +" : "≈"}{est.toLocaleString()}<span className="ml-0.5 text-[10px]">est.</span></span>
+      )}
+    </span>
+  );
+}
+
+function InfluencerTotal({ attribution }: { attribution: InfluencerAttribution | null }) {
+  if (!attribution) {
+    return <span className="text-[12px] text-muted-foreground">Influencer total · loading…</span>;
+  }
+  if (!attribution.ready || !attribution.totals) {
+    return (
+      <span className="text-[12px] text-muted-foreground" title={attribution.reason ?? undefined}>
+        Influencer total · {attribution.ready ? "no LinkedIn posts yet" : "needs Google Analytics"}
+      </span>
+    );
+  }
+  const t = attribution.totals;
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2.5 py-1 text-[12px] text-muted-foreground"
+      title={`Since ${t.from}: every visit / demo through an influencer UTM link (including ones that match no post) plus the estimated LinkedIn traffic from posts without one.`}
+    >
+      <span className="font-semibold text-foreground">Influencer total</span>
+      <span className="font-mono tabular-nums text-foreground">{t.visits.toLocaleString()}</span> visits ·
+      <span className="font-mono tabular-nums text-foreground">{t.demos.toLocaleString()}</span> demos
+      {(t.visitsEst > 0 || t.demosEst > 0) && <span>(incl. ≈{t.visitsEst.toLocaleString()} / ≈{t.demosEst.toLocaleString()} est.)</span>}
+    </span>
   );
 }

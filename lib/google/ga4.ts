@@ -1243,3 +1243,89 @@ export async function getGa4ContentDemoFunnel(
     return { ...empty, reason: e instanceof Error ? e.message : "GA4 request failed" };
   }
 }
+
+// ============================================================================
+// Influencer posts: LinkedIn + influencer-UTM sessions and demo bookings by day,
+// source, medium, campaign, utm_content and landing page - the raw input for
+// per-post attribution (lib/influencer/attribution.ts). Two reports over one
+// window: every matching session, and the subset that reached a next-steps
+// page (a demo booking - same definition and test exclusions as the Analytics
+// demo panel).
+// ============================================================================
+
+export interface Ga4InfluencerRow {
+  date: string;          // YYYY-MM-DD (property timezone)
+  source: string;
+  medium: string;
+  campaign: string;
+  content: string;       // utm_content ("(not set)" when absent)
+  landingPage: string;   // path, no query string
+  sessions: number;
+}
+
+const LINKEDIN_OR_INFLUENCER = {
+  orGroup: {
+    expressions: [
+      { filter: { fieldName: "sessionSource", stringFilter: { matchType: "CONTAINS", value: "linkedin", caseSensitive: false } } },
+      { filter: { fieldName: "sessionSource", stringFilter: { matchType: "CONTAINS", value: "lnkd", caseSensitive: false } } },
+      { filter: { fieldName: "sessionMedium", stringFilter: { matchType: "EXACT", value: "influencer", caseSensitive: false } } },
+    ],
+  },
+};
+
+export async function getGa4InfluencerRows(
+  propertyId: string | null,
+  range: { start: string; end: string },
+): Promise<{ connected: boolean; reason?: string; visits: Ga4InfluencerRow[]; demos: Ga4InfluencerRow[] }> {
+  const empty = { connected: false, visits: [] as Ga4InfluencerRow[], demos: [] as Ga4InfluencerRow[] };
+  if (!propertyId) return { ...empty, reason: "No GA4 property ID on this project." };
+  if (!(await isGoogleServiceAccountConfigured())) return { ...empty, reason: "GA4 not connected." };
+  let token: string;
+  try { token = await getGoogleAccessToken(SCOPE); }
+  catch (e) { return { ...empty, reason: e instanceof Error ? e.message : "GA4 auth failed" }; }
+
+  const report = async (dimensionFilter: object): Promise<Ga4InfluencerRow[]> => {
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: range.start, endDate: range.end }],
+          dimensions: [
+            { name: "date" }, { name: "sessionSource" }, { name: "sessionMedium" },
+            { name: "sessionCampaignName" }, { name: "sessionManualAdContent" }, { name: "landingPage" },
+          ],
+          metrics: [{ name: "sessions" }],
+          dimensionFilter,
+          limit: 25000,
+        }),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    if (!res.ok) throw new Error(`GA4 influencer report failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+    const data = (await res.json()) as { rows?: RunReportRow[] };
+    return (data.rows ?? []).map((r) => {
+      const d = r.dimensionValues[0]?.value ?? "";
+      return {
+        date: d.length === 8 ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : d,
+        source: r.dimensionValues[1]?.value ?? "",
+        medium: r.dimensionValues[2]?.value ?? "",
+        campaign: r.dimensionValues[3]?.value ?? "",
+        content: r.dimensionValues[4]?.value ?? "",
+        landingPage: r.dimensionValues[5]?.value ?? "",
+        sessions: parseInt(r.metricValues[0]?.value ?? "0", 10) || 0,
+      };
+    });
+  };
+
+  try {
+    const [visits, demos] = await Promise.all([
+      report(LINKEDIN_OR_INFLUENCER),
+      report(bookingFilter([LINKEDIN_OR_INFLUENCER])),
+    ]);
+    return { connected: true, visits, demos };
+  } catch (e) {
+    return { ...empty, reason: e instanceof Error ? e.message : "GA4 request failed" };
+  }
+}
