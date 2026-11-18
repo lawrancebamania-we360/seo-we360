@@ -1329,3 +1329,66 @@ export async function getGa4InfluencerRows(
     return { ...empty, reason: e instanceof Error ? e.message : "GA4 request failed" };
   }
 }
+
+export interface Ga4InfluencerBookingRow {
+  time: string;          // "YYYY-MM-DD HH:MM" in the property timezone
+  source: string;
+  medium: string;
+  content: string;
+  landingPage: string;
+  device: string;
+  location: string;
+}
+
+// The same LinkedIn / influencer-UTM demo bookings as getGa4InfluencerRows, by
+// the MINUTE, so each can be matched to the HubSpot deal created within 15 min
+// (lib/analytics/organic-deals.ts) - deals per influencer post.
+export async function getGa4InfluencerBookingRows(
+  propertyId: string | null,
+  range: { start: string; end: string },
+): Promise<{ ok: boolean; reason?: string; rows: Ga4InfluencerBookingRow[] }> {
+  if (!propertyId) return { ok: false, reason: "No GA4 property ID on this project.", rows: [] };
+  if (!(await isGoogleServiceAccountConfigured())) return { ok: false, reason: "GA4 not connected.", rows: [] };
+  let token: string;
+  try { token = await getGoogleAccessToken(SCOPE); }
+  catch (e) { return { ok: false, reason: e instanceof Error ? e.message : "GA4 auth failed", rows: [] }; }
+  try {
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: range.start, endDate: range.end }],
+          dimensions: [
+            { name: "dateHourMinute" }, { name: "sessionSource" }, { name: "sessionMedium" },
+            { name: "sessionManualAdContent" }, { name: "landingPage" }, { name: "deviceCategory" }, { name: "city" },
+          ],
+          metrics: [{ name: "sessions" }],
+          dimensionFilter: bookingFilter([LINKEDIN_OR_INFLUENCER]),
+          limit: 5000,
+        }),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    if (!res.ok) return { ok: false, reason: `GA4 influencer bookings failed (${res.status}): ${(await res.text()).slice(0, 160)}`, rows: [] };
+    const data = (await res.json()) as { rows?: RunReportRow[] };
+    return {
+      ok: true,
+      rows: (data.rows ?? []).map((r) => {
+        const raw = r.dimensionValues[0]?.value ?? "";
+        return {
+          time: raw.length === 12 ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)} ${raw.slice(8, 10)}:${raw.slice(10, 12)}` : raw,
+          source: r.dimensionValues[1]?.value ?? "",
+          medium: r.dimensionValues[2]?.value ?? "",
+          content: r.dimensionValues[3]?.value ?? "",
+          landingPage: r.dimensionValues[4]?.value ?? "",
+          device: r.dimensionValues[5]?.value ?? "",
+          location: r.dimensionValues[6]?.value ?? "",
+        };
+      }),
+    };
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : "GA4 request failed", rows: [] };
+  }
+}

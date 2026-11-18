@@ -152,6 +152,7 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage,
             <th className="px-3 py-2.5 text-left font-semibold">Engagement</th>
             <th className="px-3 py-2.5 text-right font-semibold" title="Website visits in the first 30 days after the post">Visits · 30d</th>
             <th className="px-3 py-2.5 text-right font-semibold" title="Demo bookings in the first 30 days after the post">Demos · 30d</th>
+            <th className="px-3 py-2.5 text-right font-semibold" title="HubSpot deals created within 15 minutes of those demo bookings">Deals · 30d</th>
             <th className="px-3 py-2.5 text-left font-semibold">Profile link</th>
             <th className="px-3 py-2.5 text-left font-semibold">Post link</th>
           </tr>
@@ -176,6 +177,7 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage,
               </td>
               <td className="px-3 py-2.5 text-right"><AttrCell c={c} attribution={attribution} kind="visits" /></td>
               <td className="px-3 py-2.5 text-right"><AttrCell c={c} attribution={attribution} kind="demos" /></td>
+              <td className="px-3 py-2.5 text-right"><AttrCell c={c} attribution={attribution} kind="deals" /></td>
               <td className="px-3 py-2.5">
                 <LinkCell href={c.profileLink} label="Profile" title="Open the influencer's profile" />
               </td>
@@ -257,8 +259,10 @@ function EngagementCell({ c, onOpen }: { c: InfluencerCollabRow; onOpen: () => v
 // GA4 attribution cells
 // ---------------------------------------------------------------------------
 
-function explain(a: PostAttribution, kind: "visits" | "demos"): string {
-  const what = kind === "visits" ? "visits" : "demo bookings";
+type AttrKind = "visits" | "demos" | "deals";
+
+function explain(a: PostAttribution, kind: AttrKind): string {
+  const what = kind === "visits" ? "visits" : kind === "demos" ? "demo bookings" : "deals (a HubSpot deal created within 15 min of the booking)";
   const lines = [`First 30 days, counted to ${a.windowEnd}.`];
   if (a.utmContent) lines.push(`Exact: ${what} through the UTM link (utm_content=${a.utmContent}).`);
   if (a.estPath) lines.push(`Estimate: LinkedIn ${what} landing on ${a.estPath} in this post's window, minus that page's usual LinkedIn traffic. A later post to the same page takes over from its post date.`);
@@ -266,14 +270,15 @@ function explain(a: PostAttribution, kind: "visits" | "demos"): string {
   return lines.join("\n");
 }
 
-function AttrCell({ c, attribution, kind }: { c: InfluencerCollabRow; attribution: InfluencerAttribution | null; kind: "visits" | "demos" }) {
+function AttrCell({ c, attribution, kind }: { c: InfluencerCollabRow; attribution: InfluencerAttribution | null; kind: AttrKind }) {
   if (c.platform !== "LinkedIn") return <span className="text-muted-foreground">—</span>;
   if (!attribution) return <span className="text-muted-foreground">…</span>;
   if (!attribution.ready) return <span className="text-muted-foreground" title={attribution.reason ?? "Google Analytics isn't reachable here."}>—</span>;
   const a = attribution.byPost[c.id];
   if (!a) return <span className="text-muted-foreground" title="Not posted yet">—</span>;
-  const exact = kind === "visits" ? a.visitsExact : a.demosExact;
-  const est = kind === "visits" ? a.visitsEst : a.demosEst;
+  if (kind === "deals" && !attribution.dealsReady) return <span className="text-muted-foreground" title="HubSpot isn't reachable, so deals can't be matched.">—</span>;
+  const exact = kind === "visits" ? a.visitsExact : kind === "demos" ? a.demosExact : a.dealsExact;
+  const est = kind === "visits" ? a.visitsEst : kind === "demos" ? a.demosEst : a.dealsEst;
   if (!a.utmContent && !a.estPath) return <span className="text-muted-foreground" title={explain(a, kind)}>?</span>;
   return (
     <span className="font-mono text-[12.5px] tabular-nums text-foreground" title={explain(a, kind)}>
@@ -305,7 +310,8 @@ function InfluencerTotal({ attribution }: { attribution: InfluencerAttribution |
       <span className="font-semibold text-foreground">Influencer total</span>
       <span className="font-mono tabular-nums text-foreground">{t.visits.toLocaleString()}</span> visits ·
       <span className="font-mono tabular-nums text-foreground">{t.demos.toLocaleString()}</span> demos
-      {(t.visitsEst > 0 || t.demosEst > 0) && <span>(incl. ≈{t.visitsEst.toLocaleString()} / ≈{t.demosEst.toLocaleString()} est.)</span>}
+      {attribution.dealsReady && <> · <span className="font-mono tabular-nums text-foreground">{t.deals.toLocaleString()}</span> deals</>}
+      {(t.visitsEst > 0 || t.demosEst > 0) && <span>(incl. ≈{t.visitsEst.toLocaleString()} visits / ≈{t.demosEst.toLocaleString()} demos est.)</span>}
     </span>
   );
 }

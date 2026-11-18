@@ -27,6 +27,8 @@ export interface AttributionPost {
   commentLink: string | null;
 }
 export interface PostAttribution {
+  postDate: string;
+  exactEnd: string;                 // last day UTM traffic counts (30 days / today)
   utmContent: string | null;        // the exact key, when there is one
   estPath: string | null;           // the landing page estimated from, when there is one
   windowEnd: string;                // last day counted (inclusive)
@@ -34,8 +36,11 @@ export interface PostAttribution {
   visitsEst: number;
   demosExact: number;
   demosEst: number;
+  demosEstRaw: number;              // LinkedIn demos in the estimate window before the baseline is taken off
+  dealsExact: number;               // filled in by the data layer (HubSpot match)
+  dealsEst: number;
 }
-export interface AttributionTotals { visits: number; demos: number; visitsEst: number; demosEst: number; from: string; to: string }
+export interface AttributionTotals { visits: number; demos: number; deals: number; visitsEst: number; demosEst: number; dealsEst: number; from: string; to: string }
 
 const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const minDate = (...ds: string[]) => ds.reduce((a, b) => (b < a ? b : a));
@@ -93,7 +98,7 @@ export function attributeInfluencerPosts(
     const visitsExact = p.utmContent ? sum(visits, exactPred, p.postDate, last30) : 0;
     const demosExact = p.utmContent ? sum(demos, exactPred, p.postDate, last30) : 0;
 
-    let visitsEst = 0, demosEst = 0;
+    let visitsEst = 0, demosEst = 0, demosEstRaw = 0;
     if (p.estPath && windowEnd >= p.postDate) {
       const pool = (r: AttributionRow) => !isInfluencerUtm(r) && isLinkedIn(r) && normPath(r.landingPage) === p.estPath;
       const days = Math.round((Date.parse(`${windowEnd}T00:00:00Z`) - Date.parse(`${p.postDate}T00:00:00Z`)) / 86_400_000) + 1;
@@ -105,9 +110,13 @@ export function attributeInfluencerPosts(
       };
       visitsEst = lift(visits);
       demosEst = lift(demos);
+      demosEstRaw = sum(demos, pool, p.postDate, windowEnd);
     }
 
-    byPost[p.id] = { utmContent: p.utmContent, estPath: p.estPath, windowEnd, visitsExact, visitsEst, demosExact, demosEst };
+    byPost[p.id] = {
+      postDate: p.postDate, exactEnd: last30, utmContent: p.utmContent, estPath: p.estPath, windowEnd,
+      visitsExact, visitsEst, demosExact, demosEst, demosEstRaw, dealsExact: 0, dealsEst: 0,
+    };
   }
 
   // Influencer total: every influencer-UTM session from the first post on (the
@@ -121,7 +130,37 @@ export function attributeInfluencerPosts(
     totals: {
       visits: sum(visits, isInfluencerUtm, from, today) + visitsEst,
       demos: sum(demos, isInfluencerUtm, from, today) + demosEst,
+      deals: 0, dealsEst: 0, // filled in by the data layer (HubSpot match)
       visitsEst, demosEst, from, to: today,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Deals: label each minute-level demo booking with the post it belongs to, so
+// the shared HubSpot matcher (lib/analytics/organic-deals.ts) counts matched
+// deals per post. Channel labels: "<id>|exact", "<id>|est", "bucket|exact"
+// (an influencer-UTM booking that matches no post).
+// ---------------------------------------------------------------------------
+
+export interface BookingMinuteRow { time: string; source: string; medium: string; content: string; landingPage: string; device: string; location: string }
+
+export function labelBookings(byPost: Record<string, PostAttribution>, rows: BookingMinuteRow[]): { channel: string; time: string; landingPage: string; device: string; location: string }[] {
+  const posts = Object.entries(byPost);
+  const out: { channel: string; time: string; landingPage: string; device: string; location: string }[] = [];
+  for (const r of rows) {
+    const date = r.time.slice(0, 10);
+    let label: string | null = null;
+    if (r.medium.trim().toLowerCase() === "influencer") {
+      const c = r.content.trim().toLowerCase();
+      const hit = posts.find(([, a]) => a.utmContent === c && date >= a.postDate && date <= a.exactEnd);
+      label = hit ? `${hit[0]}|exact` : "bucket|exact";
+    } else if (/linkedin|lnkd/i.test(r.source)) {
+      const p = normPath(r.landingPage);
+      const hit = posts.find(([, a]) => a.estPath === p && date >= a.postDate && date <= a.windowEnd);
+      if (hit) label = `${hit[0]}|est`;
+    }
+    if (label) out.push({ channel: label, time: r.time, landingPage: r.landingPage, device: r.device, location: r.location });
+  }
+  return out;
 }
