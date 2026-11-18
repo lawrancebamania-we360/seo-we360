@@ -35,6 +35,16 @@ function formatCost(c: Pick<InfluencerCollabRow, "isFree" | "amountPaid" | "curr
   return `${CURRENCY_SYMBOL[c.currency] ?? ""}${c.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function LinkCell({ href, label, title }: { href: string | null; label: string; title: string }) {
+  if (!href) return <span className="text-muted-foreground">—</span>;
+  return (
+    <a href={toExternalUrl(href)} target="_blank" rel="noopener noreferrer" title={title}
+      className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline">
+      {label} <ExternalLink className="size-3" />
+    </a>
+  );
+}
+
 // Nulls always sort last, regardless of direction - `dir` only flips the
 // ordering between two real values.
 function compareNullableStr(a: string | null, b: string | null, dir: number): number {
@@ -127,7 +137,8 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
               </th>
             ))}
             <th className="px-3 py-2.5 text-right font-semibold">Cost</th>
-            <th className="px-3 py-2.5 text-left font-semibold">Links</th>
+            <th className="px-3 py-2.5 text-left font-semibold">Profile link</th>
+            <th className="px-3 py-2.5 text-left font-semibold">Post link</th>
           </tr>
         </thead>
         <tbody>
@@ -146,16 +157,10 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage 
                 {formatCost(c)}
               </td>
               <td className="px-3 py-2.5">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <a href={toExternalUrl(c.profileLink)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline hover:text-foreground" title="Open profile">
-                    Profile <ExternalLink className="size-3" />
-                  </a>
-                  {c.postLink && (
-                    <a href={toExternalUrl(c.postLink)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline hover:text-foreground" title="Open post">
-                      Post <ExternalLink className="size-3" />
-                    </a>
-                  )}
-                </div>
+                <LinkCell href={c.profileLink} label="Profile" title="Open the influencer's profile" />
+              </td>
+              <td className="px-3 py-2.5">
+                <LinkCell href={c.postLink} label="Post" title="Open the LinkedIn post" />
               </td>
             </tr>
           ))}
