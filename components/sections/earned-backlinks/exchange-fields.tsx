@@ -72,7 +72,7 @@ export function ExchangeFields({ values, onChange, idPrefix }: {
   onChange: (patch: Partial<ExchangeFieldValues>) => void;
   idPrefix: string;
 }) {
-  const hasGiven = !!(values.givenUrl || values.givenAnchorText || values.givenAnchorTarget || values.givenDomainRating || values.givenSpamScore || values.givenDate);
+  const hasGiven = !!(values.givenUrl || values.givenAnchorText || values.givenAnchorTarget || values.givenDate);
   const showGiven = values.linkType === "Link exchange" || hasGiven;
 
   return (
@@ -126,20 +126,12 @@ export function ExchangeFields({ values, onChange, idPrefix }: {
                 onChange={(e) => onChange({ givenAnchorTarget: e.target.value })} placeholder="partner.com/page" className="h-9" />
             </Field>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Their DR">
-              <Input id={`${idPrefix}-given-dr`} type="number" min={0} max={100} value={values.givenDomainRating}
-                onChange={(e) => onChange({ givenDomainRating: e.target.value })} placeholder="0-100" className="h-9" />
-            </Field>
-            <Field label="Their spam %">
-              <Input id={`${idPrefix}-given-spam`} type="number" min={0} max={100} step="0.01" value={values.givenSpamScore}
-                onChange={(e) => onChange({ givenSpamScore: e.target.value })} placeholder="0-100" className="h-9" />
-            </Field>
-            <Field label="Date gave">
-              <Input id={`${idPrefix}-given-date`} type="date" value={values.givenDate}
-                onChange={(e) => onChange({ givenDate: e.target.value })} className="h-9" />
-            </Field>
-          </div>
+          {/* Their DR + spam describe the partner site — captured once via the
+              row's DR and the "Spam %" above, so they're not re-entered here. */}
+          <Field label="Date gave">
+            <Input id={`${idPrefix}-given-date`} type="date" value={values.givenDate}
+              onChange={(e) => onChange({ givenDate: e.target.value })} className="h-9 w-full sm:w-48" />
+          </Field>
         </>
       )}
     </div>

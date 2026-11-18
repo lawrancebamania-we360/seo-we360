@@ -41,6 +41,35 @@ function formatCost(b: Pick<EarnedBacklinkRow, "isFree" | "amountPaid" | "curren
   return `${CURRENCY_SYMBOL[b.currency] ?? ""}${b.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+// Cost filter. Paid amounts mix USD + INR, so dollar buckets are evaluated on a
+// USD-equivalent (INR converted at the same fixed rate the Executive dashboard
+// uses) so "$50-150" means the same thing across both currencies.
+type CostBucket = "all" | "free" | "paid" | "0-50" | "50-150" | "150+";
+const COST_BUCKETS: { key: CostBucket; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "free", label: "Free" },
+  { key: "paid", label: "Paid" },
+  { key: "0-50", label: "$1–50" },
+  { key: "50-150", label: "$50–150" },
+  { key: "150+", label: "$150+" },
+];
+const USD_PER_INR = 0.012;
+function usdAmount(b: EarnedBacklinkRow): number | null {
+  if (b.amountPaid == null) return null;
+  return b.currency === "INR" ? b.amountPaid * USD_PER_INR : b.amountPaid;
+}
+function matchesCost(b: EarnedBacklinkRow, bucket: CostBucket): boolean {
+  if (bucket === "all") return true;
+  if (bucket === "free") return b.isFree;
+  const usd = usdAmount(b);
+  const isPaid = !b.isFree && usd != null && usd > 0;
+  if (bucket === "paid") return isPaid;
+  if (!isPaid || usd == null) return false;
+  if (bucket === "0-50") return usd <= 50;
+  if (bucket === "50-150") return usd > 50 && usd <= 150;
+  return usd > 150; // "150+"
+}
+
 // Nulls always sort last, regardless of direction - `dir` only flips the
 // ordering between two real values.
 function compareNullableStr(a: string | null, b: string | null, dir: number): number {
@@ -58,7 +87,7 @@ function compareNullableNum(a: number | null, b: number | null, dir: number): nu
 
 function rowHasDetail(b: EarnedBacklinkRow): boolean {
   return !!(b.anchorText || b.anchorTarget || b.spamScore != null || b.contactEmail ||
-    b.givenUrl || b.givenAnchorText || b.givenAnchorTarget || b.givenDomainRating != null || b.givenSpamScore != null || b.givenDate);
+    b.givenUrl || b.givenAnchorText || b.givenAnchorTarget || b.givenDate);
 }
 
 export function EarnedBacklinksTable({ websites, projectId, members, canManage, exchangeReady }: {
@@ -71,7 +100,21 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
   const [sortKey, setSortKey] = useState<SortKey>("acquiredDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
+  const [costFilter, setCostFilter] = useState<CostBucket>("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const toggleRow = (id: string) => setOpenRows((p) => ({ ...p, [id]: !p[id] }));
+
+  // Assignees that actually have a backlink, for the assignee dropdown.
+  const assigneeOptions = useMemo(() => {
+    const ids = new Set(websites.map((b) => b.assignedTo).filter(Boolean) as string[]);
+    return members.filter((m) => ids.has(m.id)).sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+  }, [websites, members]);
+  const hasUnassigned = useMemo(() => websites.some((b) => !b.assignedTo), [websites]);
+  const costCounts = useMemo(() => {
+    const out = {} as Record<CostBucket, number>;
+    for (const { key } of COST_BUCKETS) out[key] = websites.filter((b) => matchesCost(b, key)).length;
+    return out;
+  }, [websites]);
 
   const columns = useMemo<Col[]>(
     () => (exchangeReady ? [WEBSITE_COL, TYPE_COL, ...REST_COLS] : [WEBSITE_COL, ...REST_COLS]),
@@ -110,6 +153,17 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
     return copy;
   }, [websites, sortKey, sortDir]);
 
+  const visible = useMemo(
+    () =>
+      sorted.filter(
+        (b) =>
+          matchesCost(b, costFilter) &&
+          (assigneeFilter === "all" ||
+            (assigneeFilter === "__none__" ? !b.assignedTo : b.assignedTo === assigneeFilter)),
+      ),
+    [sorted, costFilter, assigneeFilter],
+  );
+
   const toggleSort = (col: Col) => {
     if (sortKey === col.key) { setSortDir((d) => (d === "asc" ? "desc" : "asc")); return; }
     setSortKey(col.key);
@@ -131,6 +185,28 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
           Apply migration <span className="font-mono">20261029000001</span> in Supabase to capture link-exchange details — type, spam score, anchor text/target, contact email, and the reciprocal link you gave back.
         </p>
       )}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {COST_BUCKETS.map((bucket) => (
+            <FilterChip key={bucket.key} active={costFilter === bucket.key} onClick={() => setCostFilter(bucket.key)}>
+              {bucket.label} <span className="tabular-nums opacity-60">{costCounts[bucket.key]}</span>
+            </FilterChip>
+          ))}
+        </div>
+        <select
+          value={assigneeFilter}
+          onChange={(e) => setAssigneeFilter(e.target.value)}
+          aria-label="Filter by assignee"
+          className="ml-auto h-8 rounded-md border bg-background px-2 text-xs"
+        >
+          <option value="all">All assignees</option>
+          {assigneeOptions.map((m) => (
+            <option key={m.id} value={m.id}>{m.name ?? "Unnamed"}</option>
+          ))}
+          {hasUnassigned && <option value="__none__">Unassigned</option>}
+        </select>
+      </div>
+
       <div className="overflow-x-auto rounded-xl border border-border">
         <table className="w-full text-sm">
           <thead>
@@ -156,7 +232,14 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
             </tr>
           </thead>
           <tbody>
-            {sorted.map((b) => {
+            {visible.length === 0 && (
+              <tr>
+                <td colSpan={totalCols} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                  No backlinks match these filters.
+                </td>
+              </tr>
+            )}
+            {visible.map((b) => {
               const canExpand = exchangeReady && rowHasDetail(b);
               const open = !!openRows[b.id];
               return (
@@ -219,7 +302,7 @@ export function EarnedBacklinksTable({ websites, projectId, members, canManage, 
 }
 
 function RowDetail({ b }: { b: EarnedBacklinkRow }) {
-  const hasGiven = !!(b.givenUrl || b.givenAnchorText || b.givenAnchorTarget || b.givenDomainRating != null || b.givenSpamScore != null || b.givenDate);
+  const hasGiven = !!(b.givenUrl || b.givenAnchorText || b.givenAnchorTarget || b.givenDate);
   return (
     <div className="ml-6 grid gap-3 rounded-lg border border-border bg-background p-3.5 sm:grid-cols-2">
       <div className="space-y-1.5">
@@ -237,8 +320,11 @@ function RowDetail({ b }: { b: EarnedBacklinkRow }) {
             <Detail label="Our page" value={b.givenUrl} link />
             <Detail label="Anchor text" value={b.givenAnchorText} />
             <Detail label="Anchor target" value={b.givenAnchorTarget} link />
-            <Detail label="Their DR" value={b.givenDomainRating == null ? null : String(b.givenDomainRating)} />
-            <Detail label="Their spam" value={b.givenSpamScore == null ? null : `${b.givenSpamScore}%`} />
+            {/* Their DR / spam describe the partner site — reuse the DR entered
+                on the row and the single spam value, instead of asking for them
+                a second time in the exchange form. */}
+            <Detail label="Their DR" value={b.domainRating == null ? null : String(b.domainRating)} />
+            <Detail label="Their spam" value={b.spamScore == null ? null : `${b.spamScore}%`} />
             <Detail label="Date gave" value={b.givenDate} />
           </>
         ) : (
@@ -246,6 +332,21 @@ function RowDetail({ b }: { b: EarnedBacklinkRow }) {
         )}
       </div>
     </div>
+  );
+}
+
+function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button" onClick={onClick} aria-pressed={active}
+      className={`cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+        active
+          ? "border-[#5B45E0]/40 bg-[#5B45E0]/10 text-[#5B45E0] dark:text-[#7B62FF]"
+          : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
