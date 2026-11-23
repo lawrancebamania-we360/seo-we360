@@ -5,52 +5,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTable } from "@/lib/team-targets/db";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
-import { lastSegment, titleFromQuery } from "@/lib/blog-clusters/query-match";
+import { resolveRankingPages } from "@/lib/blog-clusters/page-names";
 import { diagnose, estimateGain, suggestedUseOptions, usagesFromLegacy } from "@/lib/blog-clusters/query-insights";
 import {
   USE_OPTIONS,
   type AssignedBy, type ClusterGscData, type ClusterGscQuery, type ClusterGscRefreshInfo, type QueryAction, type QueryDrafts,
-  type QueryStatus, type QueryUsage, type QueryUseOption, type RankingPageInfo,
+  type PageScan, type QuerySerp, type QueryStatus, type QueryUsage, type QueryUseOption, type TargetPageScan,
 } from "@/lib/types/cluster-gsc";
 
 type Db = Awaited<ReturnType<typeof createClient>>;
-
-/**
- * Name the pages queries already rank on: match each URL (by its last path
- * segment) to one of our Blog Clusters posts, else a published Sprint task,
- * else make a readable title from the URL itself.
- */
-async function resolveRankingPages(db: Db, projectId: string, pages: Array<string | null>): Promise<Map<string, RankingPageInfo>> {
-  const out = new Map<string, RankingPageInfo>();
-  const unique = [...new Set(pages.filter((p): p is string => !!p))];
-  if (!unique.length) return out;
-
-  const bySeg = new Map<string, RankingPageInfo>();
-  // Cluster posts (published_url is a later column; fall back without it).
-  const selItems = (withPublished: boolean) => db.from("topic_cluster_items")
-    .select(`title, target_keyword, url_slug, ${withPublished ? "published_url, " : ""}topic_clusters ( cluster_name )`)
-    .eq("project_id", projectId);
-  let items = await selItems(true);
-  if (items.error && isMissingColumn(items.error.message)) items = await selItems(false);
-  for (const it of (items.data ?? []) as unknown as Array<{ title: string; target_keyword: string | null; url_slug: string | null; published_url?: string | null; topic_clusters: { cluster_name: string } | null }>) {
-    const info: RankingPageInfo = { title: it.title, primaryKeyword: it.target_keyword, clusterName: it.topic_clusters?.cluster_name ?? null, source: "cluster", liveTitle: null, liveH1: null };
-    for (const u of [it.published_url, it.url_slug]) { const seg = lastSegment(u); if (seg && !bySeg.has(seg)) bySeg.set(seg, info); }
-  }
-  // Published Sprint tasks.
-  const { data: tasks } = await db.from("tasks").select("title, target_keyword, published_url, url")
-    .eq("project_id", projectId).not("published_url", "is", null);
-  for (const t of (tasks ?? []) as Array<{ title: string; target_keyword: string | null; published_url: string | null; url: string | null }>) {
-    const info: RankingPageInfo = { title: t.title.replace(/^write (article|page|blog)\s*:\s*/i, ""), primaryKeyword: t.target_keyword, clusterName: null, source: "task", liveTitle: null, liveH1: null };
-    for (const u of [t.published_url, t.url]) { const seg = lastSegment(u); if (seg && !bySeg.has(seg)) bySeg.set(seg, info); }
-  }
-
-  for (const page of unique) {
-    const seg = lastSegment(page);
-    if (!seg) { out.set(page, { title: "Homepage", primaryKeyword: null, clusterName: null, source: "homepage", liveTitle: null, liveH1: null }); continue; }
-    out.set(page, bySeg.get(seg) ?? { title: titleFromQuery(seg.replace(/-/g, " ")), primaryKeyword: null, clusterName: null, source: "url", liveTitle: null, liveH1: null });
-  }
-  return out;
-}
 
 export async function getClusterGscData(projectId: string, clusterId: string): Promise<ClusterGscData> {
   const supabase = await createClient();
@@ -67,10 +30,12 @@ export async function getClusterGscData(projectId: string, clusterId: string): P
 
   const BASE = "id, query, clicks, impressions, ctr, position, ranking_page, ranking_page_position, matched_keyword, action, item_id, usage, anchors, reason, status, assigned_by, fetched_at";
   const INSIGHTS = "usages, drafts, ranking_page_title, ranking_page_h1"; // migration 20261124000001
+  const PLAN = "serp, target_url"; // migration 20261125000001
   const load = (cols: string) => supabase.from("topic_cluster_gsc_queries").select(cols)
     .eq("cluster_id", clusterId).eq("project_id", projectId)
     .order("impressions", { ascending: false });
-  let res = await load(`${BASE}, ${INSIGHTS}`);
+  let res = await load(`${BASE}, ${INSIGHTS}, ${PLAN}`);
+  if (res.error && isMissingColumn(res.error.message)) res = await load(`${BASE}, ${INSIGHTS}`);
   if (res.error && isMissingColumn(res.error.message)) res = await load(BASE);
   const { data, error } = res;
   if (error) {
@@ -89,9 +54,23 @@ export async function getClusterGscData(projectId: string, clusterId: string): P
     action: QueryAction; item_id: string | null; usage: QueryUsage | null; anchors: string[] | null;
     reason: string | null; status: QueryStatus; assigned_by: AssignedBy | null; fetched_at: string;
     usages?: string[] | null; drafts?: QueryDrafts | null; ranking_page_title?: string | null; ranking_page_h1?: string | null;
+    serp?: QuerySerp | null; target_url?: string | null;
   };
   const rows = (data ?? []) as unknown as Row[];
   const pageInfo = await resolveRankingPages(supabase, projectId, rows.map((r) => r.ranking_page));
+
+  // Our target pages as last read (GC-15); the table arrives with migration 20261125000001.
+  const scans = new Map<string, TargetPageScan>();
+  const targets = [...new Set(rows.map((r) => r.target_url).filter((u): u is string => !!u))];
+  for (let i = 0; i < targets.length; i += 100) {
+    const { data: sd, error: se } = await supabase.from("seo_page_scans").select("url, ok, scan, fetched_at")
+      .eq("project_id", projectId).in("url", targets.slice(i, i + 100));
+    if (se) break;
+    for (const r of (sd ?? []) as Array<{ url: string; ok: boolean; scan: PageScan | null; fetched_at: string }>) {
+      const base: PageScan = r.scan ?? { title: null, meta: null, h1: null, headings: [], faqs: [], wordCount: 0, hasTemplate: false };
+      scans.set(r.url, { ...base, url: r.url, ok: r.ok && !!r.scan, at: r.fetched_at });
+    }
+  }
 
   const queries: ClusterGscQuery[] = rows.map((r) => ({
     id: r.id,
@@ -121,6 +100,9 @@ export async function getClusterGscData(projectId: string, clusterId: string): P
     drafts: r.drafts ?? null,
     diagnosis: diagnose({ position: Number(r.position), impressions: r.impressions, clicks: r.clicks }),
     gain: estimateGain({ position: Number(r.position), impressions: r.impressions, clicks: r.clicks }),
+    targetUrl: r.target_url ?? null,
+    targetScan: r.target_url ? scans.get(r.target_url) ?? null : null,
+    serp: r.serp ?? null,
     anchors: r.anchors ?? [],
     reason: r.reason,
     status: r.status,

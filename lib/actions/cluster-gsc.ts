@@ -66,6 +66,9 @@ const UpdateQueryInput = z.object({
     faqAnswer: z.string().max(2000).nullable().optional(),
     paragraph: z.string().max(3000).nullable().optional(),
     template: z.string().max(3000).nullable().optional(),
+    alreadyOnPage: z.string().max(1000).nullable().optional(),
+    whyTheyRank: z.string().max(1500).nullable().optional(),
+    titleKeepsPrimary: z.boolean().nullable().optional(),
   }).optional(),
 });
 
@@ -96,8 +99,18 @@ export async function updateClusterGscQuery(input: z.infer<typeof UpdateQueryInp
   // Choosing a post implies "use it in a post".
   if (rest.item_id) patch.action = "assign";
 
-  const { data, error } = await supabase.from("topic_cluster_gsc_queries")
-    .update(patch).eq("id", id).eq("project_id", project_id).select("cluster_id, status");
+  // A new route means a different page: let the weekly planner redo it (migration 20261125000001).
+  const { data: cur } = await supabase.from("topic_cluster_gsc_queries").select("action, item_id").eq("id", id).maybeSingle();
+  const before = cur as { action: string; item_id: string | null } | null;
+  const rerouted = !!before && (
+    (patch.action !== undefined && patch.action !== before.action)
+    || (patch.item_id !== undefined && (patch.item_id ?? null) !== before.item_id));
+  const save = (p: Record<string, unknown>) => supabase.from("topic_cluster_gsc_queries")
+    .update(p).eq("id", id).eq("project_id", project_id).select("cluster_id, status");
+  // Old wording was written for the old page - clear it so the planner drafts for the new one.
+  if (rerouted && rest.drafts === undefined) patch.drafts = null;
+  let { data, error } = await save(rerouted ? { ...patch, planned_at: null } : patch);
+  if (error && rerouted && isMissingColumn(error.message)) ({ data, error } = await save(patch));
   if (error) {
     if (isMissingTable(error)) return { ok: false, error: MIGRATION_ERROR };
     if (isMissingColumn(error.message)) return { ok: false, error: "Apply migration 20261124000001_cluster_gsc_query_insights in Supabase to save options and drafts." };

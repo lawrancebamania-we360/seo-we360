@@ -312,7 +312,9 @@ function OverNote() {
 function approveText(row: ClusterGscQuery, postTitle: Map<string, string>, hub: Hub) {
   const post = row.itemId ? postTitle.get(row.itemId) : undefined;
   const { options } = usesOf(row);
-  const lines = options.length ? <OptionLines row={row} options={options} /> : null;
+  const lines = options.length
+    ? <><OptionLines row={row} options={options} />{options.includes("title_meta") && <TitleKeywordWarning row={row} />}</>
+    : null;
 
   if (row.action === "assign") {
     return {
@@ -401,6 +403,15 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
 
   const queries = useMemo(() => data.queries.filter((x) => x.action !== "new_post"), [data.queries]);
   const postTitle = useMemo(() => new Map(posts.map((p) => [p.id, p.title])), [posts]);
+  // Title & meta are planned once per page: how many live rows share each page's title.
+  const titleShare = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const x of queries) {
+      if (!x.targetUrl || x.status === "rejected" || !usesOf(x).options.includes("title_meta")) continue;
+      m.set(x.targetUrl, (m.get(x.targetUrl) ?? 0) + 1);
+    }
+    return m;
+  }, [queries]);
   const toApply = queries.filter((x) => x.status === "suggested" && USED.has(x.action)).length;
 
   const matches = (x: ClusterGscQuery, f: Filter) => {
@@ -680,6 +691,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
               {shown.map((row) => (
                 <QueryRow key={row.id} row={row} projectId={projectId} posts={posts} postTitle={postTitle} hub={data.hub}
                   canManage={canManage} colCount={colCount} cardWidth={boxWidth} pinLeft={pinLeft} locked={bulkPending}
+                  sharedTitle={row.targetUrl ? titleShare.get(row.targetUrl) ?? 0 : 0}
                   selected={selected.has(row.id)} onSelect={(on) => toggleOne(row.id, on)} />
               ))}
             </tbody>
@@ -963,7 +975,7 @@ function SerpPreview({ title, meta, url }: { title: string; meta: string; url: s
 
 // ------------------------------------------------------------------ the row
 
-function QueryRow({ row, projectId, posts, postTitle, hub, canManage, colCount, cardWidth, pinLeft, locked, selected, onSelect }: {
+function QueryRow({ row, projectId, posts, postTitle, hub, canManage, colCount, cardWidth, pinLeft, locked, selected, onSelect, sharedTitle }: {
   row: ClusterGscQuery;
   projectId: string;
   posts: Post[];
@@ -972,6 +984,7 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, colCount, 
   canManage: boolean;
   colCount: number;
   cardWidth: number;
+  sharedTitle: number;
   pinLeft: string;
   locked: boolean;
   selected: boolean;
@@ -1149,7 +1162,7 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, colCount, 
                   onCancel={() => setEditing(false)}
                   onSave={(patch) => commit(patch, () => setEditing(false))} />
               ) : (
-                <QueryCard row={row} postTitle={postTitle} hub={hub} />
+                <QueryCard row={row} postTitle={postTitle} hub={hub} sharedTitle={sharedTitle} />
               )}
             </div>
           </td>
@@ -1161,11 +1174,12 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, colCount, 
 
 // ------------------------------------------------------------ the open card
 
-function CardSection({ n, title, children, className }: { n: number; title: string; children: ReactNode; className?: string }) {
+function CardSection({ n, title, info, children, className }: { n: number; title: string; info?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={cn("min-w-0 space-y-2", className)}>
       <h4 className={cn(SECTION_LABEL, "flex items-center gap-1.5")}>
         <span className="flex size-4 items-center justify-center rounded-full bg-muted text-[9.5px] text-muted-foreground">{n}</span>{title}
+        {info && <InfoTip label={`About ${title}`}>{info}</InfoTip>}
       </h4>
       {children}
     </section>
@@ -1182,7 +1196,7 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /** The open row: data, page, what's wrong, what to do (with drafts), why this page, benefit. */
-function QueryCard({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: Map<string, string>; hub: Hub }) {
+function QueryCard({ row, postTitle, hub, sharedTitle }: { row: ClusterGscQuery; postTitle: Map<string, string>; hub: Hub; sharedTitle: number }) {
   const info = row.rankingPageInfo;
   const post = row.itemId ? postTitle.get(row.itemId) : undefined;
   const { options, inferred } = usesOf(row);
@@ -1190,7 +1204,7 @@ function QueryCard({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: M
 
   return (
     <div className="space-y-5 rounded-xl border border-border bg-background p-5 shadow-sm">
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-[1fr_1.35fr_1fr]">
         <CardSection n={1} title="Search term">
           <p className="break-words text-[15px] font-semibold leading-snug text-foreground">{row.query}</p>
           <div className="grid grid-cols-4 gap-3">
@@ -1218,9 +1232,9 @@ function QueryCard({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: M
                   {info?.primaryKeyword && <>Keyword: <span className="text-foreground">{info.primaryKeyword}</span></>}
                 </div>
               )}
-              {!info?.liveTitle && <div className="text-[11px] text-muted-foreground">The live title and heading are checked at the next refresh.</div>}
             </div>
           ) : <p className="text-[12.5px] text-muted-foreground">None of our pages shows up for this search yet.</p>}
+          {USED.has(row.action) && <OurPageNow row={row} />}
         </CardSection>
 
         <CardSection n={3} title="What's wrong">
@@ -1229,7 +1243,12 @@ function QueryCard({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: M
         </CardSection>
       </div>
 
-      <CardSection n={4} title="What to do" className="border-t border-border pt-5">
+      <CardSection n={4} title="Google's top 3 (US, mobile)" className="border-t border-border pt-5"
+        info="The first 3 results Google shows for this search on a phone in the US (our own site left out). Claude reads them to see what they do that we don't, before suggesting any wording.">
+        <TopThree row={row} />
+      </CardSection>
+
+      <CardSection n={5} title="What to do" className="border-t border-border pt-5">
         <div className="flex items-start gap-2">
           <ActionPill action={row.action} className="shrink-0" />
           <p className="pt-0.5 text-[13px] leading-relaxed text-muted-foreground"><WhatToDo row={row} postTitle={postTitle} hub={hub} /></p>
@@ -1242,15 +1261,18 @@ function QueryCard({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: M
                 <Sparkles className="size-3.5 text-[#5B45E0]" aria-hidden /> Claude&apos;s ready-to-use wording appears after the next refresh. You can also write it yourself with Edit.
               </p>
             )}
+            {row.drafts?.alreadyOnPage && (
+              <p className="text-[12px] leading-relaxed text-muted-foreground"><span className="font-medium">Already on the page:</span> {row.drafts.alreadyOnPage}</p>
+            )}
             <ol className="space-y-3">
-              {options.map((o, i) => <DraftStep key={o} n={i + 1} option={o} row={row} />)}
+              {options.map((o, i) => <DraftStep key={o} n={i + 1} option={o} row={row} sharedTitle={sharedTitle} />)}
             </ol>
           </>
         )}
       </CardSection>
 
       <div className="grid gap-5 border-t border-border pt-5 lg:grid-cols-2">
-        <CardSection n={5} title={row.action === "update_existing" ? "Why this page (not a new one)" : "Why here"}>
+        <CardSection n={6} title={row.action === "update_existing" ? "Why this page (not a new one)" : "Why here"}>
           <p className="text-[12.5px] leading-relaxed text-foreground">{whyThisPage(row, post)}</p>
           {row.reason && <p className="text-[12px] leading-relaxed text-muted-foreground">Claude&apos;s note: {row.reason}</p>}
           <p className="text-[11.5px] text-muted-foreground">
@@ -1258,7 +1280,7 @@ function QueryCard({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: M
             {row.assignedBy && <>Suggested by {SUGGESTED_BY[row.assignedBy]}.</>}
           </p>
         </CardSection>
-        <CardSection n={6} title="Estimated benefit">
+        <CardSection n={7} title="Estimated benefit">
           {row.gain ? (
             <p className="text-[12.5px] leading-relaxed text-foreground">
               <span className="text-[15px] font-semibold">≈ +{NUM.format(row.gain.clicks)} clicks</span> in {LOOKBACK_DAYS} days{" "}
@@ -1269,6 +1291,151 @@ function QueryCard({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: M
           ) : <p className="text-[12.5px] text-muted-foreground">No clear extra clicks to estimate: it&apos;s already doing about as well as its rank allows.</p>}
         </CardSection>
       </div>
+    </div>
+  );
+}
+
+function hostOf(url: string): string {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
+}
+
+const warnBox = "flex items-start gap-1.5 rounded-md border border-warning-200 bg-warning-50 px-2.5 py-1.5 text-[12px] leading-snug text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-300";
+
+/** Shown when Claude's title drops the page's main keyword (flagged, not hidden). */
+function TitleKeywordWarning({ row }: { row: ClusterGscQuery }) {
+  if (row.drafts?.titleKeepsPrimary !== false) return null;
+  const kw = row.rankingPageInfo?.primaryKeyword;
+  return (
+    <p className={warnBox}>
+      <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
+      <span>This title drops the page&apos;s main keyword{kw && <> (<b>{kw}</b>)</>} - check before using.</span>
+    </p>
+  );
+}
+
+/** "Our page now": what our target page currently says (GC-15). */
+function OurPageNow({ row }: { row: ClusterGscQuery }) {
+  const [showHeadings, setShowHeadings] = useState(false);
+  const scan = row.targetScan;
+  const box = "mt-3 space-y-1.5 border-t border-dashed border-border pt-3 text-[12.5px]";
+  const heading = (
+    <div className="flex flex-wrap items-center gap-x-1.5 text-[11.5px] font-semibold text-foreground">
+      Our page now
+      <InfoTip label="About Our page now">What our page says today, read by the weekly check. Claude plans the new wording from this, so it doesn&apos;t suggest what&apos;s already there.</InfoTip>
+      {scan?.at && <span className="font-normal text-muted-foreground">· read {formatDistanceToNow(new Date(scan.at), { addSuffix: true })}</span>}
+    </div>
+  );
+
+  if (!row.targetUrl) return <div className={box}>{heading}<p className="text-muted-foreground">Not live yet - drafts are based on Google&apos;s top 3 and the post plan.</p></div>;
+  if (!scan) return <div className={box}>{heading}<p className="text-muted-foreground">We&apos;ll read this page at the next weekly run.</p></div>;
+  if (!scan.ok) {
+    return (
+      <div className={box}>{heading}
+        <p className={warnBox}><AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />Couldn&apos;t read this page. It may be down or blocking our check.</p>
+        <div className="break-all font-mono text-[11px] text-muted-foreground">{row.targetUrl}</div>
+      </div>
+    );
+  }
+  const h2s = scan.headings.filter((h) => h.level === 2).length;
+  const differentPage = row.rankingPage && row.targetUrl !== row.rankingPage;
+  return (
+    <div className={box}>
+      {heading}
+      {differentPage && (
+        <div className="text-[11.5px] text-muted-foreground">
+          Planned page: <a href={toExternalUrl(row.targetUrl) ?? row.targetUrl} target="_blank" rel="noopener noreferrer" className="break-all font-mono hover:text-foreground hover:underline">{pathOf(row.targetUrl)}</a>
+        </div>
+      )}
+      <dl className="space-y-1.5">
+        <div>
+          <dt className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">Title <Counter n={scan.title?.length ?? 0} max={TITLE_MAX} /></dt>
+          <dd className="break-words text-foreground">{scan.title || <span className="text-warning-700 dark:text-warning-300">No title</span>}</dd>
+        </div>
+        <div>
+          <dt className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">Meta description {scan.meta && <Counter n={scan.meta.length} max={META_MAX} />}</dt>
+          <dd className="break-words text-foreground">{scan.meta || <span className="text-warning-700 dark:text-warning-300">No meta description</span>}</dd>
+        </div>
+        {scan.h1 && (
+          <div>
+            <dt className="text-[11px] text-muted-foreground">Main heading (H1)</dt>
+            <dd className="break-words text-foreground">{scan.h1}</dd>
+          </div>
+        )}
+      </dl>
+      <p className="text-[11.5px] text-muted-foreground">
+        {NUM.format(scan.wordCount)} words · {plural(h2s, "section")} (H2) · {plural(scan.faqs.length, "FAQ")} · Has a template: {scan.hasTemplate ? "yes" : "no"}
+      </p>
+      {scan.headings.length > 0 && (
+        <>
+          <button type="button" onClick={() => setShowHeadings((s) => !s)} aria-expanded={showHeadings}
+            className="inline-flex items-center gap-1 rounded text-[11.5px] font-medium text-[#5B45E0] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B45E0]/40 dark:text-[#7B62FF]">
+            <ChevronRight className={cn("size-3 transition-transform", showHeadings && "rotate-90")} aria-hidden />
+            {showHeadings ? "Hide headings" : `Show headings (${scan.headings.length})`}
+          </button>
+          {showHeadings && (
+            <ul className="max-h-56 space-y-0.5 overflow-y-auto rounded-md border border-border bg-muted/20 px-2.5 py-2 text-[12px]">
+              {scan.headings.map((h, i) => (
+                <li key={i} className={cn("break-words", h.level === 3 ? "pl-4 text-muted-foreground" : "text-foreground")}>
+                  <span className="mr-1.5 font-mono text-[10px] text-muted-foreground">H{h.level}</span>{h.text}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Google's top 3 (US, mobile) for this search, with why they rank and People also ask (GC-16). */
+function TopThree({ row }: { row: ClusterGscQuery }) {
+  const serp = row.serp;
+  if (!serp) return <p className="text-[12.5px] text-muted-foreground">Google&apos;s top 3 is checked at the next weekly run.</p>;
+  return (
+    <div className="space-y-3">
+      <p className="text-[11.5px] text-muted-foreground">
+        Checked {formatDistanceToNow(new Date(serp.at), { addSuffix: true })} ·{" "}
+        <span className="font-medium text-foreground">{serp.ourPosition != null ? `We're #${serp.ourPosition} here` : "We're not in the top 10"}</span>
+      </p>
+      {serp.top.length ? (
+        <ol className="grid gap-3 md:grid-cols-3">
+          {serp.top.slice(0, 3).map((r) => (
+            <li key={r.url} className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-border bg-muted/10 p-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground text-[10.5px] font-semibold text-background">{r.position}</span>
+                <span className="min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground" title={r.url}>{hostOf(r.url)}</span>
+                <a href={r.url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${hostOf(r.url)} in a new tab`}
+                  className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B45E0]/40">
+                  <ExternalLink className="size-3.5" aria-hidden />
+                </a>
+              </div>
+              <p className="break-words text-[13px] font-medium leading-snug text-[#1a0dab] dark:text-[#8ab4f8]">
+                {r.title} <span className="font-mono text-[10.5px] font-normal text-muted-foreground">({r.title.length} chars)</span>
+              </p>
+              {r.description && <p className="break-words text-[12px] leading-snug text-muted-foreground">{r.description}</p>}
+              <p className="mt-auto pt-1 text-[11px] text-muted-foreground">
+                {r.scan
+                  ? <>{NUM.format(r.scan.wordCount)} words · {plural(r.scan.headings.filter((h) => h.level === 2).length, "H2")} · template {r.scan.hasTemplate ? "yes" : "no"}</>
+                  : "Couldn't open this page"}
+              </p>
+            </li>
+          ))}
+        </ol>
+      ) : <p className="text-[12.5px] text-muted-foreground">Google returned no other results for this search.</p>}
+      {row.drafts?.whyTheyRank && (
+        <p className="text-[12.5px] leading-relaxed text-foreground"><span className="font-medium">Why they rank:</span> {row.drafts.whyTheyRank}</p>
+      )}
+      {serp.paa.length > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-1 text-[11.5px] font-medium text-muted-foreground">
+            People also ask
+            <InfoTip label="About People also ask">Questions Google shows under these results. They make good FAQ questions.</InfoTip>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {serp.paa.map((p) => <span key={p} className="rounded-full border border-border bg-background px-2.5 py-0.5 text-[11.5px] text-foreground">{p}</span>)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1284,7 +1451,7 @@ function DraftText({ text, children }: { text: string | null | undefined; childr
 }
 
 /** One numbered "what to do" item with Claude's draft. */
-function DraftStep({ n, option, row }: { n: number; option: QueryUseOption; row: ClusterGscQuery }) {
+function DraftStep({ n, option, row, sharedTitle }: { n: number; option: QueryUseOption; row: ClusterGscQuery; sharedTitle: number }) {
   const d = row.drafts;
   return (
     <li className="flex gap-3">
@@ -1294,6 +1461,13 @@ function DraftStep({ n, option, row }: { n: number; option: QueryUseOption; row:
           {USE_OPTION_LABEL[option]}
           <InfoTip label={`About ${USE_OPTION_LABEL[option]}`}>{USE_OPTION_HINT[option]}</InfoTip>
         </div>
+        {option === "title_meta" && sharedTitle > 1 && (
+          <p className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+            One title for this page, shared by {sharedTitle} search terms
+            <InfoTip label="Why the title is shared">A page can only have one title and description, so Claude plans them once per page, covering all the search terms that page should win while keeping its main keyword.</InfoTip>
+          </p>
+        )}
+        {option === "title_meta" && <TitleKeywordWarning row={row} />}
         {option === "title_meta" && (
           <div className="flex flex-col gap-3 xl:flex-row xl:items-start">
             <div className="min-w-0 flex-1 space-y-2">
@@ -1335,7 +1509,9 @@ function DraftStep({ n, option, row }: { n: number; option: QueryUseOption; row:
 
 // ---------------------------------------------------------------- the editor
 
-type DraftForm = Required<{ [K in keyof QueryDrafts]: string }>;
+/** The seven draft fields a person can edit (the rest of QueryDrafts is Claude's notes, carried through as is). */
+type DraftKey = "title" | "meta" | "h2" | "faqQuestion" | "faqAnswer" | "paragraph" | "template";
+type DraftForm = Record<DraftKey, string>;
 
 function QueryEditor({ row, posts, hub, saving, onCancel, onSave }: {
   row: ClusterGscQuery; posts: Post[]; hub: Hub; saving: boolean;
@@ -1378,6 +1554,7 @@ function QueryEditor({ row, posts, hub, saving, onCancel, onSave }: {
       patch.usage = legacyUsage(uses);
       const clean = (s: string) => s.trim() || null;
       patch.drafts = {
+        ...row.drafts,
         title: clean(draft.title), meta: clean(draft.meta), h2: clean(draft.h2),
         faqQuestion: clean(draft.faqQuestion), faqAnswer: clean(draft.faqAnswer),
         paragraph: clean(draft.paragraph), template: clean(draft.template),

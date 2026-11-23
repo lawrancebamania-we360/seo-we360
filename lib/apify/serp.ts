@@ -212,3 +212,72 @@ function dedupe(arr: unknown[]): string[] {
   }
   return out;
 }
+
+// ============= GC-16: Google's top 3 for many search terms =============
+
+export interface SerpTop {
+  term: string;
+  /** Top organic results, our own site excluded (up to `topN`). */
+  top: Array<{ position: number; url: string; title: string; description: string | null }>;
+  /** Where we rank in the first page, if at all. */
+  ourPosition: number | null;
+  paa: string[];
+}
+
+/**
+ * One Apify run for several search terms (US, mobile by default). Returns a
+ * map keyed by the lower-cased term. Throws on HTTP/timeout errors so the
+ * caller can record the failure and retry later.
+ */
+export async function fetchSerpTop(
+  terms: string[],
+  opts: { country?: string; mobile?: boolean; topN?: number; timeoutMs?: number } = {},
+): Promise<Map<string, SerpTop>> {
+  const token = process.env.APIFY_TOKEN;
+  if (!token) throw new Error("APIFY_TOKEN missing");
+  const out = new Map<string, SerpTop>();
+  if (!terms.length) return out;
+
+  const url = `https://api.apify.com/v2/acts/apify~google-search-scraper/run-sync-get-dataset-items?token=${token}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      queries: terms.join("\n"),
+      countryCode: opts.country ?? "us",
+      languageCode: "en",
+      mobileResults: opts.mobile ?? true,
+      resultsPerPage: 10,
+      maxPagesPerQuery: 1,
+    }),
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 150_000),
+  });
+  if (!res.ok) throw new Error(`SERP HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`);
+  const items = await res.json() as Array<{
+    searchQuery?: { term?: string };
+    organicResults?: Array<{ url?: string; title?: string; description?: string; position?: number }>;
+    peopleAlsoAsk?: Array<{ question?: string }>;
+  }>;
+
+  const isOurs = (u: string) => {
+    try { return new URL(u).hostname.replace(/^www\./, "").endsWith(PROJECT_DOMAIN); } catch { return false; }
+  };
+  for (const item of items) {
+    const term = item.searchQuery?.term?.trim().toLowerCase();
+    if (!term || out.has(term)) continue;
+    const organic = (item.organicResults ?? []).filter((r) => r.url && r.title);
+    const ours = organic.find((r) => isOurs(r.url!));
+    out.set(term, {
+      term,
+      top: organic.filter((r) => !isOurs(r.url!)).slice(0, opts.topN ?? 3).map((r, i) => ({
+        position: r.position ?? i + 1,
+        url: r.url!,
+        title: r.title!.trim(),
+        description: r.description?.trim() || null,
+      })),
+      ourPosition: ours?.position ?? null,
+      paa: (item.peopleAlsoAsk ?? []).map((q) => q.question?.trim()).filter((q): q is string => !!q).slice(0, 6),
+    });
+  }
+  return out;
+}

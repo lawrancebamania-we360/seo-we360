@@ -1,7 +1,9 @@
 # Weekly Blog Clusters GSC-queries refresh.
 #
-# Pulls Search Console queries for every blog cluster and assigns the new ones
-# (Claude, keyword fallback). The work runs on Vercel - that's where the Google
+# Step 1 pulls Search Console queries for every blog cluster and routes the new ones
+# (Claude, keyword fallback). Step 2 plans each page: Google US mobile top 3
+# (Apify), a read of our page and the top-3 pages, then Claude drafts one
+# title/meta per page + per-term wording. The work runs on Vercel - that's where the Google
 # OAuth connection and claude_key live - so this job just calls the cron
 # endpoint, repeating while it reports `budgetHit` (each call starts new clusters
 # for ~1 minute, then finishes the one in progress - up to ~4 minutes - and
@@ -24,7 +26,7 @@ jobs:
   refresh:
     name: Refresh cluster GSC queries
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 300
     steps:
       - name: Call the refresh endpoint until every cluster is done
         env:
@@ -38,6 +40,20 @@ jobs:
             resp=$(curl -sS --fail-with-body -m 320 \
               -H "Authorization: Bearer ${CRON_SECRET}" \
               "${APP_URL}/api/cron/cluster-gsc-queries")
+            echo "$resp"
+            echo "$resp" | grep -q '"budgetHit":true' || break
+          done
+      - name: Plan pages (Google top 3 + page read + Claude) until every cluster is done
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ vars.APP_URL || 'https://seo-we360.vercel.app' }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            echo "--- plan call $i ---"
+            resp=$(curl -sS --fail-with-body -m 320 \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              "${APP_URL}/api/cron/cluster-gsc-plan")
             echo "$resp"
             echo "$resp" | grep -q '"budgetHit":true' || break
           done

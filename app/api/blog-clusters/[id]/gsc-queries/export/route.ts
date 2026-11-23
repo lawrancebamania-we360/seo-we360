@@ -41,7 +41,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       q.usages.map((u) => USE_OPTION_LABEL[u]).join("; ") || null,
       d?.title ?? null, d?.title ? d.title.length : null,
       d?.meta ?? null, d?.meta ? d.meta.length : null,
+      d?.titleKeepsPrimary === false ? "No - check" : d?.titleKeepsPrimary ? "Yes" : null,
       d?.h2 ?? null, d?.faqQuestion ?? null, d?.faqAnswer ?? null, d?.paragraph ?? null, d?.template ?? null,
+      d?.alreadyOnPage ?? null, d?.whyTheyRank ?? null,
+      q.targetUrl, q.targetScan?.ok ? q.targetScan.title : null, q.targetScan?.ok ? q.targetScan.meta : null,
+      q.targetScan?.ok ? q.targetScan.wordCount : null,
+      q.serp ? (q.serp.ourPosition ?? "Not in top 10") : null,
+      ...[0, 1, 2].flatMap((i) => {
+        const r = q.serp?.top[i];
+        return [r ? `${r.title} - ${r.url}` : null, r?.description ?? null];
+      }),
+      q.serp?.paa.join("; ") || null,
       q.anchors.join("; ") || null,
       q.status, q.assignedBy, q.reason,
     ];
@@ -57,7 +67,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         "Est. extra clicks (90d)", "Estimate basis", "Ranking page", "Ranking page title", "Ranking page position",
         "Matched keyword", "Action", "Target", "How to use",
         "Draft SEO title", "Title chars (max 60)", "Draft meta description", "Meta chars (max 120)",
-        "Draft H2", "FAQ question", "FAQ answer", "Paragraph", "Template / tool",
+        "Title keeps main keyword", "Draft H2", "FAQ question", "FAQ answer", "Paragraph", "Template / tool",
+        "Already on the page", "Why the top 3 rank",
+        "Page the changes go on", "Our page title now", "Our meta description now", "Our page words",
+        "Our position (US mobile)", "Google #1 (title - URL)", "Google #1 meta", "Google #2 (title - URL)", "Google #2 meta",
+        "Google #3 (title - URL)", "Google #3 meta", "People also ask",
         "Anchor variants", "Status", "Assigned by", "Reason"],
       rows: queryRows,
     },

@@ -60,6 +60,57 @@ export interface QueryDrafts {
   paragraph?: string | null;
   /** What the template / tool should contain. */
   template?: string | null;
+  /** GC-17: what our page already has for this search (so we don't suggest it again). */
+  alreadyOnPage?: string | null;
+  /** GC-17: why Google's top 3 rank for this search, in one or two plain sentences. */
+  whyTheyRank?: string | null;
+  /** GC-17: false when the suggested title drops the page's main keyword (flagged, not suggested). */
+  titleKeepsPrimary?: boolean | null;
+}
+
+// ---- GC-15 / GC-16: our page and Google's top 3 ----
+
+/** A quick read of a page: what's on it, for planning changes. */
+export interface PageScan {
+  title: string | null;
+  meta: string | null;
+  h1: string | null;
+  /** H2 / H3 headings in page order (capped). */
+  headings: { level: 2 | 3; text: string }[];
+  /** FAQ questions found (FAQPage schema or question headings). */
+  faqs: string[];
+  wordCount: number;
+  /** Has a downloadable/usable template, sheet, calculator or tool. */
+  hasTemplate: boolean;
+}
+
+/** Our target page's scan, as stored (GC-15). */
+export interface TargetPageScan extends PageScan {
+  url: string;
+  ok: boolean;
+  at: string;
+}
+
+export interface SerpTopResult {
+  position: number;
+  url: string;
+  title: string;
+  description: string | null;
+  /** Quick scan of the result page; null when it couldn't be read (some sites block it). */
+  scan: PageScan | null;
+}
+
+/** Google's results for one search term (GC-16). */
+export interface QuerySerp {
+  country: "us";
+  device: "mobile";
+  at: string;
+  /** Top 3 organic results (our own site excluded). */
+  top: SerpTopResult[];
+  /** Where we rank in these results, if at all. */
+  ourPosition: number | null;
+  /** "People also ask" questions - good FAQ material. */
+  paa: string[];
 }
 
 /** What's wrong, from rank and clicks. */
@@ -123,6 +174,12 @@ export interface ClusterGscQuery {
   diagnosis: QueryDiagnosis;
   /** Estimated extra clicks over 90 days (GC-11); null when there's nothing to gain. */
   gain: ClickGain | null;
+  /** The page this term's changes go on (live URL); null for a planned post with no page yet (GC-17). */
+  targetUrl: string | null;
+  /** Our target page as last read (GC-15); null until scanned. */
+  targetScan: TargetPageScan | null;
+  /** Google's top 3, US mobile (GC-16); null until checked. */
+  serp: QuerySerp | null;
   anchors: string[];
   reason: string | null;
   status: QueryStatus;

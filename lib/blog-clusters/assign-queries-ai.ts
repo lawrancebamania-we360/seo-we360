@@ -125,6 +125,8 @@ function trimOrNull(s: string | null | undefined): string | null {
 
 export async function assignQueriesWithClaude(input: {
   clusterName: string;
+  /** false = route + options only; drafts are written later by the planning step. Default true. */
+  withDrafts?: boolean;
   hub: { title: string; slug: string | null; keyword: string | null };
   posts: AiPost[];
   queries: AiQuery[];
@@ -177,7 +179,11 @@ export async function assignQueriesWithClaude(input: {
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       output_config: { effort: "medium", format: betaZodOutputFormat(OutputSchema) },
-      system: SYSTEM,
+      system: input.withDrafts === false
+        ? `${SYSTEM}
+
+Drafts are written later by another step that reads the page and Google's top results: skip STEP 3 and set every draft_* field to null (still give anchors and a reason).`
+        : SYSTEM,
       messages: [{ role: "user", content: JSON.stringify(payload) }],
     });
     if (response.stop_reason === "refusal") return "Claude declined the request.";

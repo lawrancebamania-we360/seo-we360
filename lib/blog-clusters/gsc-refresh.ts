@@ -35,11 +35,11 @@ const AI_MAX_PER_REFRESH = 90;
 
 type Db = SupabaseClient;
 
-interface ClusterRow {
+export interface ClusterRow {
   id: string; cluster_name: string; pillar_title: string; pillar_slug: string | null;
   pillar_primary_keyword: string | null; seed_keyword: string | null;
 }
-interface ItemRow {
+export interface ItemRow {
   id: string; title: string; target_keyword: string | null;
   supporting_keywords: Array<{ keyword: string; volume: number | null }> | null;
   url_slug: string | null; published_url?: string | null;
@@ -57,7 +57,7 @@ function dayOffset(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
 }
 
-async function loadCluster(db: Db, projectId: string, clusterId: string) {
+export async function loadCluster(db: Db, projectId: string, clusterId: string) {
   const { data: c } = await db.from("topic_clusters")
     .select("id, cluster_name, pillar_title, pillar_slug, pillar_primary_keyword, seed_keyword")
     .eq("id", clusterId).eq("project_id", projectId).maybeSingle();
@@ -113,7 +113,7 @@ function draftsCover(usages: string[], d: QueryDrafts | null | undefined): boole
               : true);
 }
 
-function hubOf(c: ClusterRow) {
+export function hubOf(c: ClusterRow) {
   return { title: c.pillar_title, slug: c.pillar_slug, keyword: c.pillar_primary_keyword || c.seed_keyword || null };
 }
 
@@ -220,6 +220,10 @@ export async function refreshClusterGscQueries(
   // 20261124000001; before it, assign the old way and skip drafts.
   const insightsProbe = await db.from("topic_cluster_gsc_queries").select("drafts").limit(1);
   const insightsReady = !insightsProbe.error;
+  // With migration 20261125000001 the weekly planning step (gsc-plan.ts) writes
+  // the drafts after reading the page and Google's top 3 - here we only route.
+  const planProbe = await db.from("topic_cluster_gsc_queries").select("planned_at").limit(1);
+  const planReady = !planProbe.error;
 
   // 3a. Live page titles / H1s for every page these search terms show up on (GC-12).
   const pageTitle = new Map<string, string | null>();
@@ -247,7 +251,7 @@ export async function refreshClusterGscQueries(
   const all = (allData ?? []) as unknown as QRow[];
   const toRoute = all.filter((q) => q.status === "suggested" && (q.assigned_by === null || q.assigned_by === "keyword"));
   const routeIds = new Set(toRoute.map((q) => q.id));
-  const toDraftAll = insightsReady
+  const toDraftAll = insightsReady && !planReady
     ? all.filter((q) => !routeIds.has(q.id) && q.status !== "rejected" && !draftsCover(q.usages ?? [], q.drafts) && ["assign", "hub", "update_existing"].includes(q.action))
     : [];
   // One parallel round of Claude per refresh (fits the 300s function limit);
@@ -274,6 +278,7 @@ export async function refreshClusterGscQueries(
   if (aiRouteIds.size || toDraft.length || needsNaturals.size) {
     aiResult = await assignQueriesWithClaude({
       clusterName: cluster.cluster_name,
+      withDrafts: !planReady,
       hub,
       posts: items.map((it, i) => ({
         id: it.id, title: it.title, primary: it.target_keyword, supporting: posts[i].supporting,
@@ -326,7 +331,8 @@ export async function refreshClusterGscQueries(
       reason: rule?.reason ?? base.reason,
       assigned_by: rule ? "rule" : fromAi ? "ai" : action === "unassigned" ? null : "keyword",
     };
-    if (insightsReady) { row.usages = usages; row.drafts = used && fromAi ? fromAi.drafts : null; }
+    if (insightsReady) { row.usages = usages; row.drafts = used && fromAi && !planReady ? fromAi.drafts : null; }
+    if (planReady) row.planned_at = null; // (re)routed - the planning step drafts it
     return row;
   });
   for (let i = 0; i < routed.length; i += 200) {
