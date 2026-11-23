@@ -458,15 +458,24 @@ export async function getGscCannibalization(
 // ============================================================================
 
 export interface GscQueryPageMatch { query: string; page: string; clicks: number; impressions: number; position: number }
+export interface GscQueryTotal { query: string; clicks: number; impressions: number; ctr: number; position: number }
 
+/**
+ * Two reports per keyword: query+page rows (which page each query ranks on) and
+ * query-only rows - each query's TRUE totals. Summing query+page rows over-counts
+ * whenever two of our pages show for the same search, so totals must come from
+ * the query-only report.
+ */
 export async function getGscQueryPageRowsMatching(
   siteUrl: string, keywords: string[], range: { start: string; end: string },
-): Promise<GscQueryPageMatch[]> {
+): Promise<{ rows: GscQueryPageMatch[]; totals: GscQueryTotal[] }> {
   const token = await getGoogleAccessToken(SCOPE);
   const PAGE = 25000;
-  const seen = new Map<string, GscQueryPageMatch>();
+  const pageRows = new Map<string, GscQueryPageMatch>();
+  const totals = new Map<string, GscQueryTotal>();
 
-  const fetchKeyword = async (keyword: string) => {
+  const report = async (keyword: string, dimensions: string[]): Promise<GscQueryRow[]> => {
+    const out: GscQueryRow[] = [];
     for (let page = 0; page < 2; page++) {
       const res = await fetch(
         `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
@@ -476,7 +485,7 @@ export async function getGscQueryPageRowsMatching(
           body: JSON.stringify({
             startDate: range.start,
             endDate: range.end,
-            dimensions: ["query", "page"],
+            dimensions,
             dimensionFilterGroups: [{ filters: [{ dimension: "query", operator: "contains", expression: keyword }] }],
             rowLimit: PAGE,
             startRow: page * PAGE,
@@ -486,18 +495,29 @@ export async function getGscQueryPageRowsMatching(
       );
       if (!res.ok) throw new Error(`GSC query-match failed for "${keyword}" (${res.status}): ${(await res.text()).slice(0, 300)}`);
       const rows = ((await res.json()) as { rows?: GscQueryRow[] }).rows ?? [];
-      for (const r of rows) {
-        const key = `${r.keys[0]} ${r.keys[1]}`;
-        if (!seen.has(key)) seen.set(key, { query: r.keys[0], page: r.keys[1], clicks: r.clicks, impressions: r.impressions, position: r.position });
-      }
+      out.push(...rows);
       if (rows.length < PAGE) break;
+    }
+    return out;
+  };
+
+  const fetchKeyword = async (keyword: string) => {
+    const [byPage, byQuery] = await Promise.all([report(keyword, ["query", "page"]), report(keyword, ["query"])]);
+    for (const r of byPage) {
+      const key = `${r.keys[0]} ${r.keys[1]}`;
+      if (!pageRows.has(key)) pageRows.set(key, { query: r.keys[0], page: r.keys[1], clicks: r.clicks, impressions: r.impressions, position: r.position });
+    }
+    for (const r of byQuery) {
+      if (!totals.has(r.keys[0])) {
+        totals.set(r.keys[0], { query: r.keys[0], clicks: r.clicks, impressions: r.impressions, ctr: r.impressions ? r.clicks / r.impressions : 0, position: r.position });
+      }
     }
   };
 
   // Small worker pool - well under GSC's per-site QPM limit.
   const queue = [...keywords];
-  await Promise.all(Array.from({ length: Math.min(6, queue.length) }, async () => {
+  await Promise.all(Array.from({ length: Math.min(5, queue.length) }, async () => {
     for (let k = queue.shift(); k !== undefined; k = queue.shift()) await fetchKeyword(k);
   }));
-  return [...seen.values()];
+  return { rows: [...pageRows.values()], totals: [...totals.values()] };
 }

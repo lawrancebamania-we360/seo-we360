@@ -113,17 +113,26 @@ export async function refreshClusterGscQueries(
   if (!keywords.length) return { ok: false, error: "The cluster has no keywords to match on - add primary/supporting keywords first.", ...empty };
   const end = dayOffset(3); // GSC data lags ~2-3 days
   const start = dayOffset(3 + LOOKBACK_DAYS);
-  let raw;
+  let gsc;
   try {
-    raw = await getGscQueryPageRowsMatching(args.siteUrl, keywords, { start, end });
+    gsc = await getGscQueryPageRowsMatching(args.siteUrl, keywords, { start, end });
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Search Console request failed.", ...empty };
   }
+  const raw = gsc.rows;
   const rawRows = raw.length;
+  // Each query's TRUE totals (query-only report). Summing the query+page rows
+  // over-counts when two of our pages show for the same search.
+  const totalByQuery = new Map(gsc.totals.map((t) => [normalizeKeyword(t.query), t]));
 
   // 2. Whole-word matches only ("ems" must not match "systems"), aggregate per
-  //    query, threshold, upsert metrics only.
+  //    query (for the ranking page), take the true totals, threshold, upsert
+  //    metrics only.
   const aggregated = aggregateQueryRows(raw.filter((r) => matchedKeyword(r.query, keywords) !== null))
+    .map((q) => {
+      const t = totalByQuery.get(q.query);
+      return t ? { ...q, clicks: t.clicks, impressions: t.impressions, ctr: t.ctr, position: Math.round(t.position * 10) / 10 } : q;
+    })
     .filter((q) => q.impressions >= MIN_IMPRESSIONS)
     .sort((a, b) => b.impressions - a.impressions)
     .slice(0, MAX_QUERIES);
