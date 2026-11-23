@@ -25,12 +25,12 @@ export const PLAN_MIGRATION = "20261125000001_cluster_gsc_page_plan";
 
 const DAY = 86_400_000;
 const SERP_MAX_AGE = 30 * DAY;
-const SERP_RETRY_AFTER_FAIL = 7 * DAY;
+const SERP_RETRY_AFTER_FAIL = 20 * 60_000; // a failed Google check is retried on the next pass
 const OUR_SCAN_MAX_AGE = 6 * DAY;
 const THEIR_SCAN_MAX_AGE = 30 * DAY;
 const REPLAN_UNPLANNED_AFTER = 6 * DAY;
-const SERP_BATCH = 10;      // search terms per Apify run
-const SERP_PARALLEL = 3;    // Apify runs in flight
+const SERP_BATCH = 4;       // search terms per Apify run (10 timed out)
+const SERP_PARALLEL = 5;    // Apify runs in flight
 const PLAN_PARALLEL = 3;    // pages planned at once
 const PAGE_TERMS = 25;      // terms per Claude call (bigger pages are chunked)
 const USED: QueryAction[] = ["assign", "hub", "update_existing"];
@@ -156,7 +156,7 @@ export async function planClusterGscPages(
 
   // 2. Google's top 3 (US, mobile), for terms not checked in 30 days.
   const needSerp = rows.filter((r) => target.has(r.id) && (!r.serp_at || Date.now() - Date.parse(r.serp_at) > SERP_MAX_AGE));
-  while (needSerp.length && Date.now() < args.deadline - 150_000) {
+  while (needSerp.length && Date.now() < args.deadline - 170_000) {
     const round = needSerp.splice(0, SERP_BATCH * SERP_PARALLEL);
     const batches: Row[][] = [];
     for (let i = 0; i < round.length; i += SERP_BATCH) batches.push(round.slice(i, i + SERP_BATCH));
@@ -166,7 +166,7 @@ export async function planClusterGscPages(
       let found: Awaited<ReturnType<typeof fetchSerpTop>> | null = null;
       try {
         found = await fetchSerpTop(batch.map((r) => r.query), {
-          country: "us", mobile: true, topN: 3, timeoutMs: Math.max(30_000, Math.min(150_000, args.deadline - Date.now() - 60_000)),
+          country: "us", mobile: true, topN: 3, timeoutMs: Math.max(60_000, Math.min(170_000, args.deadline - Date.now() - 50_000)),
         });
       } catch (e) {
         result.errors.push(`Google check: ${e instanceof Error ? e.message.slice(0, 160) : "failed"}`);
@@ -174,20 +174,24 @@ export async function planClusterGscPages(
       await inChunks(batch, 10, async (r) => {
         const hit = found?.get(r.query.trim().toLowerCase());
         r.serp = hit ? { country: "us", device: "mobile", at: now, top: hit.top.map((t) => ({ ...t, scan: null })), ourPosition: hit.ourPosition, paa: hit.paa } : r.serp;
-        r.serp_at = hit ? now : retryAt; // a miss is retried in a week
+        r.serp_at = hit ? now : retryAt; // a miss is retried on the next pass
         if (hit) result.serpChecked++;
         await db.from("topic_cluster_gsc_queries").update({ serp: r.serp, serp_at: r.serp_at }).eq("id", r.id);
       });
     }));
   }
   const serpPending = needSerp.length > 0;
+  // Finish every Google check first; plan on a later call with time to spare.
+  if (serpPending) return { ...result, done: false };
+  if (result.serpChecked > 0 && args.deadline - Date.now() < 140_000) return { ...result, done: false };
 
   // 3. Which terms to (re)plan: suggested, not hand-edited, Google checked.
   const needsPlan = (r: Row) => !r.planned_at
     || (!!r.serp_at && Date.parse(r.serp_at) > Date.parse(r.planned_at))
     || (!r.drafts?.whyTheyRank && Date.now() - Date.parse(r.planned_at) > REPLAN_UNPLANNED_AFTER);
   const editable = (r: Row) => r.status === "suggested" && !(r.assigned_by === "manual" && hasText(r.drafts));
-  const toPlan = rows.filter((r) => target.has(r.id) && editable(r) && !!r.serp_at && needsPlan(r));
+  // Never plan without Google's top 3: a term whose check failed waits for the retry.
+  const toPlan = rows.filter((r) => target.has(r.id) && editable(r) && !!r.serp && needsPlan(r));
   if (!toPlan.length) return { ...result, done: !serpPending };
 
   // Pages: group the terms by target page.
@@ -221,7 +225,10 @@ export async function planClusterGscPages(
   // 5. Plan each page.
   const pageList = [...pages.entries()];
   let started = 0;
+  let skipped = false;
   const planOne = async ([key, page]: [string, { target: Target; terms: Row[] }]) => {
+    // Our page wasn't read in time - plan it on the next call rather than blind.
+    if (page.target.url && !ourScans.has(page.target.url)) { skipped = true; return; }
     const planning = new Set(page.terms.map((r) => r.id));
     let { title: keepTitle, meta: keepMeta } = fixedTitle(key, planning);
     const scan: PageScan | null = page.target.url ? ourScans.get(page.target.url)?.scan ?? null : null;
@@ -279,6 +286,6 @@ export async function planClusterGscPages(
     }
   }));
 
-  result.done = !serpPending && started >= pageList.length;
+  result.done = started >= pageList.length && !skipped;
   return result;
 }
