@@ -25,12 +25,14 @@ export function ConfirmDialog({ open, onOpenChange, title, summary, children, co
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!pending) onOpenChange(o); }}>
-      <DialogContent className="gap-3 sm:max-w-md">
+      {/* Grid children default to min-width:auto, so one long unbreakable line (a URL)
+          would push the card and footer past the dialog's edge - let them shrink. */}
+      <DialogContent className="gap-3 sm:max-w-xl [&>*]:min-w-0">
         <DialogHeader className="pr-6">
           <DialogTitle className="text-[15px] font-semibold leading-snug">{title}</DialogTitle>
           <DialogDescription className="text-[13px] leading-relaxed text-foreground">{summary}</DialogDescription>
         </DialogHeader>
-        {children && <div className="space-y-2 text-[12.5px] leading-relaxed text-muted-foreground">{children}</div>}
+        {children && <div className="min-w-0 space-y-2 text-[12.5px] leading-relaxed text-muted-foreground">{children}</div>}
         <DialogFooter className="mt-1">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>Cancel</Button>
           <Button variant={tone === "danger" ? "destructive" : "brand"} onClick={onConfirm} disabled={pending || confirmDisabled}

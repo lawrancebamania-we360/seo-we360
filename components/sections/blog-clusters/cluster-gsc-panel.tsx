@@ -308,8 +308,8 @@ function PageFacts({ row }: { row: ClusterGscQuery }) {
   const info = row.rankingPageInfo;
   if (!row.rankingPage) return null;
   return (
-    <div className="rounded-md border border-border bg-muted/30 px-2.5 py-2 text-[12px]">
-      <div className="flex flex-wrap items-baseline gap-x-1.5">
+    <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/30 px-2.5 py-2 text-[12px]">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
         <PageLink row={row} className="font-medium text-foreground" />
         {info?.source === "url" && <span className="text-muted-foreground">(title from URL)</span>}
         <span className="text-muted-foreground">· shows up #{rankOf(row)} on Google</span>
