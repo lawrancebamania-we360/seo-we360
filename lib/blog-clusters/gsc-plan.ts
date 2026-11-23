@@ -62,22 +62,28 @@ const hasText = (d: QueryDrafts | null | undefined) =>
     return typeof v === "string" && v.trim().length > 0;
   });
 
-/** One form per page: https, www host, no trailing slash, no query/hash. */
-function canon(u: string): string {
+/**
+ * One form per page: https, no trailing slash, no query/hash. Any address on
+ * our own domain (apex, www, staging...) maps to the live host - a post saved
+ * with its staging link is the same page on the live site.
+ */
+function canon(u: string, liveHost: string): string {
   try {
     const url = new URL(u);
-    const host = url.hostname.replace(/^www\./, "");
+    const apex = liveHost.replace(/^www\./, "");
+    const host = url.hostname === apex || url.hostname.endsWith(`.${apex}`) ? liveHost : url.hostname;
     const path = url.pathname.replace(/\/+$/, "");
-    return `https://www.${host}${path || "/"}`;
+    return `https://${host}${path || "/"}`;
   } catch { return u; }
 }
 
 function absolute(u: string | null | undefined, origin: string): string | null {
   const s = (u ?? "").trim();
   if (!s) return null;
-  if (/^https?:\/\//i.test(s)) return canon(s);
-  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/i.test(s)) return canon(`https://${s}`);
-  return canon(`${origin}/${s.replace(/^\/+/, "")}`);
+  const liveHost = (() => { try { return new URL(origin).hostname; } catch { return "www.we360.ai"; } })();
+  if (/^https?:\/\//i.test(s)) return canon(s, liveHost);
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/i.test(s)) return canon(`https://${s}`, liveHost);
+  return canon(`${origin}/${s.replace(/^\/+/, "")}`, liveHost);
 }
 
 const legacyUsage = (u: QueryUseOption[]): QueryUsage | null =>

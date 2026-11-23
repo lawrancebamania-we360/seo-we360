@@ -117,6 +117,15 @@ function plain(s: string | null | undefined, max = 2000): string | null {
   return t.length >= 3 ? t.slice(0, max) : null;
 }
 
+export function fitMeta(meta: string, max = META_MAX): string {
+  if (meta.length <= max) return meta;
+  const head = meta.slice(0, max);
+  const sentence = Math.max(head.lastIndexOf(". "), head.endsWith(".") ? head.length - 1 : -1);
+  if (sentence >= max * 0.6) return head.slice(0, sentence + 1).trim();
+  const word = head.slice(0, max - 1).lastIndexOf(" ");
+  return `${head.slice(0, word > 0 ? word : max - 1).replace(/[\s,;:.-]+$/, "")}…`;
+}
+
 const compactScan = (s: PageScan | null, headings = 25) => s ? {
   title: s.title, meta: s.meta, h1: s.h1, word_count: s.wordCount, has_template: s.hasTemplate,
   headings: s.headings.slice(0, headings).map((h) => `${h.level === 2 ? "H2" : "H3"}: ${h.text}`),
@@ -185,6 +194,10 @@ export async function planPageWithClaude(input: PlanPageInput): Promise<PlanPage
         if (m && m.length <= META_MAX) meta = m;
       }
     }
+
+    // Last resort for the meta: cut at the last full sentence (or word) that fits.
+    // Titles are left as they are - a cut title reads badly; the UI flags it.
+    if (meta && meta.length > META_MAX) meta = fitMeta(meta);
 
     const terms = new Map<string, PlannedTerm>();
     for (const a of parsed.terms) {
