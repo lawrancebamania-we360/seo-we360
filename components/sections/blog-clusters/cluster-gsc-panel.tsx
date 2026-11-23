@@ -83,7 +83,7 @@ const STATUS_DOT: Record<QueryStatus, string> = { suggested: "bg-info-500", acce
 
 const SOURCE: Record<AssignedBy, { label: string; Icon: typeof Sparkles }> = {
   ai: { label: "Suggested by Claude (AI).", Icon: Sparkles },
-  rule: { label: `Routed by rule: it already ranks top ${UPDATE_EXISTING_MAX_POSITION} on another we360.ai page.`, Icon: GitBranch },
+  rule: { label: "Routed automatically from the page it already ranks on in Google (open the row for the exact reason).", Icon: GitBranch },
   keyword: { label: "Matched by keyword rules (Claude was unavailable at refresh).", Icon: Hash },
   manual: { label: "Edited by a person. Refreshes won't overwrite it.", Icon: UserRound },
 };
@@ -415,25 +415,25 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
                 <SortTh label="Query" k="query" sort={sort} onSort={onSort} className={canManage ? "pl-1" : "pl-3"} />
                 <SortTh label="Impr." k="impressions" sort={sort} onSort={onSort} align="right" className="w-[72px]" />
                 {cols.clicks && (
-                  <SortTh label="Clicks" k="clicks" sort={sort} onSort={onSort} align="right" className="w-[92px]"
+                  <SortTh label="Clicks" k="clicks" sort={sort} onSort={onSort} align="right" className="w-[76px]"
                     info="Clicks in the last 90 days, with click-through rate (clicks ÷ impressions)." />
                 )}
                 <SortTh label="Pos." k="position" sort={sort} onSort={onSort} align="right" className="w-[76px]"
                   info={<>Average Google position over the last {LOOKBACK_DAYS} days. <Tone c="text-success-700 dark:text-success-300">Top 3</Tone>, <Tone c="text-info-700 dark:text-info-300">page 1</Tone>, <Tone c="text-warning-700 dark:text-warning-300">page 2</Tone>, grey beyond.</>} />
                 {cols.ranks && (
-                  <Th className="w-[150px]" info={<>The we360.ai page Google shows for this query, and its position there (#). If that page is outside this cluster and in the top {UPDATE_EXISTING_MAX_POSITION}, the query is routed to <b>Update existing page</b>.</>}>Ranks on</Th>
+                  <Th className="w-[122px]" info={<>The we360.ai page Google shows for this query, and its position there (#). If that page is outside this cluster and in the top {UPDATE_EXISTING_MAX_POSITION}, the query is routed to <b>Update existing page</b>.</>}>Ranks on</Th>
                 )}
-                <Th className="w-[134px]" info={<ActionLegend />}>Action</Th>
-                <Th className="w-[170px]" info={<>Where the query goes: the cluster post (<b>Use in a post</b>), the hub page, or the page it already ranks on (<b>Update existing page</b>).</>}>Target</Th>
+                <Th className="w-[118px]" info={<ActionLegend />}>Action</Th>
+                <Th className="w-[148px]" info={<>Where the query goes: the cluster post (<b>Use in a post</b>), the hub page, or the page it already ranks on (<b>Update existing page</b>).</>}>Target</Th>
                 {cols.useAs && (
                   <Th className="w-[84px]" info={<UsageLegend />}>Use as</Th>
                 )}
                 {cols.anchors && (
                   <Th className="w-[150px]" info="Alternative link texts other posts and the hub can use when linking to this post, so we don't repeat the exact keyword every time (keeps anchor text natural and avoids over-optimisation).">Anchors</Th>
                 )}
-                <Th className="w-[118px]" info={<StatusLegend />}>Status</Th>
+                <Th className="w-[100px]" info={<StatusLegend />}>Status</Th>
                 {canManage && (
-                  <Th className="w-[100px] pr-3 text-right" info={<><b>Approve</b> locks in the suggestion and adds the query (and its anchor variants) to the target post&apos;s brief. <b>Reject</b> skips it. <b>Edit</b> changes the action, post, Use as or anchors.</>}>Review</Th>
+                  <Th className="w-[92px] pr-3 text-right" info={<><b>Approve</b> locks in the suggestion and adds the query (and its anchor variants) to the target post&apos;s brief. <b>Reject</b> skips it. <b>Edit</b> changes the action, post, Use as or anchors.</>}>Review</Th>
                 )}
               </tr>
             </thead>
