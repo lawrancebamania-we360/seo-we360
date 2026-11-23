@@ -415,16 +415,16 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
                 <SortTh label="Query" k="query" sort={sort} onSort={onSort} className={canManage ? "pl-1" : "pl-3"} />
                 <SortTh label="Impr." k="impressions" sort={sort} onSort={onSort} align="right" className="w-[72px]" />
                 {cols.clicks && (
-                  <SortTh label="Clicks" k="clicks" sort={sort} onSort={onSort} align="right" className="w-[76px]"
+                  <SortTh label="Clicks" k="clicks" sort={sort} onSort={onSort} align="right" className="w-[86px]"
                     info="Clicks in the last 90 days, with click-through rate (clicks ÷ impressions)." />
                 )}
                 <SortTh label="Pos." k="position" sort={sort} onSort={onSort} align="right" className="w-[76px]"
                   info={<>Average Google position over the last {LOOKBACK_DAYS} days. <Tone c="text-success-700 dark:text-success-300">Top 3</Tone>, <Tone c="text-info-700 dark:text-info-300">page 1</Tone>, <Tone c="text-warning-700 dark:text-warning-300">page 2</Tone>, grey beyond.</>} />
                 {cols.ranks && (
-                  <Th className="w-[122px]" info={<>The we360.ai page Google shows for this query, and its position there (#). If that page is outside this cluster and in the top {UPDATE_EXISTING_MAX_POSITION}, the query is routed to <b>Update existing page</b>.</>}>Ranks on</Th>
+                  <Th className="w-[114px]" info={<>The we360.ai page Google shows for this query, and its position there (#). If that page is outside this cluster and in the top {UPDATE_EXISTING_MAX_POSITION}, the query is routed to <b>Update existing page</b>.</>}>Ranks on</Th>
                 )}
-                <Th className="w-[118px]" info={<ActionLegend />}>Action</Th>
-                <Th className="w-[148px]" info={<>Where the query goes: the cluster post (<b>Use in a post</b>), the hub page, or the page it already ranks on (<b>Update existing page</b>).</>}>Target</Th>
+                <Th className="w-[130px]" info={<ActionLegend />}>Action</Th>
+                <Th className="w-[134px]" info={<>Where the query goes: the cluster post (<b>Use in a post</b>), the hub page, or the page it already ranks on (<b>Update existing page</b>).</>}>Target</Th>
                 {cols.useAs && (
                   <Th className="w-[84px]" info={<UsageLegend />}>Use as</Th>
                 )}
