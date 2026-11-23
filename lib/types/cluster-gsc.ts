@@ -50,6 +50,10 @@ export interface ClusterGscRefreshInfo {
   /** "ok" = Claude assigned the new queries; "fallback" = keyword matching was used instead. */
   ai: "ok" | "fallback" | "skipped";
   aiError?: string | null;
+  /** Query+page rows Search Console returned before the whole-word filter and 50-impression threshold. */
+  rawRows?: number;
+  /** How many cluster keywords were searched. */
+  keywords?: number;
 }
 
 export interface ClusterHub {

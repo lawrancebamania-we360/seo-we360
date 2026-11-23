@@ -28,6 +28,7 @@ export interface RefreshActionResult {
   assigned?: number;
   ai?: "ok" | "fallback" | "skipped";
   aiError?: string | null;
+  rawRows?: number;
 }
 
 /** GC-2/GC-3: pull the cluster's GSC queries and assign the new ones. Runs on Vercel (GSC 403s locally). */

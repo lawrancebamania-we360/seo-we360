@@ -69,7 +69,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
     try {
       const r = await refreshClusterGsc({ project_id: projectId, cluster_id: clusterId });
       if (!r.ok) { toast.error(r.error ?? "Refresh failed."); return; }
-      toast.success(`${r.fetched} queries (${r.added} new) · ${r.assigned} assigned`);
+      toast.success(`${r.fetched} queries with 50+ impressions (${r.added} new) · ${r.assigned} assigned · from ${r.rawRows ?? 0} Search Console rows`);
       if (r.ai === "fallback") toast.warning(`Claude wasn't available, so keyword matching was used: ${r.aiError ?? "unknown error"}`);
       router.refresh();
     } catch { toast.error("Refresh failed - try again."); }
@@ -116,6 +116,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
           <p className="text-[11.5px] text-muted-foreground">
             {data.refresh
               ? <>Last refreshed {formatDistanceToNow(new Date(data.refresh.at), { addSuffix: true })} · {data.refresh.fetched} queries
+                  {data.refresh.keywords != null && ` (searched ${data.refresh.keywords} keywords, ${data.refresh.rawRows ?? 0} Search Console rows)`}
                   {data.refresh.ai === "ok" && " · assigned by Claude"}
                   {data.refresh.ai === "fallback" && <span className="text-warning-strong"> · keyword matching (Claude unavailable: {data.refresh.aiError ?? "unknown"})</span>}</>
               : "Not refreshed yet - click Refresh to pull queries from Search Console."}

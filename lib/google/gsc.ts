@@ -450,22 +450,24 @@ export async function getGscCannibalization(
 
 // ============================================================================
 // Blog Clusters - GSC queries (GC-2). Property-wide query+page rows whose query
-// matches any cluster keyword (RE2 `includingRegex`, one expression per chunk),
-// so queries are found even before a cluster's posts are live: GSC returns
-// every query some we360.ai page already earns impressions for. Pages through
-// results (25k rows a page, up to 4 pages per expression).
+// CONTAINS any cluster keyword - so queries are found even before a cluster's
+// posts are live (GSC returns every query some we360.ai page already earns
+// impressions for). One `contains` request per keyword (GSC ANDs filters inside
+// a group, so OR-ing keywords needs separate calls), a few in parallel, rows
+// de-duplicated by query+page. Whole-word filtering happens in the caller.
 // ============================================================================
 
 export interface GscQueryPageMatch { query: string; page: string; clicks: number; impressions: number; position: number }
 
 export async function getGscQueryPageRowsMatching(
-  siteUrl: string, regexes: string[], range: { start: string; end: string },
+  siteUrl: string, keywords: string[], range: { start: string; end: string },
 ): Promise<GscQueryPageMatch[]> {
   const token = await getGoogleAccessToken(SCOPE);
-  const out: GscQueryPageMatch[] = [];
   const PAGE = 25000;
-  for (const expression of regexes) {
-    for (let page = 0; page < 4; page++) {
+  const seen = new Map<string, GscQueryPageMatch>();
+
+  const fetchKeyword = async (keyword: string) => {
+    for (let page = 0; page < 2; page++) {
       const res = await fetch(
         `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
         {
@@ -475,20 +477,27 @@ export async function getGscQueryPageRowsMatching(
             startDate: range.start,
             endDate: range.end,
             dimensions: ["query", "page"],
-            dimensionFilterGroups: [{ filters: [{ dimension: "query", operator: "includingRegex", expression }] }],
+            dimensionFilterGroups: [{ filters: [{ dimension: "query", operator: "contains", expression: keyword }] }],
             rowLimit: PAGE,
             startRow: page * PAGE,
           }),
           signal: AbortSignal.timeout(30_000),
         },
       );
-      if (!res.ok) throw new Error(`GSC query-match failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
+      if (!res.ok) throw new Error(`GSC query-match failed for "${keyword}" (${res.status}): ${(await res.text()).slice(0, 300)}`);
       const rows = ((await res.json()) as { rows?: GscQueryRow[] }).rows ?? [];
       for (const r of rows) {
-        out.push({ query: r.keys[0], page: r.keys[1], clicks: r.clicks, impressions: r.impressions, position: r.position });
+        const key = `${r.keys[0]} ${r.keys[1]}`;
+        if (!seen.has(key)) seen.set(key, { query: r.keys[0], page: r.keys[1], clicks: r.clicks, impressions: r.impressions, position: r.position });
       }
       if (rows.length < PAGE) break;
     }
-  }
-  return out;
+  };
+
+  // Small worker pool - well under GSC's per-site QPM limit.
+  const queue = [...keywords];
+  await Promise.all(Array.from({ length: Math.min(6, queue.length) }, async () => {
+    for (let k = queue.shift(); k !== undefined; k = queue.shift()) await fetchKeyword(k);
+  }));
+  return [...seen.values()];
 }

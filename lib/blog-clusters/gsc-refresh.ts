@@ -18,7 +18,7 @@ import { getGscQueryPageRowsMatching } from "@/lib/google/gsc";
 import { isMissingTable } from "@/lib/team-targets/db";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
 import {
-  aggregateQueryRows, allocateAnchors, clusterKeywords, keywordAssignment, keywordRegexChunks, matchedKeyword,
+  aggregateQueryRows, allocateAnchors, clusterKeywords, keywordAssignment, matchedKeyword,
   normalizeKeyword, ruleAssignment, samePage, type PostRef,
 } from "@/lib/blog-clusters/query-match";
 import { assignQueriesWithClaude } from "@/lib/blog-clusters/assign-queries-ai";
@@ -85,6 +85,8 @@ export interface RefreshResult {
   assigned: number;
   ai: ClusterGscRefreshInfo["ai"];
   aiError?: string | null;
+  /** Query+page rows Search Console returned before filtering/threshold. */
+  rawRows?: number;
 }
 
 export async function refreshClusterGscQueries(
@@ -113,13 +115,15 @@ export async function refreshClusterGscQueries(
   const start = dayOffset(3 + LOOKBACK_DAYS);
   let raw;
   try {
-    raw = await getGscQueryPageRowsMatching(args.siteUrl, keywordRegexChunks(keywords), { start, end });
+    raw = await getGscQueryPageRowsMatching(args.siteUrl, keywords, { start, end });
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Search Console request failed.", ...empty };
   }
+  const rawRows = raw.length;
 
-  // 2. Aggregate, threshold, upsert metrics only.
-  const aggregated = aggregateQueryRows(raw)
+  // 2. Whole-word matches only ("ems" must not match "systems"), aggregate per
+  //    query, threshold, upsert metrics only.
+  const aggregated = aggregateQueryRows(raw.filter((r) => matchedKeyword(r.query, keywords) !== null))
     .filter((q) => q.impressions >= MIN_IMPRESSIONS)
     .sort((a, b) => b.impressions - a.impressions)
     .slice(0, MAX_QUERIES);
@@ -218,10 +222,10 @@ export async function refreshClusterGscQueries(
     }
   }
 
-  const info: ClusterGscRefreshInfo = { at: runAt, fetched: aggregated.length, added, ai, aiError };
+  const info: ClusterGscRefreshInfo = { at: runAt, fetched: aggregated.length, added, ai, aiError, rawRows, keywords: keywords.length };
   await db.from("topic_clusters").update({ gsc_refresh: info }).eq("id", args.clusterId);
 
-  return { ok: true, fetched: aggregated.length, added, assigned: updates.filter((u) => u.action !== "unassigned").length, ai, aiError };
+  return { ok: true, fetched: aggregated.length, added, assigned: updates.filter((u) => u.action !== "unassigned").length, ai, aiError, rawRows };
 }
 
 // ---------------------------------------------------------------------------
