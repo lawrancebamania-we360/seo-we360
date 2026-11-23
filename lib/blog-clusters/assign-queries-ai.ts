@@ -18,6 +18,7 @@ import {
 
 const MODEL = "claude-sonnet-5-5";
 const BATCH = 30;        // search terms per request (drafts make each answer long)
+const RETRY_BATCH = 10;  // smaller batches for terms Claude didn't return the first time
 const PARALLEL = 3;      // requests in flight
 
 export function claudeKey(): string | null {
@@ -111,9 +112,15 @@ For each post in "posts_needing_naturals", also write natural_to_hub (4-8 words 
 
 Count characters carefully: titles over ${TITLE_MAX} or metas over ${META_MAX} characters are rejected. Return every query id exactly once.`;
 
+// Where JSON syntax has leaked into a text field (the model "closed" the string
+// with curly quotes and carried on with more fields): `","` (no spaces), `},{`, `"draft_x":`, `": null`.
+const LEAKED_JSON = /["“”][,:]["“”{]|\}\s*,\s*\{|["“”]\w+_\w+["“”]\s*:|["“”]\s*:\s*null\b/;
+
 function trimOrNull(s: string | null | undefined): string | null {
-  const t = (s ?? "").trim();
-  return t ? t : null;
+  let t = (s ?? "").trim();
+  const leak = t.search(LEAKED_JSON);
+  if (leak >= 0) t = t.slice(0, leak).replace(/[\s“”",]+$/, "").trim();
+  return t.length >= 3 ? t : null;
 }
 
 export async function assignQueriesWithClaude(input: {
@@ -213,11 +220,25 @@ export async function assignQueriesWithClaude(input: {
     return null;
   };
 
-  try {
-    for (let i = 0; i < batches.length; i += PARALLEL) {
-      const errors = await Promise.all(batches.slice(i, i + PARALLEL).map((b, j) => runBatch(b, i + j === 0)));
+  const runAll = async (list: AiQuery[][], naturalsInFirst: boolean): Promise<string | null> => {
+    for (let i = 0; i < list.length; i += PARALLEL) {
+      const errors = await Promise.all(list.slice(i, i + PARALLEL).map((b, j) => runBatch(b, naturalsInFirst && i + j === 0)));
       const err = errors.find((e) => e);
-      if (err) return { ok: false, error: err };
+      if (err) return err;
+    }
+    return null;
+  };
+
+  try {
+    const err = await runAll(batches, true);
+    if (err) return { ok: false, error: err };
+
+    // A malformed answer can silently drop terms - ask once more for those, in smaller batches.
+    const missing = input.queries.filter((q) => !assignments.has(q.query));
+    if (missing.length) {
+      const retry: AiQuery[][] = [];
+      for (let i = 0; i < missing.length; i += RETRY_BATCH) retry.push(missing.slice(i, i + RETRY_BATCH));
+      await runAll(retry, false); // best effort: anything still missing is retried on the next refresh
     }
 
     // Mobile limits: re-ask once for any title/meta that's too long.
