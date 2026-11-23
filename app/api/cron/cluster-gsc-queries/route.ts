@@ -16,6 +16,9 @@ export const maxDuration = 300;
 // Start another cluster only while under this; one cluster (GSC + one Claude
 // round of drafts) can take ~3 minutes on its own.
 const BUDGET_MS = 60_000;
+// A cluster refreshed more recently than this counts as done for this run, so
+// repeated calls (the GitHub loop) make one pass and then stop.
+const FRESH_MS = 6 * 60 * 60 * 1000;
 
 export async function GET(request: NextRequest) {
   if (!isCronAuthorized(request.headers.get("authorization"))) {
@@ -23,6 +26,9 @@ export async function GET(request: NextRequest) {
   }
   const startedAt = Date.now();
   const admin = createAdminClient();
+  // ?since=<ISO time> forces a pass over every cluster refreshed before that time.
+  const sinceParam = request.nextUrl.searchParams.get("since");
+  const sinceMs = sinceParam && !Number.isNaN(Date.parse(sinceParam)) ? Date.parse(sinceParam) : startedAt - FRESH_MS;
 
   const { data: projects } = await admin.from("projects").select("id, gsc_property_url").not("gsc_property_url", "is", null);
   const results: Array<{ clusterId: string; ok: boolean; fetched: number; added: number; ai: string; error?: string }> = [];
@@ -34,6 +40,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ran_at: new Date().toISOString(), skipped: "Migration 20261123000001 not applied yet." });
     }
     const clusters = ((res.data ?? []) as { id: string; gsc_refresh: { at?: string } | null }[])
+      .filter((c) => !c.gsc_refresh?.at || Date.parse(c.gsc_refresh.at) < sinceMs)
       .sort((a, b) => (a.gsc_refresh?.at ?? "").localeCompare(b.gsc_refresh?.at ?? ""));
     for (const c of clusters) {
       if (Date.now() - startedAt > BUDGET_MS) { budgetHit = true; break; }

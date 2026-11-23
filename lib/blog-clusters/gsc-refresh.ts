@@ -100,6 +100,19 @@ async function fetchPageHeads(pages: string[]): Promise<Map<string, { title: str
   return out;
 }
 
+/** True when there's wording for every chosen option (link text needs none - it uses anchors). */
+function draftsCover(usages: string[], d: QueryDrafts | null | undefined): boolean {
+  if (!d) return false;
+  const has = (v: string | null | undefined) => !!v && v.trim().length > 0;
+  return usages.every((u) =>
+    u === "title_meta" ? has(d.title) || has(d.meta)
+      : u === "h2" ? has(d.h2)
+        : u === "faq" ? has(d.faqQuestion)
+          : u === "paragraph" ? has(d.paragraph)
+            : u === "template" ? has(d.template)
+              : true);
+}
+
 function hubOf(c: ClusterRow) {
   return { title: c.pillar_title, slug: c.pillar_slug, keyword: c.pillar_primary_keyword || c.seed_keyword || null };
 }
@@ -235,7 +248,7 @@ export async function refreshClusterGscQueries(
   const toRoute = all.filter((q) => q.status === "suggested" && (q.assigned_by === null || q.assigned_by === "keyword"));
   const routeIds = new Set(toRoute.map((q) => q.id));
   const toDraftAll = insightsReady
-    ? all.filter((q) => !routeIds.has(q.id) && q.status !== "rejected" && !q.drafts && ["assign", "hub", "update_existing"].includes(q.action))
+    ? all.filter((q) => !routeIds.has(q.id) && q.status !== "rejected" && !draftsCover(q.usages ?? [], q.drafts) && ["assign", "hub", "update_existing"].includes(q.action))
     : [];
   // One parallel round of Claude per refresh (fits the 300s function limit);
   // biggest terms first, the rest are drafted on the next run.
