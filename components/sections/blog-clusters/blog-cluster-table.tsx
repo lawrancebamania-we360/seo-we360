@@ -25,6 +25,33 @@ import { ToolEditor } from "@/components/sections/content-pipeline/tool-editor";
 import { CONTENT_KIND_LABEL, type ContentKind } from "@/lib/content-pipeline/content-type";
 import type { BlogClusterItemRow } from "@/lib/data/blog-clusters";
 import type { Member } from "@/components/sections/assignee-picker";
+import { ClusterItemDetailsButton } from "@/components/sections/blog-clusters/cluster-item-details-button";
+import { BulkPasteDetailsButton } from "@/components/sections/blog-clusters/bulk-paste-details-button";
+import { reservedAnchors } from "@/lib/blog-clusters/query-match";
+import { QUERY_USAGE_LABEL } from "@/lib/types/cluster-gsc";
+
+/** The cluster's hub page, for anchor instructions in Copy details. */
+export interface CopyHub { slug: string | null; keyword: string | null; title: string }
+
+function anchorLines(it: BlogClusterItemRow, all: BlogClusterItemRow[], hub: CopyHub | null): string[] {
+  const lines: string[] = [];
+  if (it.gscQueries.length) {
+    lines.push("Search Console queries to cover (people already search these):");
+    for (const q of it.gscQueries) lines.push(`- ${q.query} - use as ${QUERY_USAGE_LABEL[q.usage]}${q.impressions ? ` (${q.impressions.toLocaleString()} impressions, pos ${q.position.toFixed(1)})` : ""}`);
+    lines.push("Work each one in naturally; never repeat a query just to increase keyword density.", "");
+  }
+  const plan = it.anchorPlan;
+  if (plan.toHub || plan.fromHub || plan.variants?.length) {
+    lines.push("Internal linking plan:");
+    if (plan.toHub && hub) lines.push(`- Link from this post to the hub page (${hub.slug || hub.title}) using the anchor: "${plan.toHub.text}"`);
+    if (plan.fromHub) lines.push(`- The hub page links to this post with: "${plan.fromHub.text}"`);
+    if (plan.variants?.length) lines.push(`- Anchor variants other posts may use to link here: ${plan.variants.map((v) => `"${v}"`).join(", ")}`);
+    const reserved = reservedAnchors(it.id, all.map((p) => ({ id: p.id, primary: p.targetKeyword, variants: p.anchorPlan.variants ?? [] })));
+    if (reserved.length) lines.push(`- Do NOT use these as anchor text for links to this post (they're reserved for other posts): ${reserved.slice(0, 20).join(", ")}`);
+    lines.push("- Keep links natural - don't force every anchor in.", "");
+  }
+  return lines;
+}
 
 const KIND_ORDER: ContentKind[] = ["blog", "guide", "listicle", "pillar", "other"];
 
@@ -34,7 +61,7 @@ const FUNNEL_TONE: Record<string, string> = {
   bofu: "border-success-300 text-success-700",
 };
 
-function formatItemForCopy(it: BlogClusterItemRow): string {
+function formatItemForCopy(it: BlogClusterItemRow, all: BlogClusterItemRow[] = [], hub: CopyHub | null = null): string {
   const lines: string[] = [`## ${it.title}`, ""];
   const meta = [
     it.category && `Category: ${it.category}`,
@@ -58,6 +85,7 @@ function formatItemForCopy(it: BlogClusterItemRow): string {
   if (it.faqCandidates.length) {
     lines.push("FAQ candidates:", ...it.faqCandidates.map((q) => `- ${q}`), "");
   }
+  lines.push(...anchorLines(it, all, hub));
   if (it.interlinksTo.length) lines.push(`Interlinks to: ${it.interlinksTo.join(", ")}`);
   if (it.interlinksFrom.length) lines.push(`Interlinks from: ${it.interlinksFrom.join(", ")}`);
   if (it.metaDescription) lines.push(`Meta description: ${it.metaDescription}`);
@@ -67,8 +95,8 @@ function formatItemForCopy(it: BlogClusterItemRow): string {
   return lines.join("\n").trim();
 }
 
-function formatClusterForCopy(clusterName: string, items: BlogClusterItemRow[]): string {
-  return [`# ${clusterName} — ${items.length} planned post${items.length === 1 ? "" : "s"}`, "", ...items.map(formatItemForCopy)].join("\n\n---\n\n");
+function formatClusterForCopy(clusterName: string, items: BlogClusterItemRow[], all: BlogClusterItemRow[], hub: CopyHub | null): string {
+  return [`# ${clusterName} — ${items.length} planned post${items.length === 1 ? "" : "s"}`, "", ...items.map((it) => formatItemForCopy(it, all, hub))].join("\n\n---\n\n");
 }
 
 async function copyText(text: string, successMessage: string) {
@@ -80,8 +108,10 @@ async function copyText(text: string, successMessage: string) {
   }
 }
 
-export function BlogClusterTable({ clusterName, items, projectId, members, canManage, siteDomain }: {
+export function BlogClusterTable({ clusterName, clusterId, hub = null, items, projectId, members, canManage, siteDomain }: {
   clusterName: string;
+  clusterId: string;
+  hub?: CopyHub | null;
   items: BlogClusterItemRow[];
   projectId: string;
   members: Member[];
@@ -137,10 +167,11 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
             variant="outline"
             size="sm"
             className="gap-1.5 shrink-0"
-            onClick={() => copyText(formatClusterForCopy(clusterName, shown), `Copied ${shown.length} brief${shown.length === 1 ? "" : "s"} - paste into any LLM to draft them.`)}
+            onClick={() => copyText(formatClusterForCopy(clusterName, shown, items, hub), `Copied ${shown.length} brief${shown.length === 1 ? "" : "s"} - paste into any LLM to draft them.`)}
           >
             <Copy className="size-3.5" /> Copy details
           </Button>
+          {canManage && <BulkPasteDetailsButton projectId={projectId} clusterId={clusterId} />}
         </div>
       </div>
 
@@ -186,7 +217,7 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
                     <div className="min-w-0 flex-1 truncate" title={it.title}>{it.title}</div>
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); copyText(formatItemForCopy(it), "Copied this brief - paste into any LLM to draft it."); }}
+                      onClick={(e) => { e.stopPropagation(); copyText(formatItemForCopy(it, items, hub), "Copied this brief - paste into any LLM to draft it."); }}
                       className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                       title="Copy this row's details"
                     >
@@ -242,15 +273,18 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
                       In Sprint · {openItem.taskStatus}{openItem.assigneeName ? ` · ${openItem.assigneeName}` : ""}
                     </Badge>
                   )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="ml-auto gap-1.5"
-                    onClick={() => copyText(formatItemForCopy(openItem), "Copied this brief - paste into any LLM to draft it.")}
-                  >
-                    <Copy className="size-3.5" /> Copy details
-                  </Button>
+                  <div className="ml-auto flex items-center gap-2">
+                    {canManage && <ClusterItemDetailsButton key={openItem.id} projectId={projectId} item={openItem} />}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => copyText(formatItemForCopy(openItem, items, hub), "Copied this brief - paste into any LLM to draft it.")}
+                    >
+                      <Copy className="size-3.5" /> Copy details
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -261,6 +295,27 @@ export function BlogClusterTable({ clusterName, items, projectId, members, canMa
                 </div>
 
                 <PageSpec title={openItem.title} slug={openItem.urlSlug} meta={openItem.metaDescription} siteDomain={siteDomain} />
+
+                {(openItem.gscQueries.length > 0 || openItem.anchorPlan.toHub || openItem.anchorPlan.fromHub) && (
+                  <DetailSection label="Search Console queries & anchors">
+                    {openItem.gscQueries.length > 0 && (
+                      <ul className="mb-2 space-y-1">
+                        {openItem.gscQueries.map((q, i) => (
+                          <li key={i} className="flex flex-wrap items-center gap-1.5">
+                            <Badge variant="outline" className="text-[10px]">{QUERY_USAGE_LABEL[q.usage]}</Badge>
+                            <span>{q.query}</span>
+                            {q.impressions > 0 && <span className="text-[11.5px] text-muted-foreground">{q.impressions.toLocaleString()} impr. · pos {q.position.toFixed(1)}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="space-y-0.5 text-[12.5px]">
+                      {openItem.anchorPlan.toHub && <div><span className="text-muted-foreground">Links to hub with:</span> &ldquo;{openItem.anchorPlan.toHub.text}&rdquo; <span className="text-[11px] text-muted-foreground">({openItem.anchorPlan.toHub.type})</span></div>}
+                      {openItem.anchorPlan.fromHub && <div><span className="text-muted-foreground">Hub links here with:</span> &ldquo;{openItem.anchorPlan.fromHub.text}&rdquo; <span className="text-[11px] text-muted-foreground">({openItem.anchorPlan.fromHub.type})</span></div>}
+                      {!!openItem.anchorPlan.variants?.length && <div><span className="text-muted-foreground">Anchor variants:</span> {openItem.anchorPlan.variants.join(", ")}</div>}
+                    </div>
+                  </DetailSection>
+                )}
                 <ArtifactEditor itemId={openItem.id} artifactUrl={openItem.artifactUrl} driveUrl={openItem.artifactDriveUrl} />
                 <ToolEditor projectId={projectId} itemId={openItem.id} tools={openItem.tools} />
 

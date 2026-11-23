@@ -7,6 +7,7 @@ import { isMissingColumn } from "@/lib/ai-citation/run-state";
 import type { ContentKind, ClusterKind, PublishState } from "@/lib/content-pipeline/content-type";
 import type { ContentTool } from "@/lib/content-pipeline/tool";
 import type { ExportItem } from "@/lib/blog-clusters/export-rows";
+import type { AnchorPlan, PostGscQuery } from "@/lib/types/cluster-gsc";
 
 // A cluster's kind as a safe ClusterKind (defaults to blog for an unknown/empty value).
 const asClusterKind = (v: string | null | undefined): ClusterKind => (v === "guide" ? "guide" : "blog");
@@ -197,6 +198,10 @@ export interface BlogClusterItemRow {
   liveUrl: string | null;
   /** The attached calculators (0-3). Empty until the content_tools migration is applied. */
   tools: ContentTool[];
+  /** GSC queries this post should cover, written by "Apply all" (empty before migration 20261123000001). */
+  gscQueries: PostGscQuery[];
+  /** Anchor-text plan for this post, written by "Apply all". */
+  anchorPlan: AnchorPlan;
 }
 
 export interface BlogClusterDetail {
@@ -301,6 +306,16 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
     for (const p of (ownerProfs ?? []) as Array<{ id: string; name: string | null }>) ownerNameById.set(p.id, p.name ?? "");
   }
 
+  // Applied GSC queries + anchor plan (migration 20261123000001) - read on their
+  // own so the main item read can't break before the migration is applied.
+  const gscByItem = new Map<string, { gscQueries: PostGscQuery[]; anchorPlan: AnchorPlan }>();
+  const gscRes = await supabase.from("topic_cluster_items").select("id, gsc_queries, anchor_plan").eq("cluster_id", clusterId);
+  if (!gscRes.error) {
+    for (const g of (gscRes.data ?? []) as Array<{ id: string; gsc_queries: PostGscQuery[] | null; anchor_plan: AnchorPlan | null }>) {
+      gscByItem.set(g.id, { gscQueries: g.gsc_queries ?? [], anchorPlan: g.anchor_plan ?? {} });
+    }
+  }
+
   const items = rawItems.map((r) => {
     const itemOwnerId = ownerByItem.get(r.id) ?? null;
     const ownPublished = r.published_url ?? null;
@@ -344,6 +359,8 @@ export async function getBlogClusterDetail(projectId: string, clusterId: string)
       publishState: state,
       liveUrl,
       tools: itemTools(r),
+      gscQueries: gscByItem.get(r.id)?.gscQueries ?? [],
+      anchorPlan: gscByItem.get(r.id)?.anchorPlan ?? {},
     };
   });
 

@@ -19,9 +19,27 @@ export interface ExportItem {
   metaDescription: string | null;
   urlSlug: string | null;
   primaryCta: string | null;
+  /** Applied GSC queries + anchor plan (GC-5). Absent in the all-clusters export. */
+  gscQueries?: { query: string; usage: string }[];
+  anchorPlan?: { toHub?: { text: string } | null; fromHub?: { text: string } | null; variants?: string[] };
 }
 
 export const MAX_SUPPORTING = 15;
+
+/** "query (H2); query (FAQ)" - the export/paste format for a post's GSC queries. */
+export function formatGscQueries(qs: { query: string; usage: string }[] | undefined): string | null {
+  if (!qs?.length) return null;
+  return qs.map((q) => `${q.query} (${q.usage.toUpperCase()})`).join("; ");
+}
+
+/** Inverse of formatGscQueries: "query (H2); other" -> [{query, usage}]. */
+export function parseGscQueries(s: string | undefined | null): { query: string; usage: "h2" | "faq" | "body" }[] {
+  if (!s) return [];
+  return s.split(";").map((part) => part.trim()).filter(Boolean).map((part) => {
+    const m = part.match(/^(.*?)\s*\((h2|faq|body)\)\s*$/i);
+    return m ? { query: m[1].trim(), usage: m[2].toLowerCase() as "h2" | "faq" | "body" } : { query: part, usage: "body" as const };
+  }).filter((q) => q.query);
+}
 
 type Cell = string | number | null;
 
@@ -36,6 +54,7 @@ export const DETAIL_COLUMNS: string[] = [
   "Interlinks To (slugs)", "Interlinks To Count",
   "Interlinks From (slugs)", "Interlinks From Count",
   "Meta Description", "URL Slug", "Primary CTA",
+  "GSC Queries", "Link to Hub Anchor", "Hub Link Anchor", "Anchor Variants",
 ];
 
 export function detailRow(clusterName: string, it: ExportItem): Cell[] {
@@ -52,6 +71,10 @@ export function detailRow(clusterName: string, it: ExportItem): Cell[] {
     join(it.interlinksTo), it.interlinksTo.length,
     join(it.interlinksFrom), it.interlinksFrom.length,
     it.metaDescription, it.urlSlug, it.primaryCta,
+    formatGscQueries(it.gscQueries),
+    it.anchorPlan?.toHub?.text ?? null,
+    it.anchorPlan?.fromHub?.text ?? null,
+    join(it.anchorPlan?.variants ?? []),
   ];
 }
 

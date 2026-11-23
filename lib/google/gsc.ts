@@ -447,3 +447,48 @@ export async function getGscCannibalization(
     return { connected: false, reason: e instanceof Error ? e.message : "GSC request failed", hits: [] };
   }
 }
+
+// ============================================================================
+// Blog Clusters - GSC queries (GC-2). Property-wide query+page rows whose query
+// matches any cluster keyword (RE2 `includingRegex`, one expression per chunk),
+// so queries are found even before a cluster's posts are live: GSC returns
+// every query some we360.ai page already earns impressions for. Pages through
+// results (25k rows a page, up to 4 pages per expression).
+// ============================================================================
+
+export interface GscQueryPageMatch { query: string; page: string; clicks: number; impressions: number; position: number }
+
+export async function getGscQueryPageRowsMatching(
+  siteUrl: string, regexes: string[], range: { start: string; end: string },
+): Promise<GscQueryPageMatch[]> {
+  const token = await getGoogleAccessToken(SCOPE);
+  const out: GscQueryPageMatch[] = [];
+  const PAGE = 25000;
+  for (const expression of regexes) {
+    for (let page = 0; page < 4; page++) {
+      const res = await fetch(
+        `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            startDate: range.start,
+            endDate: range.end,
+            dimensions: ["query", "page"],
+            dimensionFilterGroups: [{ filters: [{ dimension: "query", operator: "includingRegex", expression }] }],
+            rowLimit: PAGE,
+            startRow: page * PAGE,
+          }),
+          signal: AbortSignal.timeout(30_000),
+        },
+      );
+      if (!res.ok) throw new Error(`GSC query-match failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
+      const rows = ((await res.json()) as { rows?: GscQueryRow[] }).rows ?? [];
+      for (const r of rows) {
+        out.push({ query: r.keys[0], page: r.keys[1], clicks: r.clicks, impressions: r.impressions, position: r.position });
+      }
+      if (rows.length < PAGE) break;
+    }
+  }
+  return out;
+}

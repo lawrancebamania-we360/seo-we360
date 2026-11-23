@@ -20,6 +20,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
+import { parseGscQueries } from "@/lib/blog-clusters/export-rows";
+import { lastSegment, normalizeKeyword } from "@/lib/blog-clusters/query-match";
 
 const ImportInput = z.object({
   project_id: z.string().uuid(),
@@ -55,6 +57,11 @@ const HEADER_MAP: Record<string, string> = {
   "meta description": "meta_description",
   "url slug": "url_slug",
   "primary cta": "primary_cta",
+  // GSC queries + anchors (the cluster export writes these; bulk paste reads them back).
+  "gsc queries": "gsc_queries",
+  "link to hub anchor": "to_hub_anchor",
+  "hub link anchor": "from_hub_anchor",
+  "anchor variants": "anchor_variants",
 };
 
 function normalizeHeader(h: string): string {
@@ -88,6 +95,13 @@ interface ParsedRow {
   meta_description: string | null;
   url_slug: string | null;
   primary_cta: string | null;
+  // Raw cells for the GSC/anchor columns (bulk paste only; the importer ignores them).
+  gsc_queries_raw: string | null;
+  to_hub_anchor: string | null;
+  from_hub_anchor: string | null;
+  anchor_variants: string[];
+  /** Canonical keys that have a non-empty cell in this row (so bulk paste never blanks a field). */
+  filled: Set<string>;
 }
 
 function parsePastedRows(pastedText: string): { rows: ParsedRow[]; skipped: number } {
@@ -126,6 +140,9 @@ function parsePastedRows(pastedText: string): { rows: ParsedRow[]; skipped: numb
       .sort((a, b) => a[0] - b[0])
       .map(([n, keyword]) => ({ keyword, volume: parseVolume(volByN.get(n)) }));
 
+    const filled = new Set<string>();
+    colKey.forEach((c, idx) => { if (c && cells[idx]?.trim()) filled.add(c.key); });
+
     rows.push({
       title,
       category: get("category") || null,
@@ -142,6 +159,11 @@ function parsePastedRows(pastedText: string): { rows: ParsedRow[]; skipped: numb
       meta_description: get("meta_description") || null,
       url_slug: get("url_slug") || null,
       primary_cta: get("primary_cta") || null,
+      gsc_queries_raw: get("gsc_queries") || null,
+      to_hub_anchor: get("to_hub_anchor") || null,
+      from_hub_anchor: get("from_hub_anchor") || null,
+      anchor_variants: splitSemicolon(get("anchor_variants")),
+      filled,
     });
   }
   return { rows, skipped };
@@ -542,4 +564,130 @@ export async function setClusterItemOwner(input: z.infer<typeof ItemOwnerInput>)
   revalidatePath("/dashboard/blog-clusters");
   revalidatePath("/dashboard/to-publish");
   return { ok: true };
+}
+
+// ---- GC-7: "Add details" (edit one post) + bulk paste details --------------
+
+const UpdateItemInput = z.object({ project_id: z.string().uuid(), item_id: z.string().uuid(), ...PostFields });
+
+/** Save a post's full brief from the "Add details" form (same fields as Add post). */
+export async function updateClusterItem(input: z.infer<typeof UpdateItemInput>): Promise<{ ok: boolean; error?: string }> {
+  const parsed = UpdateItemInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Those details aren't valid." };
+  const { project_id, item_id, ...d } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { cluster_id: _c, project_id: _p, position: _pos, ...cols } = toItemInsert("", project_id, 0, d);
+  void _c; void _p; void _pos;
+  const { data, error } = await supabase
+    .from("topic_cluster_items").update(cols).eq("id", item_id).eq("project_id", project_id).select("cluster_id");
+  if (error) return { ok: false, error: error.message };
+  for (const c of new Set(((data as { cluster_id: string }[] | null) ?? []).map((r) => r.cluster_id))) revalidatePath(`/dashboard/blog-clusters/${c}`);
+  revalidatePath("/dashboard/to-publish");
+  return { ok: true };
+}
+
+const BulkPasteInput = z.object({
+  project_id: z.string().uuid(),
+  cluster_id: z.string().uuid(),
+  pasted_text: z.string().min(1),
+});
+
+export interface BulkPasteResult {
+  ok: boolean;
+  error?: string;
+  updated?: number;
+  /** Titles of pasted rows that matched no post in the cluster. */
+  unmatched?: string[];
+  skipped?: number;
+}
+
+/**
+ * Bulk paste details into the cluster's existing posts. Same paste format as
+ * the cluster import (header row + one row per post, tab-separated). Rows are
+ * matched to posts by title, else by URL slug. Only non-empty cells are written,
+ * so a partial paste never blanks a field. Unmatched rows are reported back.
+ */
+export async function bulkPasteClusterDetails(input: z.infer<typeof BulkPasteInput>): Promise<BulkPasteResult> {
+  const parsed = BulkPasteInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Paste the rows first." };
+  const { project_id, cluster_id, pasted_text } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  const { rows, skipped } = parsePastedRows(pasted_text);
+  if (!rows.length) return { ok: false, error: "No rows found. The first line must be the header row (copied from the sheet), with at least one row under it." };
+
+  const { data: itemData, error: itemErr } = await supabase
+    .from("topic_cluster_items").select("id, title, url_slug, target_keyword").eq("cluster_id", cluster_id).eq("project_id", project_id);
+  if (itemErr) return { ok: false, error: itemErr.message };
+  const items = (itemData ?? []) as { id: string; title: string; url_slug: string | null; target_keyword: string | null }[];
+  const byTitle = new Map(items.map((i) => [normalizeKeyword(i.title), i]));
+
+  // Hub keyword + per-query metrics, to fill anchor types and query impressions.
+  const { data: clusterData } = await supabase.from("topic_clusters").select("pillar_primary_keyword, seed_keyword").eq("id", cluster_id).maybeSingle();
+  const hubKeyword = normalizeKeyword((clusterData as { pillar_primary_keyword: string | null; seed_keyword: string | null } | null)?.pillar_primary_keyword
+    || (clusterData as { seed_keyword: string | null } | null)?.seed_keyword);
+  const metrics = new Map<string, { impressions: number; position: number }>();
+  const mres = await supabase.from("topic_cluster_gsc_queries").select("query, impressions, position").eq("cluster_id", cluster_id);
+  if (!mres.error) for (const m of (mres.data ?? []) as { query: string; impressions: number; position: number }[]) metrics.set(normalizeKeyword(m.query), { impressions: m.impressions, position: Number(m.position) });
+
+  let updated = 0;
+  const unmatched: string[] = [];
+  for (const r of rows) {
+    const item = byTitle.get(normalizeKeyword(r.title))
+      ?? items.find((i) => r.url_slug && lastSegment(i.url_slug) && lastSegment(i.url_slug) === lastSegment(r.url_slug));
+    if (!item) { unmatched.push(r.title); continue; }
+
+    const has = (k: string) => r.filled.has(k);
+    const patch: Record<string, unknown> = {};
+    if (has("category")) patch.category = r.category;
+    if (has("funnel_stage")) patch.funnel_stage = r.funnel_stage;
+    if (has("content_type")) patch.content_type = r.content_type;
+    if (has("primary_keyword")) patch.target_keyword = r.target_keyword;
+    if (has("vol_mo")) patch.vol_mo = r.vol_mo;
+    if (has("serp_verdict")) patch.serp_verdict = r.serp_verdict;
+    if (has("supporting_keyword")) patch.supporting_keywords = r.supporting_keywords;
+    if (has("h2_candidates")) patch.outline = r.outline;
+    if (has("faq_candidates")) patch.faq_candidates = r.faq_candidates;
+    if (has("interlinks_to")) patch.interlinks_to = r.interlinks_to;
+    if (has("interlinks_from")) patch.interlinks_from = r.interlinks_from;
+    if (has("meta_description")) patch.meta_description = r.meta_description;
+    if (has("url_slug")) patch.url_slug = r.url_slug;
+    if (has("primary_cta")) patch.primary_cta = r.primary_cta;
+
+    if (Object.keys(patch).length) {
+      const { error } = await supabase.from("topic_cluster_items").update(patch).eq("id", item.id);
+      if (error) return { ok: false, error: `${r.title}: ${error.message}`, updated, unmatched };
+    }
+
+    // GSC queries + anchors live behind migration 20261123000001; skip quietly before it.
+    const gscPatch: Record<string, unknown> = {};
+    if (has("gsc_queries")) {
+      gscPatch.gsc_queries = parseGscQueries(r.gsc_queries_raw).map((q) => ({ ...q, ...(metrics.get(normalizeKeyword(q.query)) ?? { impressions: 0, position: 0 }) }));
+    }
+    if (has("to_hub_anchor") || has("from_hub_anchor") || has("anchor_variants")) {
+      const { data: cur } = await supabase.from("topic_cluster_items").select("anchor_plan").eq("id", item.id).maybeSingle();
+      const plan = { ...(((cur as { anchor_plan: Record<string, unknown> | null } | null)?.anchor_plan) ?? {}) };
+      const primary = normalizeKeyword((patch.target_keyword as string | null | undefined) ?? item.target_keyword);
+      if (has("to_hub_anchor") && r.to_hub_anchor) plan.toHub = { type: normalizeKeyword(r.to_hub_anchor) === hubKeyword ? "exact" : "natural", text: r.to_hub_anchor };
+      if (has("from_hub_anchor") && r.from_hub_anchor) plan.fromHub = { type: normalizeKeyword(r.from_hub_anchor) === primary ? "exact" : "natural", text: r.from_hub_anchor };
+      if (has("anchor_variants")) plan.variants = r.anchor_variants.slice(0, 3);
+      gscPatch.anchor_plan = plan;
+    }
+    if (Object.keys(gscPatch).length) {
+      const { error } = await supabase.from("topic_cluster_items").update(gscPatch).eq("id", item.id);
+      if (error && !isMissingColumn(error.message)) return { ok: false, error: `${r.title}: ${error.message}`, updated, unmatched };
+    }
+    if (Object.keys(patch).length || Object.keys(gscPatch).length) updated++;
+  }
+
+  revalidatePath(`/dashboard/blog-clusters/${cluster_id}`);
+  revalidatePath("/dashboard/to-publish");
+  return { ok: true, updated, unmatched, skipped };
 }
