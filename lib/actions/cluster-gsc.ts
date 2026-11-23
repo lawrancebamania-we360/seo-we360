@@ -70,7 +70,7 @@ export async function updateClusterGscQuery(input: z.infer<typeof UpdateQueryInp
   if (rest.action !== undefined) {
     patch.action = rest.action;
     if (rest.action !== "assign") patch.item_id = null;
-    if (rest.action !== "assign" && rest.action !== "hub") patch.usage = null;
+    if (rest.action !== "assign" && rest.action !== "hub" && rest.action !== "update_existing") patch.usage = null;
   }
   if (rest.item_id !== undefined) patch.item_id = rest.item_id;
   if (rest.usage !== undefined) patch.usage = rest.usage;

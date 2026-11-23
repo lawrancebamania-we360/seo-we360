@@ -18,7 +18,7 @@ import { getGscQueryPageRowsMatching } from "@/lib/google/gsc";
 import { isMissingTable } from "@/lib/team-targets/db";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
 import {
-  aggregateQueryRows, allocateAnchors, clusterKeywords, keywordAssignment, matchedKeyword,
+  aggregateQueryRows, allocateAnchors, clusterKeywords, isQuestion, keywordAssignment, matchedKeyword,
   normalizeKeyword, ruleAssignment, samePage, type PostRef,
 } from "@/lib/blog-clusters/query-match";
 import { assignQueriesWithClaude } from "@/lib/blog-clusters/assign-queries-ai";
@@ -42,6 +42,12 @@ interface ItemRow {
   url_slug: string | null; published_url?: string | null;
   tasks: { published_url: string | null } | null;
   anchor_plan?: AnchorPlan | null;
+}
+
+/** How to work a query into a page when nothing more specific was suggested. */
+export function suggestedUsage(query: string, impressions: number): QueryUsage {
+  if (isQuestion(query)) return "faq";
+  return impressions >= 100 ? "h2" : "body";
 }
 
 function dayOffset(days: number): string {
@@ -198,9 +204,11 @@ export async function refreshClusterGscQueries(
     const base = fromAi ?? keywordAssignment({ query: q.query, impressions: q.impressions }, posts, hub);
     const rule = ruleAssignment({ rankingPage: q.ranking_page, rankingPagePosition: q.ranking_page_position == null ? null : Number(q.ranking_page_position) }, posts, hub);
     const action: QueryAction = rule?.action ?? base.action;
-    const keepsUsage = action === "assign" || action === "hub";
-    const usage: QueryUsage | null = keepsUsage ? (base.usage ?? "body") : null;
-    const anchors = keepsUsage ? (base.anchors.length ? base.anchors : [q.query]) : [];
+    const keepsAnchors = action === "assign" || action === "hub";
+    // Every query that gets USED says how - including "update existing page",
+    // where it goes into that page as a heading, FAQ or paragraph mention.
+    const usage: QueryUsage | null = keepsAnchors || action === "update_existing" ? (base.usage ?? suggestedUsage(q.query, q.impressions)) : null;
+    const anchors = keepsAnchors ? (base.anchors.length ? base.anchors : [q.query]) : [];
     const assignedBy = rule ? "rule" : fromAi ? "ai" : action === "unassigned" ? null : "keyword";
     return {
       id: q.id,
