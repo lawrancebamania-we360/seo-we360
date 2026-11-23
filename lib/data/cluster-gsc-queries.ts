@@ -5,9 +5,49 @@
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTable } from "@/lib/team-targets/db";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
+import { lastSegment, titleFromQuery } from "@/lib/blog-clusters/query-match";
 import type {
-  AssignedBy, ClusterGscData, ClusterGscQuery, ClusterGscRefreshInfo, QueryAction, QueryStatus, QueryUsage,
+  AssignedBy, ClusterGscData, ClusterGscQuery, ClusterGscRefreshInfo, QueryAction, QueryStatus, QueryUsage, RankingPageInfo,
 } from "@/lib/types/cluster-gsc";
+
+type Db = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Name the pages queries already rank on: match each URL (by its last path
+ * segment) to one of our Blog Clusters posts, else a published Sprint task,
+ * else make a readable title from the URL itself.
+ */
+async function resolveRankingPages(db: Db, projectId: string, pages: Array<string | null>): Promise<Map<string, RankingPageInfo>> {
+  const out = new Map<string, RankingPageInfo>();
+  const unique = [...new Set(pages.filter((p): p is string => !!p))];
+  if (!unique.length) return out;
+
+  const bySeg = new Map<string, RankingPageInfo>();
+  // Cluster posts (published_url is a later column; fall back without it).
+  const selItems = (withPublished: boolean) => db.from("topic_cluster_items")
+    .select(`title, target_keyword, url_slug, ${withPublished ? "published_url, " : ""}topic_clusters ( cluster_name )`)
+    .eq("project_id", projectId);
+  let items = await selItems(true);
+  if (items.error && isMissingColumn(items.error.message)) items = await selItems(false);
+  for (const it of (items.data ?? []) as unknown as Array<{ title: string; target_keyword: string | null; url_slug: string | null; published_url?: string | null; topic_clusters: { cluster_name: string } | null }>) {
+    const info: RankingPageInfo = { title: it.title, primaryKeyword: it.target_keyword, clusterName: it.topic_clusters?.cluster_name ?? null, source: "cluster" };
+    for (const u of [it.published_url, it.url_slug]) { const seg = lastSegment(u); if (seg && !bySeg.has(seg)) bySeg.set(seg, info); }
+  }
+  // Published Sprint tasks.
+  const { data: tasks } = await db.from("tasks").select("title, target_keyword, published_url, url")
+    .eq("project_id", projectId).not("published_url", "is", null);
+  for (const t of (tasks ?? []) as Array<{ title: string; target_keyword: string | null; published_url: string | null; url: string | null }>) {
+    const info: RankingPageInfo = { title: t.title.replace(/^write (article|page|blog)\s*:\s*/i, ""), primaryKeyword: t.target_keyword, clusterName: null, source: "task" };
+    for (const u of [t.published_url, t.url]) { const seg = lastSegment(u); if (seg && !bySeg.has(seg)) bySeg.set(seg, info); }
+  }
+
+  for (const page of unique) {
+    const seg = lastSegment(page);
+    if (!seg) { out.set(page, { title: "Homepage", primaryKeyword: null, clusterName: null, source: "homepage" }); continue; }
+    out.set(page, bySeg.get(seg) ?? { title: titleFromQuery(seg.replace(/-/g, " ")), primaryKeyword: null, clusterName: null, source: "url" });
+  }
+  return out;
+}
 
 export async function getClusterGscData(projectId: string, clusterId: string): Promise<ClusterGscData> {
   const supabase = await createClient();
@@ -42,9 +82,13 @@ export async function getClusterGscData(projectId: string, clusterId: string): P
     action: QueryAction; item_id: string | null; usage: QueryUsage | null; anchors: string[] | null;
     reason: string | null; status: QueryStatus; assigned_by: AssignedBy | null; fetched_at: string;
   };
-  const queries: ClusterGscQuery[] = ((data ?? []) as Row[]).map((r) => ({
+  const rows = (data ?? []) as Row[];
+  const pageInfo = await resolveRankingPages(supabase, projectId, rows.map((r) => r.ranking_page));
+
+  const queries: ClusterGscQuery[] = rows.map((r) => ({
     id: r.id,
     query: r.query,
+    rankingPageInfo: r.ranking_page ? (pageInfo.get(r.ranking_page) ?? null) : null,
     clicks: r.clicks,
     impressions: r.impressions,
     ctr: Number(r.ctr),

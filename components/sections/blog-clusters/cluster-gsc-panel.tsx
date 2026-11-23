@@ -2,11 +2,13 @@
 
 // Blog Clusters - GSC queries section on the cluster page (GC-2..GC-6): the hub
 // page, Refresh / Apply all / Download, the queries table (where each query
-// goes, how to use it, anchor variants) and the new-post suggestions table.
+// goes, how to use it, link text) and the new-post suggestions table.
 //
-// Rows are read-only; Edit opens a form in the row's detail panel. Columns are
-// shown or hidden from the table's own width (not the viewport), so the table
-// never scrolls sideways on a desktop and the detail row's colSpan stays exact.
+// Rows are read-only; Edit opens a form in the row's detail panel. Approve and
+// Reject (single and bulk) confirm in a modal that says, in plain words, what
+// will happen. Columns are shown or hidden from the table's own width (not the
+// viewport), so the table never scrolls sideways on a desktop and the detail
+// row's colSpan stays exact.
 
 import { Fragment, useCallback, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -26,36 +28,48 @@ import {
   applyAllClusterSuggestions, createPostFromGscQuery, refreshClusterGsc, setClusterHub, updateClusterGscQuery,
 } from "@/lib/actions/cluster-gsc";
 import {
-  LOOKBACK_DAYS, MIN_IMPRESSIONS, NEW_POST_MIN_IMPRESSIONS, QUERY_ACTION_LABEL, QUERY_USAGE_LABEL, UPDATE_EXISTING_MAX_POSITION,
+  LOOKBACK_DAYS, MIN_IMPRESSIONS, NEW_POST_MIN_IMPRESSIONS, UPDATE_EXISTING_MAX_POSITION,
   type AssignedBy, type ClusterGscData, type ClusterGscQuery, type QueryAction, type QueryStatus, type QueryUsage,
 } from "@/lib/types/cluster-gsc";
 import { InfoTip } from "./info-tip";
+import { ConfirmDialog } from "./confirm-dialog";
 
 type Patch = Omit<Parameters<typeof updateClusterGscQuery>[0], "project_id" | "id">;
 type Post = { id: string; title: string };
+type Hub = ClusterGscData["hub"];
 type Filter = "all" | "review" | "accepted" | "needs_post" | "update_existing" | "ignored";
 type SortKey = "query" | "impressions" | "clicks" | "position";
 type Sort = { key: SortKey; dir: "asc" | "desc" };
 type Cols = { clicks: boolean; useAs: boolean; ranks: boolean; anchors: boolean };
 
 // ---------------------------------------------------------------- vocabulary
+// Plain words: short labels in the table, fuller wording in tips and details.
 
 const ACTION_SHORT: Record<QueryAction, string> = {
-  unassigned: "Unassigned",
-  assign: "Use in post",
+  unassigned: "Not decided",
+  assign: "Add to a post",
   hub: "Hub page",
-  update_existing: "Update existing",
+  update_existing: "Improve existing",
   new_post: "New post",
-  ignore: "Ignore",
+  ignore: "Skip",
+};
+
+const ACTION_FULL: Record<QueryAction, string> = {
+  unassigned: "Not decided yet",
+  assign: "Add to a post",
+  hub: "Add to the hub page",
+  update_existing: "Improve existing page",
+  new_post: "Write a new post",
+  ignore: "Skip",
 };
 
 const ACTION_HELP: Record<QueryAction, string> = {
-  unassigned: "Not routed yet. Edit the row to choose where it goes.",
-  assign: "Work this query into one of this cluster's posts (the post shown in Target) as an H2, an FAQ question or a body mention.",
-  hub: "A broad head term. It belongs on the cluster's hub (pillar) page, not in a single post.",
-  update_existing: `It already ranks in Google's top ${UPDATE_EXISTING_MAX_POSITION} on another we360.ai page outside this cluster. Improve that page with it instead of writing a new, competing page (avoids cannibalisation).`,
-  new_post: `${NEW_POST_MIN_IMPRESSIONS}+ impressions and no post covers it. Listed under New page suggestions.`,
-  ignore: "Off-topic or the wrong intent for this cluster. Nothing is written anywhere.",
+  unassigned: "Nobody has decided what to do with this search yet. Click Edit to choose.",
+  assign: "Add this search to one of this cluster's posts.",
+  hub: "A broad search that belongs on the cluster's main (hub) page, not in a single post.",
+  update_existing: `We already show up in Google's top ${UPDATE_EXISTING_MAX_POSITION} for this search with a page outside this cluster. Improve that page instead of writing a new one, so two of our pages don't compete for the same search.`,
+  new_post: `Searched ${NEW_POST_MIN_IMPRESSIONS}+ times and none of our posts covers it. Listed under New page suggestions.`,
+  ignore: "Not relevant to this cluster. Nothing gets added anywhere.",
 };
 
 const ACTION_TONE: Record<QueryAction, string> = {
@@ -67,13 +81,14 @@ const ACTION_TONE: Record<QueryAction, string> = {
   unassigned: "border-dashed border-border text-muted-foreground",
 };
 
-const USAGE_HELP: Record<QueryUsage, string> = {
-  h2: "its own section heading",
-  faq: "a question in the FAQ block",
-  body: "a natural mention in a paragraph",
-};
+/** Edit-form order: the common choices first. */
+const ACTION_ORDER: QueryAction[] = ["assign", "hub", "update_existing", "ignore", "new_post", "unassigned"];
 
-const STATUS_LABEL: Record<QueryStatus, string> = { suggested: "Suggested", accepted: "Approved", rejected: "Rejected" };
+const USAGE_SHORT: Record<QueryUsage, string> = { h2: "Heading", faq: "FAQ", body: "Paragraph" };
+const USAGE_FULL: Record<QueryUsage, string> = { h2: "Section heading", faq: "FAQ question", body: "Mention in a paragraph" };
+const USAGE_AS: Record<QueryUsage, string> = { h2: "as a section heading", faq: "as an FAQ question", body: "as a mention in a paragraph" };
+
+const STATUS_LABEL: Record<QueryStatus, string> = { suggested: "To review", accepted: "Approved", rejected: "Rejected" };
 const STATUS_TONE: Record<QueryStatus, string> = {
   suggested: "border-border bg-background text-foreground",
   accepted: "border-success-200 bg-success-50 text-success-700 dark:border-success-500/30 dark:bg-success-500/15 dark:text-success-300",
@@ -81,14 +96,14 @@ const STATUS_TONE: Record<QueryStatus, string> = {
 };
 const STATUS_DOT: Record<QueryStatus, string> = { suggested: "bg-info-500", accepted: "bg-success-500", rejected: "bg-muted-foreground/50" };
 
-const SOURCE: Record<AssignedBy, { label: string; Icon: typeof Sparkles }> = {
-  ai: { label: "Suggested by Claude (AI).", Icon: Sparkles },
-  rule: { label: "Routed automatically from the page it already ranks on in Google (open the row for the exact reason).", Icon: GitBranch },
-  keyword: { label: "Matched by keyword rules (Claude was unavailable at refresh).", Icon: Hash },
-  manual: { label: "Edited by a person. Refreshes won't overwrite it.", Icon: UserRound },
+const SOURCE: Record<AssignedBy, { short: string; label: string; Icon: typeof Sparkles }> = {
+  ai: { short: "Claude (AI)", label: "Suggested by Claude (AI).", Icon: Sparkles },
+  rule: { short: "Automatic rule", label: "Routed automatically from the page it already ranks on in Google (open the row for the exact reason).", Icon: GitBranch },
+  keyword: { short: "Keyword match", label: "Matched by keyword rules (Claude was unavailable at refresh).", Icon: Hash },
+  manual: { short: "A person", label: "Edited by a person. Refreshes won't overwrite it.", Icon: UserRound },
 };
 
-/** Actions whose query is actually written somewhere, so "Use as" applies. */
+/** Actions whose query is actually written somewhere, so "Add as" applies. */
 const USED = new Set<QueryAction>(["assign", "hub", "update_existing"]);
 const QUESTION = /^(what|how|why|when|where|which|who|whom|whose|is|are|am|can|could|do|does|did|should|will|would|was|were|has|have|may)\b/i;
 
@@ -109,6 +124,22 @@ function pathOf(url: string | null): string {
     const p = new URL(url).pathname.replace(/\/+$/, "");
     return p || "/";
   } catch { return url; }
+}
+
+/** The name of the page a query already ranks on: its title when we know it, else the path. */
+function pageTitleOf(row: Pick<ClusterGscQuery, "rankingPage" | "rankingPageInfo">): string {
+  const info = row.rankingPageInfo;
+  if (info?.source === "homepage") return info.title || "Homepage";
+  return info?.title || pathOf(row.rankingPage);
+}
+
+/** Where the ranking page sits in Google for this query (falls back to the query's average). */
+function rankOf(row: Pick<ClusterGscQuery, "rankingPagePosition" | "position">): number {
+  return row.rankingPagePosition ?? Math.round(row.position);
+}
+
+function hubNameOf(hub: Hub): string {
+  return hub.title || hub.slug || "the hub page";
 }
 
 function inferUsage(query: string): QueryUsage {
@@ -139,13 +170,22 @@ function sortRows(rows: ClusterGscQuery[], sort: Sort): ClusterGscQuery[] {
 
 function nextSort(cur: Sort, key: SortKey): Sort {
   if (cur.key === key) return { key, dir: cur.dir === "asc" ? "desc" : "asc" };
-  // Text and position read best ascending first; volumes descending.
+  // Text and rank read best ascending first; volumes descending.
   return { key, dir: key === "query" || key === "position" ? "asc" : "desc" };
 }
 
 function parseAnchors(s: string): string[] {
   return s.split(/[;,\n]/).map((x) => x.trim().slice(0, 120)).filter(Boolean);
 }
+
+/** Why a row can't be approved yet, or null when it can. */
+function approveBlock(row: Pick<ClusterGscQuery, "action" | "itemId">): string | null {
+  if (row.action === "unassigned") return "Decide what to do first (Edit).";
+  if (row.action === "assign" && !row.itemId) return "Pick a post first (Edit).";
+  return null;
+}
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** Tracks an element's width (React 19 ref callbacks may return a cleanup). */
 function useWidth() {
@@ -157,6 +197,133 @@ function useWidth() {
     return () => ro.disconnect();
   }, []);
   return [ref, width] as const;
+}
+
+// ------------------------------------------------------------ plain sentences
+
+function Quote({ children }: { children: ReactNode }) {
+  return <span className="font-medium text-foreground">&ldquo;{children}&rdquo;</span>;
+}
+
+/** One plain sentence: what to do with this query. */
+function WhatToDo({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: Map<string, string>; hub: Hub }) {
+  const use = usageOf(row);
+  const as = use ? USAGE_AS[use.usage] : "";
+  const post = row.itemId ? postTitle.get(row.itemId) : undefined;
+  const rank = rankOf(row);
+  const ranksOnPost = !!post && row.rankingPageInfo?.source === "cluster" && row.rankingPageInfo.title === post;
+
+  if (row.action === "assign") {
+    if (!post) return <>Pick which post in this cluster should use <Quote>{row.query}</Quote> (click Edit).</>;
+    return (
+      <>
+        Add <Quote>{row.query}</Quote> to <Quote>{post}</Quote> {as}.
+        {row.rankingPage && (ranksOnPost
+          ? <> That post already shows up <b>#{rank}</b> on Google for it.</>
+          : <> Right now Google shows our page <Quote>{pageTitleOf(row)}</Quote> at <b>#{rank}</b> for it.</>)}
+      </>
+    );
+  }
+  if (row.action === "hub") {
+    return <>Add <Quote>{row.query}</Quote> to the hub page <Quote>{hubNameOf(hub)}</Quote> {as}. Posts in this cluster will also use it as link text when they link up to the hub.</>;
+  }
+  if (row.action === "update_existing") {
+    return (
+      <>
+        Improve our existing page <Quote>{pageTitleOf(row)}</Quote> with <Quote>{row.query}</Quote> (add it {as}).
+        {" "}It already shows up <b>#{rank}</b> on Google, so we improve it instead of writing a new page that would compete with it.
+      </>
+    );
+  }
+  if (row.action === "ignore") return <>Skip <Quote>{row.query}</Quote>: it isn&apos;t relevant to this cluster. Nothing gets added anywhere.</>;
+  if (row.action === "new_post") return <>Write a new post for <Quote>{row.query}</Quote>.</>;
+  return <>Nobody has decided what to do with <Quote>{row.query}</Quote> yet. Click Edit to choose.</>;
+}
+
+/** Plain-words explanation of what approving this one query does. */
+function approveText({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: Map<string, string>; hub: Hub }) {
+  const use = usageOf(row);
+  const as = use ? USAGE_AS[use.usage] : "";
+  const post = row.itemId ? postTitle.get(row.itemId) : undefined;
+
+  if (row.action === "assign") {
+    return {
+      summary: <>We&apos;ll add <Quote>{row.query}</Quote> to the brief of <Quote>{post ?? "the chosen post"}</Quote> {as}. Writers will see it in Copy details and in the export.</>,
+      details: row.anchors.length
+        ? <p>Other posts and the hub will be able to link to this post using: <AnchorList anchors={row.anchors} /></p>
+        : null,
+    };
+  }
+  if (row.action === "hub") {
+    return {
+      summary: <>We&apos;ll add <Quote>{row.query}</Quote> to the plan for the hub page <Quote>{hubNameOf(hub)}</Quote> {as}.</>,
+      details: <p>Posts in this cluster will use <Quote>{row.anchors[0] || row.query}</Quote> as link text when they link up to the hub page.</p>,
+    };
+  }
+  if (row.action === "update_existing") {
+    return {
+      summary: <>We&apos;ll mark <Quote>{row.query}</Quote> as approved for <Quote>{pageTitleOf(row)}</Quote>. Nothing in this cluster&apos;s posts changes: it&apos;s a to-do to add it to that page {as}.</>,
+      details: row.rankingPage ? <PageFacts row={row} /> : null,
+    };
+  }
+  if (row.action === "ignore") {
+    return { summary: <>We&apos;ll confirm that <Quote>{row.query}</Quote> is skipped. Nothing gets added anywhere.</>, details: null };
+  }
+  return { summary: <>We&apos;ll mark <Quote>{row.query}</Quote> as approved.</>, details: null };
+}
+
+function AnchorList({ anchors }: { anchors: string[] }) {
+  return (
+    <span className="mt-1 flex flex-wrap gap-1">
+      {anchors.map((a) => <span key={a} className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[11.5px] text-foreground">{a}</span>)}
+    </span>
+  );
+}
+
+// ------------------------------------------------------------- page naming
+
+/** Link to the page a query ranks on, named by its title. */
+function PageLink({ row, className }: { row: Pick<ClusterGscQuery, "rankingPage" | "rankingPageInfo">; className?: string }) {
+  if (!row.rankingPage) return <span className="text-muted-foreground">—</span>;
+  const info = row.rankingPageInfo;
+  const name = pageTitleOf(row);
+  const tip = [
+    info?.source === "url" ? `${name} (title from URL)` : name,
+    info?.primaryKeyword && `Keyword: ${info.primaryKeyword}`,
+    info?.clusterName && `Cluster: ${info.clusterName}`,
+    row.rankingPage,
+  ].filter(Boolean).join("\n");
+  return (
+    <a href={toExternalUrl(row.rankingPage) ?? row.rankingPage} target="_blank" rel="noopener noreferrer" title={tip}
+      className={cn("inline-flex min-w-0 max-w-full items-center gap-1 hover:underline", className ?? "text-muted-foreground hover:text-foreground")}>
+      <span className="truncate">{name}</span>
+      <ExternalLink className="size-3 shrink-0 opacity-70" aria-hidden />
+      <span className="sr-only">(opens in a new tab)</span>
+    </a>
+  );
+}
+
+/** Page title + link, keyword, cluster and URL - for details and modals. */
+function PageFacts({ row }: { row: ClusterGscQuery }) {
+  const info = row.rankingPageInfo;
+  if (!row.rankingPage) return null;
+  return (
+    <div className="rounded-md border border-border bg-muted/30 px-2.5 py-2 text-[12px]">
+      <div className="flex flex-wrap items-baseline gap-x-1.5">
+        <PageLink row={row} className="font-medium text-foreground" />
+        {info?.source === "url" && <span className="text-muted-foreground">(title from URL)</span>}
+        <span className="text-muted-foreground">· shows up #{rankOf(row)} on Google</span>
+      </div>
+      {(info?.primaryKeyword || info?.clusterName) && (
+        <div className="mt-0.5 text-muted-foreground">
+          {info?.primaryKeyword && <>Keyword: <span className="text-foreground">{info.primaryKeyword}</span></>}
+          {info?.primaryKeyword && info?.clusterName && " · "}
+          {info?.clusterName && <>Cluster: <span className="text-foreground">{info.clusterName}</span></>}
+        </div>
+      )}
+      <div className="mt-0.5 truncate text-[11px] text-muted-foreground" title={row.rankingPage}>{row.rankingPage}</div>
+    </div>
+  );
 }
 
 // --------------------------------------------------------------------- panel
@@ -171,6 +338,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
   const router = useRouter();
   const [busy, setBusy] = useState<null | "refresh" | "apply">(null);
   const [bulkPending, startBulk] = useTransition();
+  const [bulkConfirm, setBulkConfirm] = useState<null | "accepted" | "rejected">(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [postFilter, setPostFilter] = useState("");
   const [q, setQ] = useState("");
@@ -178,7 +346,8 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [tableRef, width] = useWidth();
 
-  const cols: Cols = { clicks: width >= 940, useAs: width >= 940, ranks: width >= 1080, anchors: width >= 1220 };
+  // Fixed columns total ~930px without Link text; Query keeps the rest and stays the widest column.
+  const cols: Cols = { clicks: width >= 990, useAs: width >= 990, ranks: width >= 1120, anchors: width >= 1340 };
   const colCount = 6 + (canManage ? 2 : 0) + Object.values(cols).filter(Boolean).length;
 
   const queries = useMemo(() => data.queries.filter((x) => x.action !== "new_post"), [data.queries]);
@@ -223,24 +392,26 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
     return next;
   });
 
-  const bulk = (status: "accepted" | "rejected") => {
-    const eligible = status === "accepted"
-      ? selectedRows.filter((x) => x.status !== "accepted" && approveBlock(x) === null)
-      : selectedRows.filter((x) => x.status !== "rejected");
-    const skipped = selectedRows.length - eligible.length;
-    if (!eligible.length) { toast.info(status === "accepted" ? "Nothing to approve: the selected rows are already approved or need a post first." : "The selected rows are already rejected."); return; }
+  // What a bulk action would touch, and what it would skip (and why).
+  const plan = {
+    approve: selectedRows.filter((x) => x.status !== "accepted" && approveBlock(x) === null),
+    reject: selectedRows.filter((x) => x.status !== "rejected"),
+    restore: selectedRows.filter((x) => x.status === "rejected"),
+  };
+
+  const runBulk = (rows: ClusterGscQuery[], status: QueryStatus, verb: string) => {
+    if (!rows.length) return;
     startBulk(async () => {
       let failed = 0;
       // One at a time: each update rebuilds the cluster's post plans on the server.
-      for (const x of eligible) {
+      for (const x of rows) {
         const r = await updateClusterGscQuery({ project_id: projectId, id: x.id, status }).catch(() => ({ ok: false }));
         if (!r.ok) failed++;
       }
-      const done = eligible.length - failed;
-      const verb = status === "accepted" ? "Approved" : "Rejected";
+      const done = rows.length - failed;
       if (failed) toast.error(`${verb} ${done}, ${failed} failed - try again.`);
-      else toast.success(`${verb} ${done} ${done === 1 ? "query" : "queries"}${skipped ? ` (${skipped} skipped)` : ""}.`);
-      startBulk(() => { setSelected(new Set()); router.refresh(); });
+      else toast.success(`${verb} ${plural(done, "query", "queries")}.`);
+      startBulk(() => { setBulkConfirm(null); setSelected(new Set()); router.refresh(); });
     });
   };
 
@@ -249,7 +420,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
     try {
       const r = await refreshClusterGsc({ project_id: projectId, cluster_id: clusterId });
       if (!r.ok) { toast.error(r.error ?? "Refresh failed."); return; }
-      toast.success(`${r.fetched} queries with ${MIN_IMPRESSIONS}+ impressions (${r.added} new) · ${r.assigned} assigned · from ${r.rawRows ?? 0} Search Console rows`);
+      toast.success(`${r.fetched} searches with ${MIN_IMPRESSIONS}+ impressions (${r.added} new) · ${r.assigned} sorted · from ${r.rawRows ?? 0} Search Console rows`);
       if (r.ai === "fallback") toast.warning(`Claude wasn't available, so keyword matching was used: ${r.aiError ?? "unknown error"}`);
       router.refresh();
     } catch { toast.error("Refresh failed - try again."); }
@@ -261,7 +432,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
     try {
       const r = await applyAllClusterSuggestions({ project_id: projectId, cluster_id: clusterId });
       if (!r.ok) { toast.error(r.error ?? "Could not apply."); return; }
-      toast.success(`Applied ${r.accepted} suggestions to ${r.posts} posts.`);
+      toast.success(`Approved ${r.accepted} suggestions and updated ${r.posts} post briefs.`);
       router.refresh();
     } catch { toast.error("Could not apply - try again."); }
     finally { setBusy(null); }
@@ -287,16 +458,16 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
         <div className="min-w-0 space-y-1">
           <h2 id="gsc-queries-title" className="font-heading text-[17px] font-bold text-foreground">Search Console queries</h2>
           <p className="max-w-2xl text-[12.5px] text-muted-foreground">
-            Queries we360.ai already gets impressions for (last {LOOKBACK_DAYS} days, {MIN_IMPRESSIONS}+ impressions) that match this cluster&apos;s keywords, and where each should go.
+            Searches where we360.ai already shows up in Google (last {LOOKBACK_DAYS} days, seen {MIN_IMPRESSIONS}+ times) that match this cluster&apos;s keywords, and what to do with each one.
           </p>
           <HubEditor projectId={projectId} clusterId={clusterId} hub={data.hub} canManage={canManage} />
           <p className="text-[11.5px] text-muted-foreground">
             {data.refresh
-              ? <>Last refreshed {formatDistanceToNow(new Date(data.refresh.at), { addSuffix: true })} · {NUM.format(data.refresh.fetched)} queries
-                  {data.refresh.keywords != null && ` (searched ${data.refresh.keywords} keywords, ${NUM.format(data.refresh.rawRows ?? 0)} Search Console rows)`}
-                  {data.refresh.ai === "ok" && " · assigned by Claude"}
-                  {data.refresh.ai === "fallback" && <span className="text-warning-strong"> · keyword matching (Claude unavailable: {data.refresh.aiError ?? "unknown"})</span>}</>
-              : "Not refreshed yet. Click Refresh to pull queries from Search Console."}
+              ? <>Last refreshed {formatDistanceToNow(new Date(data.refresh.at), { addSuffix: true })} · {NUM.format(data.refresh.fetched)} searches
+                  {data.refresh.keywords != null && ` (checked ${data.refresh.keywords} keywords, ${NUM.format(data.refresh.rawRows ?? 0)} Search Console rows)`}
+                  {data.refresh.ai === "ok" && " · sorted by Claude"}
+                  {data.refresh.ai === "fallback" && <span className="text-warning-strong"> · sorted by keyword matching (Claude unavailable: {data.refresh.aiError ?? "unknown"})</span>}</>
+              : "Not refreshed yet. Click Refresh to pull searches from Search Console."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -312,7 +483,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
                   {busy === "refresh" ? "Refreshing..." : "Refresh GSC queries"}
                 </Button>
                 <InfoTip label="About Refresh GSC queries" side="bottom">
-                  Pulls the last {LOOKBACK_DAYS} days from Search Console for this cluster&apos;s keywords (queries with {MIN_IMPRESSIONS}+ impressions), then Claude suggests where each one goes. Rows a person edited are kept as they are. Can take a minute.
+                  Pulls the last {LOOKBACK_DAYS} days of Google searches for this cluster&apos;s keywords (anything we showed up for {MIN_IMPRESSIONS}+ times), then Claude suggests what to do with each one. Rows a person edited stay as they are. Can take a minute.
                 </InfoTip>
               </span>
               <span className="inline-flex items-center gap-1">
@@ -321,7 +492,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
                   Apply all suggestions{toApply ? ` (${toApply})` : ""}
                 </Button>
                 <InfoTip label="About Apply all suggestions" side="bottom">
-                  Approves every <b>Suggested</b> query routed to a post, the hub page or an existing page, and writes them (with their anchor variants) into each post&apos;s brief. Rejected and ignored queries are skipped.
+                  Approves every row that is still <b>To review</b> and has a decision (add to a post, hub page or improve an existing page), and adds them, with their link text, to each post&apos;s brief. Rejected and skipped rows are left alone.
                 </InfoTip>
               </span>
             </>
@@ -331,12 +502,13 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
 
       {/* ----------------------------------------------------------- toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter queries">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter searches">
           {([
             ["all", "All"], ["review", "To review"], ["accepted", "Approved"], ["needs_post", "Needs a post"],
-            ["update_existing", "Update existing page"], ["ignored", "Ignored"],
+            ["update_existing", "Improve existing page"], ["ignored", "Skipped"],
           ] as [Filter, string][]).filter(([k]) => k !== "needs_post" || counts.needs_post > 0 || filter === k).map(([k, label]) => (
             <button key={k} type="button" onClick={() => setFilter(k)} aria-pressed={filter === k}
+              title={k === "ignored" ? "Rows marked Skip and rows that were rejected. Rejected rows can be restored here." : undefined}
               className={cn("inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
                 filter === k ? CHIP_ON : CHIP_OFF,
                 k === "needs_post" && filter !== k && "border-warning-300 text-warning-700 dark:text-warning-300")}>
@@ -346,7 +518,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
           ))}
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-          <select value={postFilter} onChange={(e) => setPostFilter(e.target.value)} aria-label="Filter by target post"
+          <select value={postFilter} onChange={(e) => setPostFilter(e.target.value)} aria-label="Filter by post"
             className={cn(SELECT, "w-full sm:w-52", postFilter && "border-[#5B45E0]/40 text-[#5B45E0] dark:text-[#7B62FF]")}>
             <option value="">All posts</option>
             <option value="hub">Hub page ({queries.filter((x) => x.action === "hub").length})</option>
@@ -354,7 +526,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
           </select>
           <div className="relative w-full sm:w-56">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search queries..." aria-label="Search queries" className="h-8 pl-8 text-[12.5px]" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search..." aria-label="Search the list" className="h-8 pl-8 text-[12.5px]" />
           </div>
         </div>
       </div>
@@ -362,30 +534,35 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
       {/* ------------------------------------------------- legend / summary */}
       <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[11.5px] text-muted-foreground">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <span className="font-medium text-foreground">Action key:</span>
+          <span className="font-medium text-foreground">What to do:</span>
           {(["assign", "hub", "update_existing", "ignore"] as QueryAction[]).map((a) => (
             <span key={a} className="inline-flex items-center gap-1">
               <ActionPill action={a} />
-              <InfoTip label={`What ${QUERY_ACTION_LABEL[a]} means`}>
-                <b>{QUERY_ACTION_LABEL[a]}</b>: {ACTION_HELP[a]}
+              <InfoTip label={`What ${ACTION_FULL[a]} means`}>
+                <b>{ACTION_FULL[a]}</b>: {ACTION_HELP[a]}
               </InfoTip>
             </span>
           ))}
         </div>
         {selectedRows.length > 0 && canManage ? (
-          <div className="flex items-center gap-2 rounded-md border border-[#5B45E0]/30 bg-[#5B45E0]/5 py-0.5 pl-2.5 pr-1 text-foreground" role="region" aria-label="Bulk actions">
-            <span className="text-[12px] font-medium tabular-nums">{selectedRows.length} selected</span>
-            <Button size="xs" variant="ghost" className="gap-1 text-success-700 hover:bg-success-50 hover:text-success-700 dark:text-success-300" onClick={() => bulk("accepted")} disabled={bulkPending}>
-              {bulkPending ? <Loader2 className="animate-spin" /> : <Check />} Approve
+          <div className="flex items-center gap-1.5 rounded-md border border-[#5B45E0]/30 bg-[#5B45E0]/5 py-0.5 pl-2.5 pr-1 text-foreground" role="region" aria-label="Bulk actions">
+            <span className="mr-1 text-[12px] font-medium tabular-nums">{selectedRows.length} selected</span>
+            <Button size="xs" variant="ghost" className="gap-1 text-success-700 hover:bg-success-50 hover:text-success-700 dark:text-success-300" onClick={() => setBulkConfirm("accepted")} disabled={bulkPending}>
+              <Check /> Approve
             </Button>
-            <Button size="xs" variant="ghost" className="gap-1 text-error-strong hover:bg-error-50 hover:text-error-strong" onClick={() => bulk("rejected")} disabled={bulkPending}>
+            <Button size="xs" variant="ghost" className="gap-1 text-error-strong hover:bg-error-50 hover:text-error-strong" onClick={() => setBulkConfirm("rejected")} disabled={bulkPending}>
               <X /> Reject
             </Button>
+            {plan.restore.length > 0 && (
+              <Button size="xs" variant="ghost" className="gap-1" onClick={() => runBulk(plan.restore, "suggested", "Restored")} disabled={bulkPending}>
+                {bulkPending && !bulkConfirm ? <Loader2 className="animate-spin" /> : <RotateCcw />} Restore {plan.restore.length}
+              </Button>
+            )}
             <Button size="xs" variant="ghost" onClick={() => setSelected(new Set())} disabled={bulkPending}>Clear</Button>
           </div>
         ) : (
           <div className="tabular-nums" aria-live="polite">
-            {filtered ? <>Showing <b className="font-semibold text-foreground">{shown.length}</b> of {queries.length}</> : <><b className="font-semibold text-foreground">{queries.length}</b> queries</>}
+            {filtered ? <>Showing <b className="font-semibold text-foreground">{shown.length}</b> of {queries.length}</> : <><b className="font-semibold text-foreground">{queries.length}</b> searches</>}
             {" · "}{COMPACT.format(totals.impressions)} impressions · {COMPACT.format(totals.clicks)} clicks
           </div>
         )}
@@ -396,13 +573,13 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
         {busy === "refresh" && (
           <div className="absolute inset-0 z-20 flex items-start justify-center rounded-xl bg-background/60 pt-16 backdrop-blur-[1px]" role="status">
             <span className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-[12.5px] text-foreground shadow-sm">
-              <Loader2 className="size-3.5 animate-spin text-[#5B45E0]" /> Pulling queries from Search Console. This can take a minute.
+              <Loader2 className="size-3.5 animate-spin text-[#5B45E0]" /> Pulling searches from Search Console. This can take a minute.
             </span>
           </div>
         )}
         <div ref={tableRef} className="max-h-[60vh] overflow-auto rounded-xl border border-border">
           <table className="w-full min-w-[760px] table-fixed text-[12.5px]">
-            <caption className="sr-only">Search Console queries for this cluster. Select a query to see details.</caption>
+            <caption className="sr-only">Google searches for this cluster. Select a search to see details.</caption>
             <thead>
               <tr>
                 {canManage && (
@@ -412,28 +589,30 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
                       disabled={!shown.length} onCheckedChange={(c) => toggleShown(!!c)} />
                   </th>
                 )}
-                <SortTh label="Query" k="query" sort={sort} onSort={onSort} className={canManage ? "pl-1" : "pl-3"} />
-                <SortTh label="Impr." k="impressions" sort={sort} onSort={onSort} align="right" className="w-[72px]" />
+                <SortTh label="Search term" k="query" sort={sort} onSort={onSort} className={canManage ? "pl-1" : "pl-3"}
+                  info="What people typed into Google. Click a row to see what to do with it." />
+                <SortTh label="Impr." k="impressions" sort={sort} onSort={onSort} align="right" className="w-[80px]"
+                  info={<><b>Impressions</b>: how many times we showed up in Google for this search (last {LOOKBACK_DAYS} days).</>} />
                 {cols.clicks && (
                   <SortTh label="Clicks" k="clicks" sort={sort} onSort={onSort} align="right" className="w-[86px]"
-                    info="Clicks in the last 90 days, with click-through rate (clicks ÷ impressions)." />
+                    info="How many people clicked through to us from Google, and the click rate (the share of people who saw us and clicked)." />
                 )}
-                <SortTh label="Pos." k="position" sort={sort} onSort={onSort} align="right" className="w-[76px]"
-                  info={<>Average Google position over the last {LOOKBACK_DAYS} days. <Tone c="text-success-700 dark:text-success-300">Top 3</Tone>, <Tone c="text-info-700 dark:text-info-300">page 1</Tone>, <Tone c="text-warning-700 dark:text-warning-300">page 2</Tone>, grey beyond.</>} />
+                <SortTh label="Rank" k="position" sort={sort} onSort={onSort} align="right" className="w-[76px]"
+                  info={<>Our average spot in Google for this search (1 = top of the page). <Tone c="text-success-700 dark:text-success-300">Top 3</Tone>, <Tone c="text-info-700 dark:text-info-300">first page</Tone>, <Tone c="text-warning-700 dark:text-warning-300">second page</Tone>, grey after that.</>} />
                 {cols.ranks && (
-                  <Th className="w-[114px]" info={<>The we360.ai page Google shows for this query, and its position there (#). If that page is outside this cluster and in the top {UPDATE_EXISTING_MAX_POSITION}, the query is routed to <b>Update existing page</b>.</>}>Ranks on</Th>
+                  <Th className="w-[114px]" info={<>The we360.ai page Google shows for this search, and its spot (#). If it&apos;s outside this cluster and in the top {UPDATE_EXISTING_MAX_POSITION}, we suggest <b>Improve existing page</b>.</>}>Our page</Th>
                 )}
-                <Th className="w-[130px]" info={<ActionLegend />}>Action</Th>
-                <Th className="w-[134px]" info={<>Where the query goes: the cluster post (<b>Use in a post</b>), the hub page, or the page it already ranks on (<b>Update existing page</b>).</>}>Target</Th>
+                <Th className="w-[130px]" info={<ActionLegend />}>What to do</Th>
+                <Th className="w-[134px]" info={<>Which page gets it: a post in this cluster, the hub page, or the existing page that already shows up for it.</>}>Where</Th>
                 {cols.useAs && (
-                  <Th className="w-[84px]" info={<UsageLegend />}>Use as</Th>
+                  <Th className="w-[84px]" info={<UsageLegend />}>Add as</Th>
                 )}
                 {cols.anchors && (
-                  <Th className="w-[150px]" info="Alternative link texts other posts and the hub can use when linking to this post, so we don't repeat the exact keyword every time (keeps anchor text natural and avoids over-optimisation).">Anchors</Th>
+                  <Th className="w-[150px]" info="Other wordings our posts and hub can use when they link to this post, so the links don't all use the exact same words (that looks unnatural to Google).">Link text</Th>
                 )}
                 <Th className="w-[100px]" info={<StatusLegend />}>Status</Th>
                 {canManage && (
-                  <Th className="w-[92px] pr-3 text-right" info={<><b>Approve</b> locks in the suggestion and adds the query (and its anchor variants) to the target post&apos;s brief. <b>Reject</b> skips it. <b>Edit</b> changes the action, post, Use as or anchors.</>}>Review</Th>
+                  <Th className="w-[92px] pr-3 text-right" info={<><b>Approve</b> (✓) adds the search to the page&apos;s brief; you&apos;ll see exactly what happens before it&apos;s saved. <b>Reject</b> (✕) means it won&apos;t be used. <b>Edit</b> changes what to do with it.</>}>Review</Th>
                 )}
               </tr>
             </thead>
@@ -443,8 +622,8 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
                   <td colSpan={colCount} className="px-3 py-12">
                     <EmptyState
                       icon={queries.length ? SearchX : Search}
-                      title={queries.length ? "No queries match these filters" : "No Search Console queries yet"}
-                      body={queries.length ? "Try another filter or search term." : `Refresh to pull queries with ${MIN_IMPRESSIONS}+ impressions for this cluster's keywords.`}
+                      title={queries.length ? "Nothing matches these filters" : "No Search Console searches yet"}
+                      body={queries.length ? "Try another filter or search word." : `Refresh to pull searches we showed up for ${MIN_IMPRESSIONS}+ times for this cluster's keywords.`}
                       action={queries.length
                         ? <Button size="sm" variant="outline" onClick={clearFilters}>Clear filters</Button>
                         : canManage && <Button size="sm" variant="brand" className="gap-1.5" onClick={refresh} disabled={!!busy}><RefreshCw className="size-3.5" /> Refresh GSC queries</Button>}
@@ -462,8 +641,68 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
         </div>
       </div>
 
+      <BulkApproveDialog open={bulkConfirm === "accepted"} selected={selectedRows} rows={plan.approve} pending={bulkPending}
+        onOpenChange={(o) => { if (!o) setBulkConfirm(null); }} onConfirm={() => runBulk(plan.approve, "accepted", "Approved")} />
+      <ConfirmDialog
+        open={bulkConfirm === "rejected"}
+        onOpenChange={(o) => { if (!o) setBulkConfirm(null); }}
+        title={`Reject ${plural(plan.reject.length, "search", "searches")}?`}
+        summary={<>These searches won&apos;t be added anywhere and won&apos;t come back as suggestions. You can restore them from the <b>Skipped</b> filter.</>}
+        confirmLabel="Reject"
+        tone="danger"
+        pending={bulkPending}
+        confirmDisabled={!plan.reject.length}
+        onConfirm={() => runBulk(plan.reject, "rejected", "Rejected")}
+      >
+        {plan.reject.some((x) => x.status === "accepted") && (
+          <p>{plural(plan.reject.filter((x) => x.status === "accepted").length, "of them is", "of them are")} approved right now; rejecting takes {plan.reject.filter((x) => x.status === "accepted").length === 1 ? "it" : "them"} back out of the post briefs.</p>
+        )}
+        {selectedRows.length > plan.reject.length && <p>{plural(selectedRows.length - plan.reject.length, "selected search is", "selected searches are")} already rejected and will be left as is.</p>}
+        {!plan.reject.length && <p>Everything you selected is already rejected.</p>}
+      </ConfirmDialog>
+
       <NewPostSuggestions rows={data.queries.filter((x) => x.action === "new_post")} projectId={projectId} canManage={canManage} />
     </section>
+  );
+}
+
+function BulkApproveDialog({ open, selected, rows, pending, onOpenChange, onConfirm }: {
+  open: boolean; selected: ClusterGscQuery[]; rows: ClusterGscQuery[]; pending: boolean;
+  onOpenChange: (open: boolean) => void; onConfirm: () => void;
+}) {
+  const by = (a: QueryAction) => rows.filter((x) => x.action === a);
+  const toPosts = by("assign");
+  const postCount = new Set(toPosts.map((x) => x.itemId)).size;
+  const rest = selected.filter((x) => !rows.includes(x));
+  const already = rest.filter((x) => x.status === "accepted").length;
+  const needPost = rest.filter((x) => x.status !== "accepted" && x.action === "assign" && !x.itemId).length;
+  const undecided = rest.filter((x) => x.status !== "accepted" && x.action === "unassigned").length;
+
+  const lines: ReactNode[] = [];
+  if (toPosts.length) lines.push(<>{plural(toPosts.length, "search", "searches")} added to the briefs of {plural(postCount, "post")}</>);
+  if (by("hub").length) lines.push(<>{plural(by("hub").length, "search", "searches")} added to the hub page&apos;s plan</>);
+  if (by("update_existing").length) lines.push(<>{plural(by("update_existing").length, "to-do", "to-dos")} to improve existing pages (nothing in this cluster&apos;s posts changes)</>);
+  if (by("ignore").length) lines.push(<>{plural(by("ignore").length, "search", "searches")} confirmed as skipped (nothing added)</>);
+
+  return (
+    <ConfirmDialog open={open} onOpenChange={onOpenChange} pending={pending} onConfirm={onConfirm} confirmDisabled={!rows.length}
+      title={rows.length ? `Approve ${plural(rows.length, "search", "searches")}?` : "Nothing to approve"}
+      summary={rows.length ? "Here's what will happen:" : "None of the selected searches can be approved yet."}
+      confirmLabel="Approve">
+      {lines.length > 0 && (
+        <ul className="list-disc space-y-1 pl-5 text-foreground">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>
+      )}
+      {rest.length > 0 && (
+        <p>
+          Skipped: {[
+            already && `${already} already approved`,
+            needPost && `${needPost} still need a post picked (Edit)`,
+            undecided && `${undecided} have no decision yet (Edit)`,
+          ].filter(Boolean).join(", ")}.
+        </p>
+      )}
+      {toPosts.length > 0 && <p>Writers will see the added searches in Copy details and in the export.</p>}
+    </ConfirmDialog>
   );
 }
 
@@ -507,7 +746,7 @@ function SortTh({ label, k, sort, onSort, align, className, info }: {
 
 function ActionPill({ action, className }: { action: QueryAction; className?: string }) {
   return (
-    <span className={cn("inline-flex h-5 max-w-full items-center rounded-full border px-2 text-[11px] font-medium whitespace-nowrap", ACTION_TONE[action], className)}>
+    <span title={ACTION_FULL[action]} className={cn("inline-flex h-5 max-w-full items-center rounded-full border px-2 text-[11px] font-medium whitespace-nowrap", ACTION_TONE[action], className)}>
       <span className="truncate">{ACTION_SHORT[action]}</span>
     </span>
   );
@@ -517,7 +756,7 @@ function ActionLegend() {
   return (
     <div className="space-y-1.5">
       {(["assign", "hub", "update_existing", "ignore"] as QueryAction[]).map((a) => (
-        <p key={a}><b>{QUERY_ACTION_LABEL[a]}</b>: {ACTION_HELP[a]}</p>
+        <p key={a}><b>{ACTION_FULL[a]}</b>: {ACTION_HELP[a]}</p>
       ))}
     </div>
   );
@@ -526,9 +765,9 @@ function ActionLegend() {
 function UsageLegend() {
   return (
     <div className="space-y-1">
-      <p>How to work the query into the page:</p>
-      {(Object.keys(QUERY_USAGE_LABEL) as QueryUsage[]).map((u) => <p key={u}><b>{QUERY_USAGE_LABEL[u]}</b>: {USAGE_HELP[u]}.</p>)}
-      <p className="text-muted-foreground">Shown in italics when not set yet: questions default to FAQ, everything else to Body.</p>
+      <p>How the search gets worked into the page:</p>
+      {(Object.keys(USAGE_FULL) as QueryUsage[]).map((u) => <p key={u}><b>{USAGE_SHORT[u]}</b>: {USAGE_FULL[u].toLowerCase()}.</p>)}
+      <p className="text-muted-foreground">In italics when nobody has chosen yet: questions default to FAQ, everything else to Paragraph.</p>
     </div>
   );
 }
@@ -536,10 +775,10 @@ function UsageLegend() {
 function StatusLegend() {
   return (
     <div className="space-y-1">
-      <p><b>Suggested</b>: routed by Claude or a rule, not approved yet.</p>
-      <p><b>Approved</b>: locked in and written into the post&apos;s brief.</p>
-      <p><b>Rejected</b>: skipped.</p>
-      <p className="text-muted-foreground">The small icon says who routed it: Claude, a rule (it already ranks elsewhere), keyword matching, or a person.</p>
+      <p><b>To review</b>: suggested by Claude or a rule; nobody has approved it yet.</p>
+      <p><b>Approved</b>: added to the page&apos;s brief (or a to-do for an existing page).</p>
+      <p><b>Rejected</b>: won&apos;t be used and won&apos;t come back. Restore it from the Skipped filter.</p>
+      <p className="text-muted-foreground">The small icon shows who decided: Claude, an automatic rule, keyword matching, or a person.</p>
     </div>
   );
 }
@@ -548,7 +787,7 @@ function StatusPill({ status, assignedBy }: { status: QueryStatus; assignedBy: A
   const src = assignedBy ? SOURCE[assignedBy] : null;
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={cn("inline-flex h-5 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium", STATUS_TONE[status])}>
+      <span className={cn("inline-flex h-5 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium whitespace-nowrap", STATUS_TONE[status])}>
         <span className={cn("size-1.5 rounded-full", STATUS_DOT[status])} aria-hidden />
         {STATUS_LABEL[status]}
       </span>
@@ -562,17 +801,6 @@ function StatusPill({ status, assignedBy }: { status: QueryStatus; assignedBy: A
         </Tooltip>
       )}
     </span>
-  );
-}
-
-function PageLink({ url, className }: { url: string; className?: string }) {
-  return (
-    <a href={toExternalUrl(url) ?? url} target="_blank" rel="noopener noreferrer" title={url}
-      className={cn("inline-flex min-w-0 max-w-full items-center gap-1 text-muted-foreground hover:text-foreground hover:underline", className)}>
-      <span className="truncate">{pathOf(url)}</span>
-      <ExternalLink className="size-3 shrink-0" aria-hidden />
-      <span className="sr-only">(opens in a new tab)</span>
-    </a>
   );
 }
 
@@ -608,13 +836,6 @@ function EmptyState({ icon: Icon, title, body, action }: { icon: typeof Search; 
   );
 }
 
-/** Why a row can't be approved yet, or null when it can. */
-function approveBlock(row: Pick<ClusterGscQuery, "action" | "itemId">): string | null {
-  if (row.action === "unassigned") return "Choose an action first (Edit).";
-  if (row.action === "assign" && !row.itemId) return "Pick a post first (Edit).";
-  return null;
-}
-
 // ------------------------------------------------------------------ the row
 
 function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colCount, locked, selected, onSelect }: {
@@ -622,7 +843,7 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
   projectId: string;
   posts: Post[];
   postTitle: Map<string, string>;
-  hub: ClusterGscData["hub"];
+  hub: Hub;
   canManage: boolean;
   cols: Cols;
   colCount: number;
@@ -633,12 +854,14 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [confirm, setConfirm] = useState<null | "approve" | "reject">(null);
   const [pending, start] = useTransition();
   const busy = pending || locked;
   const detailId = `gsc-q-${row.id}`;
   const use = usageOf(row);
   const hasAnchors = row.action === "assign" || row.action === "hub";
   const blocked = approveBlock(row);
+  const lockReason = locked ? "Busy..." : null;
 
   const commit = (patch: Patch, onDone?: () => void) => start(async () => {
     const r = await updateClusterGscQuery({ project_id: projectId, id: row.id, ...patch })
@@ -648,6 +871,7 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
   });
 
   const startEdit = () => { setOpen(true); setEditing(true); };
+  const approve = approveText({ row, postTitle, hub });
 
   const target = (() => {
     if (row.action === "assign") {
@@ -661,7 +885,7 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
       );
     }
     if (row.action === "hub") return <span className="block truncate text-foreground" title={hub.slug ?? undefined}>Hub page</span>;
-    if (row.action === "update_existing") return row.rankingPage ? <PageLink url={row.rankingPage} className="text-foreground" /> : <span className="text-muted-foreground">Ranking page</span>;
+    if (row.action === "update_existing") return row.rankingPage ? <PageLink row={row} className="text-foreground" /> : <span className="text-muted-foreground">Its current page</span>;
     return <span className="text-muted-foreground">—</span>;
   })();
 
@@ -687,19 +911,20 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
               <span className="row-q truncate font-medium text-foreground group-hover/q:text-[#5B45E0] dark:group-hover/q:text-[#7B62FF]">{row.query}</span>
             </TooltipTrigger>
             <TooltipContent side="top" align="start" className="max-w-sm">
-              <span>{row.query}{row.reason && <span className="mt-1 block opacity-75">{row.reason}</span>}</span>
+              <span>{row.query}<span className="mt-1 block opacity-75">Click to see what to do with it.</span></span>
             </TooltipContent>
           </Tooltip>
         </td>
         <td className={cn(TD, "text-right font-mono tabular-nums")}>{NUM.format(row.impressions)}</td>
         {cols.clicks && (
-          <td className={cn(TD, "text-right font-mono tabular-nums")}>
+          <td className={cn(TD, "text-right font-mono tabular-nums")} title={`${(row.ctr * 100).toFixed(1)}% click rate`}>
             {NUM.format(row.clicks)}
             <span className="ml-1 text-[10.5px] text-muted-foreground">{(row.ctr * 100).toFixed(1)}%</span>
           </td>
         )}
         <td className={cn(TD, "text-right")}>
-          <span className={cn("inline-flex h-5 min-w-9 items-center justify-center rounded-md px-1.5 font-mono text-[11.5px] tabular-nums", posTone(row.position))}>
+          <span className={cn("inline-flex h-5 min-w-9 items-center justify-center rounded-md px-1.5 font-mono text-[11.5px] tabular-nums", posTone(row.position))}
+            title={`Average Google rank ${row.position.toFixed(1)}`}>
             {row.position.toFixed(1)}
           </span>
         </td>
@@ -707,7 +932,7 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
           <td className={TD}>
             {row.rankingPage ? (
               <span className="flex min-w-0 items-center gap-1.5">
-                <PageLink url={row.rankingPage} />
+                <PageLink row={row} />
                 {row.rankingPagePosition != null && <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-muted-foreground">#{row.rankingPagePosition}</span>}
               </span>
             ) : <span className="text-muted-foreground">—</span>}
@@ -719,8 +944,8 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
           <td className={TD}>
             {use ? (
               <span className={cn("text-foreground", use.inferred && "italic text-muted-foreground")}
-                title={use.inferred ? `Not set yet: defaults to ${QUERY_USAGE_LABEL[use.usage]}` : USAGE_HELP[use.usage]}>
-                {QUERY_USAGE_LABEL[use.usage]}
+                title={use.inferred ? `Not chosen yet: defaults to ${USAGE_FULL[use.usage]}` : USAGE_FULL[use.usage]}>
+                {USAGE_SHORT[use.usage]}
               </span>
             ) : <span className="text-muted-foreground">—</span>}
           </td>
@@ -743,25 +968,55 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
                 <Loader2 className="mr-1.5 size-3.5 animate-spin text-muted-foreground" aria-label="Saving" />
               ) : (
                 <>
+                  {row.status === "rejected" && (
+                    <IconAction label="Restore to To review" disabledReason={lockReason}
+                      onClick={() => commit({ status: "suggested" })} className="hover:bg-muted hover:text-foreground">
+                      <RotateCcw className="size-3.5" aria-hidden />
+                    </IconAction>
+                  )}
                   {row.status !== "accepted" && (
-                    <IconAction label={row.status === "rejected" ? "Restore and approve" : "Approve"} disabledReason={locked ? "Busy..." : blocked}
-                      onClick={() => commit({ status: "accepted" })} className="hover:bg-success-50 hover:text-success-700 dark:hover:bg-success-500/15 dark:hover:text-success-300">
+                    <IconAction label={row.status === "rejected" ? "Restore and approve" : "Approve"} disabledReason={lockReason ?? blocked}
+                      onClick={() => setConfirm("approve")} className="hover:bg-success-50 hover:text-success-700 dark:hover:bg-success-500/15 dark:hover:text-success-300">
                       <Check className="size-3.5" aria-hidden />
                     </IconAction>
                   )}
                   {row.status !== "rejected" && (
-                    <IconAction label="Reject" disabledReason={locked ? "Busy..." : null}
-                      onClick={() => commit({ status: "rejected" })} className="hover:bg-error-50 hover:text-error-strong dark:hover:bg-error-500/15">
+                    <IconAction label="Reject" disabledReason={lockReason}
+                      onClick={() => setConfirm("reject")} className="hover:bg-error-50 hover:text-error-strong dark:hover:bg-error-500/15">
                       <X className="size-3.5" aria-hidden />
                     </IconAction>
                   )}
-                  <IconAction label={editing ? "Editing below" : "Edit"} disabledReason={locked ? "Busy..." : null}
+                  <IconAction label={editing ? "Editing below" : "Edit"} disabledReason={lockReason}
                     onClick={startEdit} className={cn("hover:bg-[#5B45E0]/10 hover:text-[#5B45E0] dark:hover:text-[#7B62FF]", editing && "bg-[#5B45E0]/10 text-[#5B45E0]")}>
                     <Pencil className="size-3.5" aria-hidden />
                   </IconAction>
                 </>
               )}
             </div>
+            <ConfirmDialog
+              open={confirm === "approve"}
+              onOpenChange={(o) => { if (!o) setConfirm(null); }}
+              title={row.status === "rejected" ? "Restore and approve this search?" : "Approve this search?"}
+              summary={approve.summary}
+              confirmLabel="Approve"
+              pending={pending}
+              onConfirm={() => commit({ status: "accepted" }, () => setConfirm(null))}
+            >
+              {approve.details}
+              <p>Not right? Cancel and use Edit to change what to do with it first.</p>
+            </ConfirmDialog>
+            <ConfirmDialog
+              open={confirm === "reject"}
+              onOpenChange={(o) => { if (!o) setConfirm(null); }}
+              title="Reject this search?"
+              summary={<><Quote>{row.query}</Quote> won&apos;t be added anywhere and won&apos;t come back as a suggestion. You can restore it from the <b>Skipped</b> filter.</>}
+              confirmLabel="Reject"
+              tone="danger"
+              pending={pending}
+              onConfirm={() => commit({ status: "rejected" }, () => setConfirm(null))}
+            >
+              {row.status === "accepted" && <p>It&apos;s approved right now, so rejecting also takes it back out of the brief.</p>}
+            </ConfirmDialog>
           </td>
         )}
       </tr>
@@ -782,59 +1037,55 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
   );
 }
 
-function DetailItem({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
+function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className={cn("min-w-0", wide && "sm:col-span-2 lg:col-span-3")}>
-      <dt className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 break-words text-[12.5px] text-foreground">{children}</dd>
+    <div className="flex min-w-0 items-baseline gap-1.5">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 text-foreground">{children}</dd>
     </div>
   );
 }
 
-function QueryDetail({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: Map<string, string>; hub: ClusterGscData["hub"] }) {
-  const use = usageOf(row);
+/** The expanded row: one plain sentence of what to do, then compact facts. */
+function QueryDetail({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: Map<string, string>; hub: Hub }) {
   const src = row.assignedBy ? SOURCE[row.assignedBy] : null;
+  const info = row.rankingPageInfo;
   return (
-    <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-      <DetailItem label="Query" wide>{row.query}</DetailItem>
-      {row.reason && <DetailItem label="Why this action" wide><span className="text-muted-foreground">{row.reason}</span></DetailItem>}
-      <DetailItem label="Action">
-        <span className="flex flex-wrap items-center gap-1.5"><ActionPill action={row.action} /><span className="text-[11.5px] text-muted-foreground">{ACTION_HELP[row.action]}</span></span>
-      </DetailItem>
-      <DetailItem label="Target">
-        {row.action === "assign" ? (row.itemId ? postTitle.get(row.itemId) ?? "Unknown post" : <span className="text-warning-700 dark:text-warning-300">No post chosen yet</span>)
-          : row.action === "hub" ? <>Hub page{hub.slug && <span className="text-muted-foreground"> · {hub.slug}</span>}</>
-          : row.action === "update_existing" && row.rankingPage ? <PageLink url={row.rankingPage} className="text-foreground" />
-          : "—"}
-      </DetailItem>
-      <DetailItem label="Use as">
-        {use ? <>{QUERY_USAGE_LABEL[use.usage]} <span className="text-muted-foreground">- {USAGE_HELP[use.usage]}{use.inferred && " (default, not set yet)"}</span></> : "—"}
-      </DetailItem>
-      <DetailItem label="Performance">
-        <span className="font-mono tabular-nums">{NUM.format(row.impressions)}</span> impr. · <span className="font-mono tabular-nums">{NUM.format(row.clicks)}</span> clicks · {(row.ctr * 100).toFixed(1)}% CTR · pos. {row.position.toFixed(1)}
-      </DetailItem>
-      <DetailItem label="Ranks on">
-        {row.rankingPage ? <span className="flex min-w-0 items-center gap-1.5"><PageLink url={row.rankingPage} />{row.rankingPagePosition != null && <span className="text-muted-foreground">#{row.rankingPagePosition}</span>}</span> : "—"}
-      </DetailItem>
-      <DetailItem label="Matched keyword">{row.matchedKeyword ?? "—"}</DetailItem>
-      {(row.action === "assign" || row.action === "hub") && (
-        <DetailItem label="Anchor variants" wide>
-          {row.anchors.length ? (
-            <span className="flex flex-wrap gap-1">
-              {row.anchors.map((a) => <span key={a} className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[11.5px]">{a}</span>)}
+    <div className="max-w-5xl space-y-2">
+      <div className="flex items-start gap-2">
+        <ActionPill action={row.action} className="mt-0.5 shrink-0" />
+        <p className="text-[13px] leading-relaxed text-muted-foreground"><WhatToDo row={row} postTitle={postTitle} hub={hub} /></p>
+      </div>
+      {row.reason && <p className="text-[12px] text-muted-foreground"><span className="font-medium text-foreground">Why: </span>{row.reason}</p>}
+      <dl className="flex flex-wrap gap-x-5 gap-y-1 text-[12px]">
+        <Fact label="Impressions"><span className="font-mono tabular-nums">{NUM.format(row.impressions)}</span></Fact>
+        <Fact label="Clicks"><span className="font-mono tabular-nums">{NUM.format(row.clicks)}</span> <span className="text-muted-foreground">({(row.ctr * 100).toFixed(1)}% click rate)</span></Fact>
+        <Fact label="Google rank"><span className="font-mono tabular-nums">{row.position.toFixed(1)}</span></Fact>
+        {row.rankingPage && (
+          <Fact label="Shows up on">
+            <span className="inline-flex min-w-0 max-w-[28rem] flex-wrap items-baseline gap-x-1">
+              <PageLink row={row} className="text-foreground" />
+              <span className="text-muted-foreground">#{rankOf(row)}</span>
+              {info?.source === "url" && <span className="text-muted-foreground">(title from URL)</span>}
+              {info?.clusterName && <span className="text-muted-foreground">· {info.clusterName} cluster</span>}
             </span>
-          ) : <span className="text-muted-foreground">None yet</span>}
-        </DetailItem>
+          </Fact>
+        )}
+        {row.matchedKeyword && <Fact label="Found through keyword">{row.matchedKeyword}</Fact>}
+        {src && <Fact label="Decided by">{src.short}</Fact>}
+      </dl>
+      {(row.action === "assign" || row.action === "hub") && row.anchors.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
+          <span className="text-muted-foreground">Link text:</span>
+          {row.anchors.map((a) => <span key={a} className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[11.5px]">{a}</span>)}
+        </div>
       )}
-      <DetailItem label="Status">
-        <span className="flex flex-wrap items-center gap-1.5"><StatusPill status={row.status} assignedBy={null} />{src && <span className="text-[11.5px] text-muted-foreground">{src.label}</span>}</span>
-      </DetailItem>
-    </dl>
+    </div>
   );
 }
 
 function QueryEditor({ row, posts, hub, saving, onCancel, onSave }: {
-  row: ClusterGscQuery; posts: Post[]; hub: ClusterGscData["hub"]; saving: boolean;
+  row: ClusterGscQuery; posts: Post[]; hub: Hub; saving: boolean;
   onCancel: () => void; onSave: (patch: Patch) => void;
 }) {
   const [action, setAction] = useState<QueryAction>(row.action);
@@ -866,20 +1117,20 @@ function QueryEditor({ row, posts, hub, saving, onCancel, onSave }: {
         <span className="font-semibold text-foreground">{row.query}</span>
         {row.reason && <span className="text-[11.5px] text-muted-foreground">{row.reason}</span>}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[180px_minmax(200px,1fr)_auto_minmax(220px,1.2fr)]">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[190px_minmax(200px,1fr)_auto_minmax(220px,1.2fr)]">
         <div className="space-y-1">
           <label htmlFor={fieldId("action")} className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-            Action <InfoTip label="About Action"><ActionLegend /></InfoTip>
+            What to do <InfoTip label="About What to do"><ActionLegend /></InfoTip>
           </label>
           <select id={fieldId("action")} className={SELECT} value={action} autoFocus disabled={saving}
             onChange={(e) => setAction(e.target.value as QueryAction)}>
-            {(Object.keys(QUERY_ACTION_LABEL) as QueryAction[]).map((a) => <option key={a} value={a}>{QUERY_ACTION_LABEL[a]}</option>)}
+            {ACTION_ORDER.map((a) => <option key={a} value={a}>{ACTION_FULL[a]}</option>)}
           </select>
           <p className="text-[11px] leading-snug text-muted-foreground">{ACTION_HELP[action]}</p>
         </div>
 
         <div className="space-y-1">
-          <label htmlFor={usesPost ? fieldId("post") : undefined} className="block text-[11px] font-semibold text-muted-foreground">Target</label>
+          <label htmlFor={usesPost ? fieldId("post") : undefined} className="block text-[11px] font-semibold text-muted-foreground">{usesPost ? "Which post" : "Where"}</label>
           {usesPost ? (
             <>
               <select id={fieldId("post")} className={cn(SELECT, missingPost && "border-warning-400")} value={itemId} disabled={saving}
@@ -887,12 +1138,14 @@ function QueryEditor({ row, posts, hub, saving, onCancel, onSave }: {
                 <option value="">Pick a post...</option>
                 {posts.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
-              {missingPost && <p className="text-[11px] text-warning-700 dark:text-warning-300">Choose which post should use this query.</p>}
+              {missingPost && <p className="text-[11px] text-warning-700 dark:text-warning-300">Choose which post should use this search.</p>}
             </>
           ) : (
-            <div className="flex h-8 items-center text-[12.5px] text-foreground">
+            <div className="flex min-h-8 items-center text-[12.5px] text-foreground">
               {action === "hub" ? <>Hub page{hub.slug && <span className="ml-1 truncate text-muted-foreground">· {hub.slug}</span>}</>
-                : action === "update_existing" ? (row.rankingPage ? <PageLink url={row.rankingPage} className="text-foreground" /> : "The page it ranks on")
+                : action === "update_existing" ? (row.rankingPage
+                  ? <span className="flex min-w-0 flex-wrap items-baseline gap-x-1"><PageLink row={row} className="text-foreground" /><span className="text-muted-foreground">#{rankOf(row)}</span></span>
+                  : "The page it already shows up on")
                 : <span className="text-muted-foreground">—</span>}
             </div>
           )}
@@ -900,16 +1153,16 @@ function QueryEditor({ row, posts, hub, saving, onCancel, onSave }: {
 
         <div className="space-y-1">
           <span id={fieldId("usage")} className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-            Use as <InfoTip label="About Use as"><UsageLegend /></InfoTip>
+            Add as <InfoTip label="About Add as"><UsageLegend /></InfoTip>
           </span>
           {usesUsage ? (
             <div role="radiogroup" aria-labelledby={fieldId("usage")} className="inline-flex h-8 rounded-md border border-border bg-background p-0.5">
-              {(Object.keys(QUERY_USAGE_LABEL) as QueryUsage[]).map((u) => (
+              {(Object.keys(USAGE_FULL) as QueryUsage[]).map((u) => (
                 <button key={u} type="button" role="radio" aria-checked={usage === u} disabled={saving} onClick={() => setUsage(u)}
-                  title={USAGE_HELP[u]}
-                  className={cn("rounded px-2.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B45E0]/40",
+                  title={USAGE_FULL[u]}
+                  className={cn("whitespace-nowrap rounded px-2.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B45E0]/40",
                     usage === u ? "bg-[#5B45E0]/10 text-[#5B45E0] dark:text-[#7B62FF]" : "text-muted-foreground hover:text-foreground")}>
-                  {QUERY_USAGE_LABEL[u]}
+                  {u === "body" ? "Paragraph" : USAGE_FULL[u]}
                 </button>
               ))}
             </div>
@@ -918,12 +1171,12 @@ function QueryEditor({ row, posts, hub, saving, onCancel, onSave }: {
 
         <div className="space-y-1">
           <label htmlFor={usesAnchors ? fieldId("anchors") : undefined} className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-            Anchor variants <InfoTip label="About anchor variants">Alternative link texts other posts and the hub can use when linking to this post, so we don&apos;t always repeat the exact keyword. Separate with semicolons, up to 5.</InfoTip>
+            Link text <InfoTip label="About link text">Other wordings our posts and hub can use when they link to this post, so the links don&apos;t all use the exact same words. Separate with semicolons, up to 5.</InfoTip>
           </label>
           {usesAnchors ? (
             <>
               <Input id={fieldId("anchors")} value={anchors} disabled={saving} onChange={(e) => setAnchors(e.target.value)}
-                placeholder="variant 1; variant 2" className="h-8 text-[12.5px]" aria-describedby={fieldId("anchors-hint")} />
+                placeholder="wording 1; wording 2" className="h-8 text-[12.5px]" aria-describedby={fieldId("anchors-hint")} />
               <p id={fieldId("anchors-hint")} className={cn("text-[11px] text-muted-foreground", parsed.length > 5 && "text-warning-700 dark:text-warning-300")}>
                 {parsed.length > 5 ? `Only the first 5 of ${parsed.length} will be kept.` : `${parsed.length} of 5 · separate with ;`}
               </p>
@@ -931,12 +1184,12 @@ function QueryEditor({ row, posts, hub, saving, onCancel, onSave }: {
           ) : <div className="flex h-8 items-center text-[12px] text-muted-foreground">Only for posts and the hub page.</div>}
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" size="sm" variant="brand" className="gap-1.5" disabled={saving || missingPost}>
           {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Save
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onCancel} disabled={saving}>Cancel</Button>
-        <span className="text-[11px] text-muted-foreground">Saving marks the row as edited by a person, so refreshes keep it. {row.status === "accepted" && "It stays approved and the post brief updates."}</span>
+        <span className="text-[11px] text-muted-foreground">Your change is kept when the list is refreshed. {row.status === "accepted" && "It stays approved and the brief updates."}</span>
       </div>
     </form>
   );
@@ -961,11 +1214,11 @@ function NewPostSuggestions({ rows, projectId, canManage }: { rows: ClusterGscQu
             New page suggestions
             <span className="rounded-full bg-muted px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground">{active.length}</span>
             <InfoTip label="About new page suggestions">
-              Queries with {NEW_POST_MIN_IMPRESSIONS}+ impressions that no post in this cluster covers. <b>Add to cluster</b> creates a planned post for it (approved, used in the body, with the query as its first anchor). <b>Dismiss</b> hides it; you can restore it later.
+              Searches we showed up for {NEW_POST_MIN_IMPRESSIONS}+ times that none of this cluster&apos;s posts covers. <b>Add to cluster</b> creates a planned post for it. <b>Dismiss</b> hides it; you can bring it back with Show dismissed.
             </InfoTip>
           </h3>
           <p className="text-[12px] text-muted-foreground">
-            Queries with {NEW_POST_MIN_IMPRESSIONS}+ impressions that no post in this cluster covers well. Add one to the cluster in a click, then fill its details with Add details on the post.
+            Searches seen {NEW_POST_MIN_IMPRESSIONS}+ times that no post in this cluster covers well. Add one to the cluster in a click, then fill its details with Add details on the post.
           </p>
         </div>
         {dismissed > 0 && (
@@ -980,17 +1233,19 @@ function NewPostSuggestions({ rows, projectId, canManage }: { rows: ClusterGscQu
           <caption className="sr-only">New page suggestions</caption>
           <thead>
             <tr>
-              <SortTh label="Query" k="query" sort={sort} onSort={onSort} className="w-[30%] pl-3" />
-              <SortTh label="Impr." k="impressions" sort={sort} onSort={onSort} align="right" className="w-[80px]" />
-              <SortTh label="Pos." k="position" sort={sort} onSort={onSort} align="right" className="w-[76px]" />
-              <Th info="Why Claude thinks this deserves its own page, and where it ranks today.">Why</Th>
+              <SortTh label="Search term" k="query" sort={sort} onSort={onSort} className="w-[30%] pl-3" />
+              <SortTh label="Impr." k="impressions" sort={sort} onSort={onSort} align="right" className="w-[80px]"
+                info={<><b>Impressions</b>: how many times we showed up in Google for this search (last {LOOKBACK_DAYS} days).</>} />
+              <SortTh label="Rank" k="position" sort={sort} onSort={onSort} align="right" className="w-[76px]"
+                info="Our average spot in Google for this search (1 = top of the page)." />
+              <Th info="Why Claude thinks this deserves its own page, and which of our pages shows up for it today.">Why</Th>
               {canManage && <th scope="col" className={cn(TH, "w-[210px] pr-3")}><span className="sr-only">Actions</span></th>}
             </tr>
           </thead>
           <tbody>
             {shown.length === 0 && (
               <tr><td colSpan={colCount} className="px-3 py-8">
-                <EmptyState icon={Plus} title="No new-page suggestions right now" body={`Queries with ${NEW_POST_MIN_IMPRESSIONS}+ impressions that no post covers will show up here after a refresh.`} />
+                <EmptyState icon={Plus} title="No new-page suggestions right now" body={`Searches seen ${NEW_POST_MIN_IMPRESSIONS}+ times that no post covers will show up here after a refresh.`} />
               </td></tr>
             )}
             {shown.map((row) => <NewPostRow key={row.id} row={row} projectId={projectId} canManage={canManage} />)}
@@ -1042,7 +1297,7 @@ function NewPostRow({ row, projectId, canManage }: { row: ClusterGscQuery; proje
           <span className="truncate text-muted-foreground" title={row.reason ?? undefined}>{row.reason ?? "—"}</span>
           {row.rankingPage && (
             <span className="hidden max-w-[40%] shrink-0 items-center gap-1 text-[11px] lg:inline-flex">
-              <PageLink url={row.rankingPage} />
+              <PageLink row={row} />
               {row.rankingPagePosition != null && <span className="font-mono text-muted-foreground">#{row.rankingPagePosition}</span>}
             </span>
           )}
@@ -1075,7 +1330,7 @@ function NewPostRow({ row, projectId, canManage }: { row: ClusterGscQuery; proje
 // ------------------------------------------------------------------ hub page
 
 function HubEditor({ projectId, clusterId, hub, canManage }: {
-  projectId: string; clusterId: string; hub: ClusterGscData["hub"]; canManage: boolean;
+  projectId: string; clusterId: string; hub: Hub; canManage: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -1097,7 +1352,7 @@ function HubEditor({ projectId, clusterId, hub, canManage }: {
 
   const help = (
     <InfoTip label="About the hub page">
-      The cluster&apos;s pillar page. Broad head-term queries are routed here (<b>Use on hub page</b>), and every post in the cluster links up to it. The hub keyword is the head term it should rank for.
+      The cluster&apos;s main page. Broad searches go here (<b>Add to the hub page</b>), and every post in the cluster links up to it. The hub keyword is the main search it should show up for.
     </InfoTip>
   );
 

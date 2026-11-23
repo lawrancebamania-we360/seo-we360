@@ -23,9 +23,23 @@ export const NEW_POST_MIN_IMPRESSIONS = 200; // to be suggested as a new post
 export const LOOKBACK_DAYS = 90;
 export const UPDATE_EXISTING_MAX_POSITION = 20; // ranks top 20 on another page -> update that page
 
+/** What we know about the page a query already ranks on (so "update existing page" names it). */
+export interface RankingPageInfo {
+  /** The page's title - from our cluster posts / published tasks, else made readable from the URL. */
+  title: string;
+  /** Its primary keyword, when it's one of our planned/published pages. */
+  primaryKeyword: string | null;
+  /** Which cluster it belongs to, when it's a cluster post. */
+  clusterName: string | null;
+  /** cluster = a Blog Clusters post; task = a published Sprint task; homepage; url = title guessed from the URL. */
+  source: "cluster" | "task" | "homepage" | "url";
+}
+
 export interface ClusterGscQuery {
   id: string;
   query: string;
+  /** Title / keyword of the page in rankingPage (null when there is no ranking page). */
+  rankingPageInfo: RankingPageInfo | null;
   clicks: number;
   impressions: number;
   ctr: number;
