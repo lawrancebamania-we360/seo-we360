@@ -23,6 +23,67 @@ export const NEW_POST_MIN_IMPRESSIONS = 200; // to be suggested as a new post
 export const LOOKBACK_DAYS = 90;
 export const UPDATE_EXISTING_MAX_POSITION = 20; // ranks top 20 on another page -> update that page
 
+// ---- GC-8..GC-11: how to use a search term, what's wrong, drafts, estimated gain ----
+
+/** The ways a search term can be used on a page (more than one allowed). */
+export type QueryUseOption = "title_meta" | "template" | "h2" | "faq" | "paragraph" | "link_text";
+export const USE_OPTIONS: QueryUseOption[] = ["title_meta", "template", "h2", "faq", "paragraph", "link_text"];
+export const USE_OPTION_LABEL: Record<QueryUseOption, string> = {
+  title_meta: "Fix title & meta",
+  template: "Template / tool",
+  h2: "Section heading",
+  faq: "FAQ question",
+  paragraph: "Mention in a paragraph",
+  link_text: "Link text",
+};
+/** When each option is the right one - plain words for tooltips. */
+export const USE_OPTION_HINT: Record<QueryUseOption, string> = {
+  title_meta: "We already show on page 1 but people rarely click. Rewrite the page title and meta description (what Google shows) so they match this search.",
+  template: "People searching this want something to download or use - a template, example, checklist or calculator. Add one to the page.",
+  h2: "A distinct sub-topic: give it its own section with a heading.",
+  faq: "A question people ask: add it to the page's FAQ with a short, direct answer.",
+  paragraph: "A close variant of what the page covers: mention it naturally in an existing paragraph.",
+  link_text: "Other pages should link to this page using these words.",
+};
+
+/** Mobile-first snippet limits (what fits on a phone's Google result). */
+export const TITLE_MAX = 60;
+export const META_MAX = 120;
+
+/** Claude's ready-to-use wording for each chosen option. */
+export interface QueryDrafts {
+  title?: string | null;
+  meta?: string | null;
+  h2?: string | null;
+  faqQuestion?: string | null;
+  faqAnswer?: string | null;
+  paragraph?: string | null;
+  /** What the template / tool should contain. */
+  template?: string | null;
+}
+
+/** What's wrong, from rank and clicks. */
+export type QueryDiagnosis = "snippet" | "performing" | "striking" | "weak";
+export const DIAGNOSIS_LABEL: Record<QueryDiagnosis, string> = {
+  snippet: "Seen but not clicked",
+  performing: "Already working",
+  striking: "Close to page 1",
+  weak: "Not ranking well",
+};
+export const DIAGNOSIS_EXPLAIN: Record<QueryDiagnosis, string> = {
+  snippet: "We show on Google's first page, but people rarely click. Usually the title/description doesn't match the search, or the page doesn't offer what they want.",
+  performing: "We rank on page 1 and get a normal share of clicks. Protect it - don't change much.",
+  striking: "We rank 11-20, just off page 1. Strengthening the content for this search can push it onto page 1.",
+  weak: "We rank below 20. The page doesn't really cover this search yet - it needs proper coverage.",
+};
+
+/** Estimated extra clicks over the 90-day window. */
+export interface ClickGain {
+  clicks: number;
+  /** "now" = by fixing the click rate at the current rank; "rank5" = if it climbs to #5. */
+  basis: "now" | "rank5";
+}
+
 /** What we know about the page a query already ranks on (so "update existing page" names it). */
 export interface RankingPageInfo {
   /** The page's title - from our cluster posts / published tasks, else made readable from the URL. */
@@ -33,6 +94,9 @@ export interface RankingPageInfo {
   clusterName: string | null;
   /** cluster = a Blog Clusters post; task = a published Sprint task; homepage; url = title guessed from the URL. */
   source: "cluster" | "task" | "homepage" | "url";
+  /** The page's real <title> and first <h1>, fetched from the live page at refresh (null until then). */
+  liveTitle: string | null;
+  liveH1: string | null;
 }
 
 export interface ClusterGscQuery {
@@ -49,7 +113,16 @@ export interface ClusterGscQuery {
   matchedKeyword: string | null;
   action: QueryAction;
   itemId: string | null;
+  /** Legacy single usage (kept for older rows); `usages` is the source of truth. */
   usage: QueryUsage | null;
+  /** How to use the search term - one or more options (GC-8). */
+  usages: QueryUseOption[];
+  /** Claude's ready-to-use wording per option (GC-10); null until drafted. */
+  drafts: QueryDrafts | null;
+  /** What's wrong, from rank and clicks (GC-9). */
+  diagnosis: QueryDiagnosis;
+  /** Estimated extra clicks over 90 days (GC-11); null when there's nothing to gain. */
+  gain: ClickGain | null;
   anchors: string[];
   reason: string | null;
   status: QueryStatus;
@@ -87,9 +160,13 @@ export interface ClusterGscData {
 /** One query a post should cover, as written into the post by "Apply all". */
 export interface PostGscQuery {
   query: string;
+  /** Legacy single usage; prefer `usages`. */
   usage: QueryUsage;
   impressions: number;
   position: number;
+  /** How to use it (GC-8) and Claude's wording (GC-10) - present on posts applied after GC-8. */
+  usages?: QueryUseOption[];
+  drafts?: QueryDrafts | null;
 }
 
 export type AnchorType = "exact" | "gsc" | "natural";

@@ -22,6 +22,8 @@ import { createClient } from "@/lib/supabase/server";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
 import { parseGscQueries } from "@/lib/blog-clusters/export-rows";
 import { lastSegment, normalizeKeyword } from "@/lib/blog-clusters/query-match";
+import { usagesFromLegacy } from "@/lib/blog-clusters/query-insights";
+import type { PostGscQuery } from "@/lib/types/cluster-gsc";
 
 const ImportInput = z.object({
   project_id: z.string().uuid(),
@@ -669,7 +671,19 @@ export async function bulkPasteClusterDetails(input: z.infer<typeof BulkPasteInp
     // GSC queries + anchors live behind migration 20261123000001; skip quietly before it.
     const gscPatch: Record<string, unknown> = {};
     if (has("gsc_queries")) {
-      gscPatch.gsc_queries = parseGscQueries(r.gsc_queries_raw).map((q) => ({ ...q, ...(metrics.get(normalizeKeyword(q.query)) ?? { impressions: 0, position: 0 }) }));
+      // Keep the options + drafts already on the post (the sheet only carries query + usage).
+      const { data: curQ } = await supabase.from("topic_cluster_items").select("gsc_queries").eq("id", item.id).maybeSingle();
+      const existing = new Map((((curQ as { gsc_queries: PostGscQuery[] | null } | null)?.gsc_queries) ?? []).map((q) => [normalizeKeyword(q.query), q]));
+      gscPatch.gsc_queries = parseGscQueries(r.gsc_queries_raw).map((q) => {
+        const prev = existing.get(normalizeKeyword(q.query));
+        const usages = prev?.usages?.length && prev.usage === q.usage ? prev.usages : usagesFromLegacy(q.usage);
+        return {
+          ...q,
+          ...(metrics.get(normalizeKeyword(q.query)) ?? { impressions: 0, position: 0 }),
+          usages,
+          ...(prev?.drafts ? { drafts: prev.drafts } : {}),
+        };
+      });
     }
     if (has("to_hub_anchor") || has("from_hub_anchor") || has("anchor_variants")) {
       const { data: cur } = await supabase.from("topic_cluster_items").select("anchor_plan").eq("id", item.id).maybeSingle();

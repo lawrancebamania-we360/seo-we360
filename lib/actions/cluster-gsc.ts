@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTable } from "@/lib/team-targets/db";
+import { isMissingColumn } from "@/lib/ai-citation/run-state";
 import { refreshClusterGscQueries, rebuildClusterPostPlans, GSC_MIGRATION } from "@/lib/blog-clusters/gsc-refresh";
 import { slugify, titleFromQuery } from "@/lib/blog-clusters/query-match";
 
@@ -56,6 +57,16 @@ const UpdateQueryInput = z.object({
   usage: z.enum(["h2", "faq", "body"]).nullable().optional(),
   anchors: z.array(z.string().trim().min(1).max(120)).max(5).optional(),
   status: z.enum(["suggested", "accepted", "rejected"]).optional(),
+  usages: z.array(z.enum(["title_meta", "template", "h2", "faq", "paragraph", "link_text"])).max(6).optional(),
+  drafts: z.object({
+    title: z.string().max(300).nullable().optional(),
+    meta: z.string().max(600).nullable().optional(),
+    h2: z.string().max(300).nullable().optional(),
+    faqQuestion: z.string().max(400).nullable().optional(),
+    faqAnswer: z.string().max(2000).nullable().optional(),
+    paragraph: z.string().max(3000).nullable().optional(),
+    template: z.string().max(3000).nullable().optional(),
+  }).optional(),
 });
 
 /** GC-4: edit one query by hand. Marks it manual so refreshes never overwrite it. */
@@ -70,18 +81,28 @@ export async function updateClusterGscQuery(input: z.infer<typeof UpdateQueryInp
   if (rest.action !== undefined) {
     patch.action = rest.action;
     if (rest.action !== "assign") patch.item_id = null;
-    if (rest.action !== "assign" && rest.action !== "hub" && rest.action !== "update_existing") patch.usage = null;
+    if (rest.action !== "assign" && rest.action !== "hub" && rest.action !== "update_existing") { patch.usage = null; patch.usages = []; }
   }
   if (rest.item_id !== undefined) patch.item_id = rest.item_id;
   if (rest.usage !== undefined) patch.usage = rest.usage;
   if (rest.anchors !== undefined) patch.anchors = rest.anchors;
   if (rest.status !== undefined) patch.status = rest.status;
+  if (rest.usages !== undefined) {
+    patch.usages = [...new Set(rest.usages)];
+    // Keep the legacy single usage in step for older readers.
+    patch.usage = rest.usages.includes("h2") ? "h2" : rest.usages.includes("faq") ? "faq" : rest.usages.length ? "body" : null;
+  }
+  if (rest.drafts !== undefined) patch.drafts = rest.drafts;
   // Choosing a post implies "use it in a post".
   if (rest.item_id) patch.action = "assign";
 
   const { data, error } = await supabase.from("topic_cluster_gsc_queries")
     .update(patch).eq("id", id).eq("project_id", project_id).select("cluster_id, status");
-  if (error) return { ok: false, error: isMissingTable(error) ? MIGRATION_ERROR : error.message };
+  if (error) {
+    if (isMissingTable(error)) return { ok: false, error: MIGRATION_ERROR };
+    if (isMissingColumn(error.message)) return { ok: false, error: "Apply migration 20261124000001_cluster_gsc_query_insights in Supabase to save options and drafts." };
+    return { ok: false, error: error.message };
+  }
   const row = (data as { cluster_id: string; status: string }[] | null)?.[0];
   // An edit to an already-accepted query changes what's written into the posts.
   if (row?.status === "accepted" || rest.status !== undefined) {

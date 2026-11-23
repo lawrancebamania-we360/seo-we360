@@ -28,7 +28,29 @@ import type { Member } from "@/components/sections/assignee-picker";
 import { ClusterItemDetailsButton } from "@/components/sections/blog-clusters/cluster-item-details-button";
 import { BulkPasteDetailsButton } from "@/components/sections/blog-clusters/bulk-paste-details-button";
 import { reservedAnchors } from "@/lib/blog-clusters/query-match";
-import { QUERY_USAGE_LABEL } from "@/lib/types/cluster-gsc";
+import { QUERY_USAGE_LABEL, USE_OPTION_LABEL, type PostGscQuery, type QueryUseOption } from "@/lib/types/cluster-gsc";
+import { usagesFromLegacy } from "@/lib/blog-clusters/query-insights";
+
+/** The options chosen for a query (new multi-select), falling back to the legacy single usage. */
+function queryOptions(q: PostGscQuery): QueryUseOption[] {
+  return q.usages?.length ? q.usages : usagesFromLegacy(q.usage);
+}
+
+/** Copy-ready wording for each chosen option. */
+function draftLines(q: PostGscQuery): string[] {
+  const d = q.drafts;
+  if (!d) return [];
+  const out: string[] = [];
+  const opts = queryOptions(q);
+  if (opts.includes("title_meta") && d.title) out.push(`    SEO title (${d.title.length}/60): ${d.title}`);
+  if (opts.includes("title_meta") && d.meta) out.push(`    Meta description (${d.meta.length}/120): ${d.meta}`);
+  if (opts.includes("h2") && d.h2) out.push(`    H2: ${d.h2}`);
+  if (opts.includes("faq") && d.faqQuestion) out.push(`    FAQ Q: ${d.faqQuestion}`);
+  if (opts.includes("faq") && d.faqAnswer) out.push(`    FAQ A: ${d.faqAnswer}`);
+  if (opts.includes("paragraph") && d.paragraph) out.push(`    Paragraph: ${d.paragraph}`);
+  if (opts.includes("template") && d.template) out.push(`    Template / tool: ${d.template}`);
+  return out;
+}
 
 /** The cluster's hub page, for anchor instructions in Copy details. */
 export interface CopyHub { slug: string | null; keyword: string | null; title: string }
@@ -37,7 +59,11 @@ function anchorLines(it: BlogClusterItemRow, all: BlogClusterItemRow[], hub: Cop
   const lines: string[] = [];
   if (it.gscQueries.length) {
     lines.push("Search Console queries to cover (people already search these):");
-    for (const q of it.gscQueries) lines.push(`- ${q.query} - use as ${QUERY_USAGE_LABEL[q.usage]}${q.impressions ? ` (${q.impressions.toLocaleString()} impressions, pos ${q.position.toFixed(1)})` : ""}`);
+    for (const q of it.gscQueries) {
+      const opts = queryOptions(q).map((o) => USE_OPTION_LABEL[o]).join(", ") || QUERY_USAGE_LABEL[q.usage];
+      lines.push(`- ${q.query} - ${opts}${q.impressions ? ` (${q.impressions.toLocaleString()} impressions, pos ${q.position.toFixed(1)})` : ""}`);
+      lines.push(...draftLines(q));
+    }
     lines.push("Work each one in naturally; never repeat a query just to increase keyword density.", "");
   }
   const plan = it.anchorPlan;
@@ -302,7 +328,9 @@ export function BlogClusterTable({ clusterName, clusterId, hub = null, items, pr
                       <ul className="mb-2 space-y-1">
                         {openItem.gscQueries.map((q, i) => (
                           <li key={i} className="flex flex-wrap items-center gap-1.5">
-                            <Badge variant="outline" className="text-[10px]">{QUERY_USAGE_LABEL[q.usage]}</Badge>
+                            {(queryOptions(q).length ? queryOptions(q).map((o) => USE_OPTION_LABEL[o]) : [QUERY_USAGE_LABEL[q.usage]]).map((label) => (
+                              <Badge key={label} variant="outline" className="text-[10px]">{label}</Badge>
+                            ))}
                             <span>{q.query}</span>
                             {q.impressions > 0 && <span className="text-[11.5px] text-muted-foreground">{q.impressions.toLocaleString()} impr. · pos {q.position.toFixed(1)}</span>}
                           </li>

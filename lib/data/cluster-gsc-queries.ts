@@ -6,8 +6,11 @@ import { createClient } from "@/lib/supabase/server";
 import { isMissingTable } from "@/lib/team-targets/db";
 import { isMissingColumn } from "@/lib/ai-citation/run-state";
 import { lastSegment, titleFromQuery } from "@/lib/blog-clusters/query-match";
-import type {
-  AssignedBy, ClusterGscData, ClusterGscQuery, ClusterGscRefreshInfo, QueryAction, QueryStatus, QueryUsage, RankingPageInfo,
+import { diagnose, estimateGain, suggestedUseOptions, usagesFromLegacy } from "@/lib/blog-clusters/query-insights";
+import {
+  USE_OPTIONS,
+  type AssignedBy, type ClusterGscData, type ClusterGscQuery, type ClusterGscRefreshInfo, type QueryAction, type QueryDrafts,
+  type QueryStatus, type QueryUsage, type QueryUseOption, type RankingPageInfo,
 } from "@/lib/types/cluster-gsc";
 
 type Db = Awaited<ReturnType<typeof createClient>>;
@@ -30,21 +33,21 @@ async function resolveRankingPages(db: Db, projectId: string, pages: Array<strin
   let items = await selItems(true);
   if (items.error && isMissingColumn(items.error.message)) items = await selItems(false);
   for (const it of (items.data ?? []) as unknown as Array<{ title: string; target_keyword: string | null; url_slug: string | null; published_url?: string | null; topic_clusters: { cluster_name: string } | null }>) {
-    const info: RankingPageInfo = { title: it.title, primaryKeyword: it.target_keyword, clusterName: it.topic_clusters?.cluster_name ?? null, source: "cluster" };
+    const info: RankingPageInfo = { title: it.title, primaryKeyword: it.target_keyword, clusterName: it.topic_clusters?.cluster_name ?? null, source: "cluster", liveTitle: null, liveH1: null };
     for (const u of [it.published_url, it.url_slug]) { const seg = lastSegment(u); if (seg && !bySeg.has(seg)) bySeg.set(seg, info); }
   }
   // Published Sprint tasks.
   const { data: tasks } = await db.from("tasks").select("title, target_keyword, published_url, url")
     .eq("project_id", projectId).not("published_url", "is", null);
   for (const t of (tasks ?? []) as Array<{ title: string; target_keyword: string | null; published_url: string | null; url: string | null }>) {
-    const info: RankingPageInfo = { title: t.title.replace(/^write (article|page|blog)\s*:\s*/i, ""), primaryKeyword: t.target_keyword, clusterName: null, source: "task" };
+    const info: RankingPageInfo = { title: t.title.replace(/^write (article|page|blog)\s*:\s*/i, ""), primaryKeyword: t.target_keyword, clusterName: null, source: "task", liveTitle: null, liveH1: null };
     for (const u of [t.published_url, t.url]) { const seg = lastSegment(u); if (seg && !bySeg.has(seg)) bySeg.set(seg, info); }
   }
 
   for (const page of unique) {
     const seg = lastSegment(page);
-    if (!seg) { out.set(page, { title: "Homepage", primaryKeyword: null, clusterName: null, source: "homepage" }); continue; }
-    out.set(page, bySeg.get(seg) ?? { title: titleFromQuery(seg.replace(/-/g, " ")), primaryKeyword: null, clusterName: null, source: "url" });
+    if (!seg) { out.set(page, { title: "Homepage", primaryKeyword: null, clusterName: null, source: "homepage", liveTitle: null, liveH1: null }); continue; }
+    out.set(page, bySeg.get(seg) ?? { title: titleFromQuery(seg.replace(/-/g, " ")), primaryKeyword: null, clusterName: null, source: "url", liveTitle: null, liveH1: null });
   }
   return out;
 }
@@ -62,10 +65,14 @@ export async function getClusterGscData(projectId: string, clusterId: string): P
     keyword: cr?.pillar_primary_keyword || cr?.seed_keyword || null,
   };
 
-  const { data, error } = await supabase.from("topic_cluster_gsc_queries")
-    .select("id, query, clicks, impressions, ctr, position, ranking_page, ranking_page_position, matched_keyword, action, item_id, usage, anchors, reason, status, assigned_by, fetched_at")
+  const BASE = "id, query, clicks, impressions, ctr, position, ranking_page, ranking_page_position, matched_keyword, action, item_id, usage, anchors, reason, status, assigned_by, fetched_at";
+  const INSIGHTS = "usages, drafts, ranking_page_title, ranking_page_h1"; // migration 20261124000001
+  const load = (cols: string) => supabase.from("topic_cluster_gsc_queries").select(cols)
     .eq("cluster_id", clusterId).eq("project_id", projectId)
     .order("impressions", { ascending: false });
+  let res = await load(`${BASE}, ${INSIGHTS}`);
+  if (res.error && isMissingColumn(res.error.message)) res = await load(BASE);
+  const { data, error } = res;
   if (error) {
     if (isMissingTable(error)) return { ready: false, hub, refresh: null, queries: [] };
     throw new Error(`Could not load the cluster's GSC queries: ${error.message}`);
@@ -81,14 +88,18 @@ export async function getClusterGscData(projectId: string, clusterId: string): P
     ranking_page: string | null; ranking_page_position: number | string | null; matched_keyword: string | null;
     action: QueryAction; item_id: string | null; usage: QueryUsage | null; anchors: string[] | null;
     reason: string | null; status: QueryStatus; assigned_by: AssignedBy | null; fetched_at: string;
+    usages?: string[] | null; drafts?: QueryDrafts | null; ranking_page_title?: string | null; ranking_page_h1?: string | null;
   };
-  const rows = (data ?? []) as Row[];
+  const rows = (data ?? []) as unknown as Row[];
   const pageInfo = await resolveRankingPages(supabase, projectId, rows.map((r) => r.ranking_page));
 
   const queries: ClusterGscQuery[] = rows.map((r) => ({
     id: r.id,
     query: r.query,
-    rankingPageInfo: r.ranking_page ? (pageInfo.get(r.ranking_page) ?? null) : null,
+    rankingPageInfo: r.ranking_page
+      ? { ...(pageInfo.get(r.ranking_page) ?? { title: r.ranking_page, primaryKeyword: null, clusterName: null, source: "url" as const }),
+          liveTitle: r.ranking_page_title ?? null, liveH1: r.ranking_page_h1 ?? null }
+      : null,
     clicks: r.clicks,
     impressions: r.impressions,
     ctr: Number(r.ctr),
@@ -99,6 +110,17 @@ export async function getClusterGscData(projectId: string, clusterId: string): P
     action: r.action,
     itemId: r.item_id,
     usage: r.usage,
+    // Stored options win; else the old single usage; else the rule-based suggestion.
+    usages: (() => {
+      const stored = (r.usages ?? []).filter((u): u is QueryUseOption => (USE_OPTIONS as string[]).includes(u));
+      if (stored.length) return stored;
+      const legacy = usagesFromLegacy(r.usage);
+      const metrics = { query: r.query, position: Number(r.position), impressions: r.impressions, clicks: r.clicks };
+      return legacy.length ? legacy : suggestedUseOptions(metrics, r.action);
+    })(),
+    drafts: r.drafts ?? null,
+    diagnosis: diagnose({ position: Number(r.position), impressions: r.impressions, clicks: r.clicks }),
+    gain: estimateGain({ position: Number(r.position), impressions: r.impressions, clicks: r.clicks }),
     anchors: r.anchors ?? [],
     reason: r.reason,
     status: r.status,

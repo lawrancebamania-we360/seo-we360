@@ -3,8 +3,9 @@
 # Pulls Search Console queries for every blog cluster and assigns the new ones
 # (Claude, keyword fallback). The work runs on Vercel - that's where the Google
 # OAuth connection and claude_key live - so this job just calls the cron
-# endpoint, repeating while it reports `budgetHit` (each call has a ~4 minute
-# budget and resumes with the clusters refreshed least recently).
+# endpoint, repeating while it reports `budgetHit` (each call starts new clusters
+# for ~1 minute, then finishes the one in progress - up to ~4 minutes - and
+# the next call resumes with the clusters refreshed least recently).
 #
 # Secrets required (Settings -> Secrets and variables -> Actions):
 #   - CRON_SECRET   (same value as the Vercel env var)
@@ -23,7 +24,7 @@ jobs:
   refresh:
     name: Refresh cluster GSC queries
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 180
     steps:
       - name: Call the refresh endpoint until every cluster is done
         env:
@@ -32,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${CRON_SECRET}" ]; then echo "CRON_SECRET secret is not set"; exit 1; fi
-          for i in 1 2 3 4 5 6; do
+          for i in $(seq 1 40); do
             echo "--- call $i ---"
             resp=$(curl -sS --fail-with-body -m 320 \
               -H "Authorization: Bearer ${CRON_SECRET}" \

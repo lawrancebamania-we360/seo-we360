@@ -4,7 +4,7 @@ import { getUserContext } from "@/lib/auth/get-user";
 import { getBlogClusterDetail } from "@/lib/data/blog-clusters";
 import { getClusterGscData } from "@/lib/data/cluster-gsc-queries";
 import { buildXlsx } from "@/lib/xlsx/workbook";
-import { QUERY_ACTION_LABEL, QUERY_USAGE_LABEL } from "@/lib/types/cluster-gsc";
+import { DIAGNOSIS_LABEL, QUERY_ACTION_LABEL, USE_OPTION_LABEL } from "@/lib/types/cluster-gsc";
 
 // GC-4: download every GSC query of one cluster (tab 1) plus the new-post
 // suggestions (tab 2) as an .xlsx.
@@ -27,15 +27,25 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!cluster) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const titleById = new Map(cluster.items.map((i) => [i.id, i.title]));
-  const queryRows = gsc.queries.map((q) => [
-    q.query, q.impressions, q.clicks, Math.round(q.ctr * 1000) / 10, q.position,
-    q.rankingPage, q.rankingPagePosition, q.matchedKeyword,
-    QUERY_ACTION_LABEL[q.action],
-    q.action === "assign" && q.itemId ? (titleById.get(q.itemId) ?? null) : q.action === "hub" ? "Hub page" : q.action === "update_existing" ? q.rankingPage : null,
-    q.usage ? QUERY_USAGE_LABEL[q.usage] : null,
-    q.anchors.join("; ") || null,
-    q.status, q.assignedBy, q.reason,
-  ]);
+  const queryRows = gsc.queries.map((q) => {
+    const d = q.drafts;
+    const pageTitle = q.rankingPageInfo ? (q.rankingPageInfo.liveTitle ?? q.rankingPageInfo.title) : null;
+    return [
+      q.query, q.impressions, q.clicks, Math.round(q.ctr * 1000) / 10, q.position,
+      DIAGNOSIS_LABEL[q.diagnosis],
+      q.gain ? q.gain.clicks : null,
+      q.gain ? (q.gain.basis === "now" ? "Better click rate at current rank" : "If it reaches #5") : null,
+      q.rankingPage, pageTitle, q.rankingPagePosition, q.matchedKeyword,
+      QUERY_ACTION_LABEL[q.action],
+      q.action === "assign" && q.itemId ? (titleById.get(q.itemId) ?? null) : q.action === "hub" ? "Hub page" : q.action === "update_existing" ? (pageTitle ?? q.rankingPage) : null,
+      q.usages.map((u) => USE_OPTION_LABEL[u]).join("; ") || null,
+      d?.title ?? null, d?.title ? d.title.length : null,
+      d?.meta ?? null, d?.meta ? d.meta.length : null,
+      d?.h2 ?? null, d?.faqQuestion ?? null, d?.faqAnswer ?? null, d?.paragraph ?? null, d?.template ?? null,
+      q.anchors.join("; ") || null,
+      q.status, q.assignedBy, q.reason,
+    ];
+  });
   const newPostRows = gsc.queries.filter((q) => q.action === "new_post").map((q) => [
     q.query, q.impressions, q.clicks, q.position, q.rankingPage, q.status, q.reason,
   ]);
@@ -43,8 +53,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const buf = buildXlsx([
     {
       name: "GSC Queries",
-      columns: ["Query", "Impressions (90d)", "Clicks", "CTR %", "Avg position", "Ranking page", "Ranking page position",
-        "Matched keyword", "Action", "Target", "Use as", "Anchor variants", "Status", "Assigned by", "Reason"],
+      columns: ["Query", "Impressions (90d)", "Clicks", "CTR %", "Avg position", "What's wrong",
+        "Est. extra clicks (90d)", "Estimate basis", "Ranking page", "Ranking page title", "Ranking page position",
+        "Matched keyword", "Action", "Target", "How to use",
+        "Draft SEO title", "Title chars (max 60)", "Draft meta description", "Meta chars (max 120)",
+        "Draft H2", "FAQ question", "FAQ answer", "Paragraph", "Template / tool",
+        "Anchor variants", "Status", "Assigned by", "Reason"],
       rows: queryRows,
     },
     {

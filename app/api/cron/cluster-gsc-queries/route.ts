@@ -13,7 +13,9 @@ import { refreshClusterGscQueries } from "@/lib/blog-clusters/gsc-refresh";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const BUDGET_MS = 240_000;
+// Start another cluster only while under this; one cluster (GSC + one Claude
+// round of drafts) can take ~3 minutes on its own.
+const BUDGET_MS = 60_000;
 
 export async function GET(request: NextRequest) {
   if (!isCronAuthorized(request.headers.get("authorization"))) {

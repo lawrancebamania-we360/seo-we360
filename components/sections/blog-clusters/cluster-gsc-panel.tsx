@@ -1,46 +1,56 @@
 "use client";
 
-// Blog Clusters - GSC queries section on the cluster page (GC-2..GC-6): the hub
-// page, Refresh / Apply all / Download, the queries table (where each query
-// goes, how to use it, link text) and the new-post suggestions table.
+// Blog Clusters - GSC queries section on the cluster page (GC-2..GC-14): the hub
+// page, Refresh / Apply all / Download, the queries table and the new-post
+// suggestions table.
 //
-// Rows are read-only; Edit opens a form in the row's detail panel. Approve and
-// Reject (single and bulk) confirm in a modal that says, in plain words, what
-// will happen. Columns are shown or hidden from the table's own width (not the
-// viewport), so the table never scrolls sideways on a desktop and the detail
-// row's colSpan stays exact.
+// The table shows full text and scrolls sideways inside its own box, with the
+// header pinned to the top and the Search term column pinned to the left. Rows
+// are read-only; a row opens into a card (data, page, what's wrong, what to do
+// with Claude's drafts, why this page, estimated benefit). Edit opens a form in
+// the same place. Approve and Reject (single and bulk) confirm in a modal that
+// says, in plain words, what will happen.
 
 import { Fragment, useCallback, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import {
-  AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCheck, ChevronRight, Download, ExternalLink, GitBranch,
-  Hash, Loader2, Pencil, Plus, RefreshCw, RotateCcw, Search, SearchX, Sparkles, UserRound, X,
+  AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCheck, ChevronRight, Copy, Download, ExternalLink, Info,
+  Loader2, Pencil, Plus, RefreshCw, RotateCcw, Search, SearchX, Sparkles, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { toExternalUrl } from "@/lib/url";
 import {
   applyAllClusterSuggestions, createPostFromGscQuery, refreshClusterGsc, setClusterHub, updateClusterGscQuery,
 } from "@/lib/actions/cluster-gsc";
 import {
-  LOOKBACK_DAYS, MIN_IMPRESSIONS, NEW_POST_MIN_IMPRESSIONS, UPDATE_EXISTING_MAX_POSITION,
-  type AssignedBy, type ClusterGscData, type ClusterGscQuery, type QueryAction, type QueryStatus, type QueryUsage,
+  DIAGNOSIS_EXPLAIN, DIAGNOSIS_LABEL, LOOKBACK_DAYS, META_MAX, MIN_IMPRESSIONS, NEW_POST_MIN_IMPRESSIONS, TITLE_MAX,
+  UPDATE_EXISTING_MAX_POSITION, USE_OPTION_HINT, USE_OPTION_LABEL, USE_OPTIONS,
+  type AssignedBy, type ClusterGscData, type ClusterGscQuery, type QueryAction, type QueryDiagnosis, type QueryDrafts,
+  type QueryStatus, type QueryUsage, type QueryUseOption,
 } from "@/lib/types/cluster-gsc";
+import { snippetProblems, suggestedUseOptions, usagesFromLegacy } from "@/lib/blog-clusters/query-insights";
 import { InfoTip } from "./info-tip";
 import { ConfirmDialog } from "./confirm-dialog";
 
-type Patch = Omit<Parameters<typeof updateClusterGscQuery>[0], "project_id" | "id">;
+type UpdateInput = Parameters<typeof updateClusterGscQuery>[0];
+/** `usages` / `drafts` are being added to the action's input (GC-8/GC-10). */
+type Patch = Omit<UpdateInput, "project_id" | "id"> & { usages?: QueryUseOption[]; drafts?: QueryDrafts };
 type Post = { id: string; title: string };
 type Hub = ClusterGscData["hub"];
 type Filter = "all" | "review" | "accepted" | "needs_post" | "update_existing" | "ignored";
-type SortKey = "query" | "impressions" | "clicks" | "position";
+type SortKey = "query" | "impressions" | "clicks" | "position" | "gain";
 type Sort = { key: SortKey; dir: "asc" | "desc" };
-type Cols = { clicks: boolean; useAs: boolean; ranks: boolean; anchors: boolean };
+
+function saveQuery(input: { project_id: string; id: string } & Patch) {
+  return updateClusterGscQuery(input as UpdateInput);
+}
 
 // ---------------------------------------------------------------- vocabulary
 // Plain words: short labels in the table, fuller wording in tips and details.
@@ -84,9 +94,22 @@ const ACTION_TONE: Record<QueryAction, string> = {
 /** Edit-form order: the common choices first. */
 const ACTION_ORDER: QueryAction[] = ["assign", "hub", "update_existing", "ignore", "new_post", "unassigned"];
 
-const USAGE_SHORT: Record<QueryUsage, string> = { h2: "Heading", faq: "FAQ", body: "Paragraph" };
-const USAGE_FULL: Record<QueryUsage, string> = { h2: "Section heading", faq: "FAQ question", body: "Mention in a paragraph" };
-const USAGE_AS: Record<QueryUsage, string> = { h2: "as a section heading", faq: "as an FAQ question", body: "as a mention in a paragraph" };
+const DIAGNOSIS_TONE: Record<QueryDiagnosis, string> = {
+  snippet: "border-warning-200 bg-warning-50 text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/15 dark:text-warning-300",
+  performing: "border-success-200 bg-success-50 text-success-700 dark:border-success-500/30 dark:bg-success-500/15 dark:text-success-300",
+  striking: "border-info-200 bg-info-50 text-info-700 dark:border-info-500/30 dark:bg-info-500/15 dark:text-info-300",
+  weak: "border-error-200 bg-error-50 text-error-700 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-300",
+};
+
+/** How each option reads inside a sentence. */
+const USE_AS: Record<QueryUseOption, string> = {
+  title_meta: "by rewriting its title and meta description",
+  template: "with a template or tool",
+  h2: "as a section heading",
+  faq: "as an FAQ question",
+  paragraph: "as a mention in a paragraph",
+  link_text: "as link text",
+};
 
 const STATUS_LABEL: Record<QueryStatus, string> = { suggested: "To review", accepted: "Approved", rejected: "Rejected" };
 const STATUS_TONE: Record<QueryStatus, string> = {
@@ -96,41 +119,56 @@ const STATUS_TONE: Record<QueryStatus, string> = {
 };
 const STATUS_DOT: Record<QueryStatus, string> = { suggested: "bg-info-500", accepted: "bg-success-500", rejected: "bg-muted-foreground/50" };
 
-const SOURCE: Record<AssignedBy, { short: string; label: string; Icon: typeof Sparkles }> = {
-  ai: { short: "Claude (AI)", label: "Suggested by Claude (AI).", Icon: Sparkles },
-  rule: { short: "Automatic rule", label: "Routed automatically from the page it already ranks on in Google (open the row for the exact reason).", Icon: GitBranch },
-  keyword: { short: "Keyword match", label: "Matched by keyword rules (Claude was unavailable at refresh).", Icon: Hash },
-  manual: { short: "A person", label: "Edited by a person. Refreshes won't overwrite it.", Icon: UserRound },
+const SUGGESTED_BY: Record<AssignedBy, string> = {
+  ai: "Claude (AI)",
+  rule: "an automatic rule (based on the page it already ranks on)",
+  keyword: "keyword matching (Claude was unavailable)",
+  manual: "you or a teammate (kept on refresh)",
 };
 
-/** Actions whose query is actually written somewhere, so "Add as" applies. */
+const APPROVE_TIP = "Approving locks in this decision: the search term and Claude's wording are added to the brief of the page in Where (for Improve existing, it becomes a to-do for that page). You'll see exactly what happens before it's saved.";
+const REJECT_TIP = "Rejecting means this search term won't be added anywhere and won't come back as a suggestion. You can restore it from the Skipped filter.";
+
+/** Actions whose query is actually written somewhere, so "How to use" applies. */
 const USED = new Set<QueryAction>(["assign", "hub", "update_existing"]);
-const QUESTION = /^(what|how|why|when|where|which|who|whom|whose|is|are|am|can|could|do|does|did|should|will|would|was|were|has|have|may)\b/i;
 
 const NUM = new Intl.NumberFormat("en-US");
 const COMPACT = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 
-const TH = "sticky top-0 z-10 bg-[color-mix(in_oklab,var(--muted)_40%,var(--background))] px-2 py-2 text-left text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground shadow-[inset_0_-1px_0_var(--border)]";
-const TD = "px-2 py-1.5 align-middle";
+const ROW_TINT = "bg-[color-mix(in_oklab,var(--muted)_70%,var(--background))]";
+const TH = "sticky top-0 z-20 bg-[color-mix(in_oklab,var(--muted)_40%,var(--background))] px-4 py-2.5 text-left text-[10.5px] font-semibold uppercase tracking-wider whitespace-nowrap text-muted-foreground shadow-[inset_0_-1px_0_var(--border)]";
+const TD = "px-4 py-3 align-top";
+/** The pinned left column (header and cells): opaque background + a soft edge shadow. */
+const PIN = "sticky shadow-[inset_-1px_0_0_var(--border),8px_0_10px_-8px_rgb(0_0_0/0.18)]";
+/** Same, for header cells (keeps the header's bottom rule). */
+const PIN_TH = "sticky shadow-[inset_-1px_0_0_var(--border),inset_0_-1px_0_var(--border),8px_0_10px_-8px_rgb(0_0_0/0.18)]";
 const SELECT = "h-8 w-full rounded-md border border-border bg-background px-2 text-[12.5px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B45E0]/40 disabled:opacity-60";
 const CHIP_ON = "border-[#5B45E0]/40 bg-[#5B45E0]/10 text-[#5B45E0] dark:text-[#7B62FF]";
 const CHIP_OFF = "border-border text-muted-foreground hover:bg-muted hover:text-foreground";
+const SECTION_LABEL = "text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground";
 
 // ------------------------------------------------------------------- helpers
 
 function pathOf(url: string | null): string {
   if (!url) return "—";
   try {
-    const p = new URL(url).pathname.replace(/\/+$/, "");
-    return p || "/";
+    const u = new URL(url);
+    const p = u.pathname.replace(/\/+$/, "");
+    return (p || "/") + u.search;
   } catch { return url; }
 }
 
-/** The name of the page a query already ranks on: its title when we know it, else the path. */
+/** The page's name: its live <title> when we have it, else our title, else the path. */
 function pageTitleOf(row: Pick<ClusterGscQuery, "rankingPage" | "rankingPageInfo">): string {
   const info = row.rankingPageInfo;
+  if (info?.liveTitle) return info.liveTitle;
   if (info?.source === "homepage") return info.title || "Homepage";
   return info?.title || pathOf(row.rankingPage);
+}
+
+/** True when the name shown is only a guess from the URL. */
+function titleIsGuess(row: Pick<ClusterGscQuery, "rankingPageInfo">): boolean {
+  return !row.rankingPageInfo?.liveTitle && row.rankingPageInfo?.source === "url";
 }
 
 /** Where the ranking page sits in Google for this query (falls back to the query's average). */
@@ -142,15 +180,26 @@ function hubNameOf(hub: Hub): string {
   return hub.title || hub.slug || "the hub page";
 }
 
-function inferUsage(query: string): QueryUsage {
-  const q = query.trim();
-  return q.endsWith("?") || QUESTION.test(q) ? "faq" : "body";
+/** How to use the term. Falls back to the legacy single usage, then to the rule-based suggestion. */
+function usesOf(row: ClusterGscQuery): { options: QueryUseOption[]; inferred: boolean } {
+  if (!USED.has(row.action)) return { options: [], inferred: false };
+  if (row.usages.length) return { options: row.usages, inferred: false };
+  const legacy = usagesFromLegacy(row.usage);
+  if (legacy.length) return { options: legacy, inferred: false };
+  const guess = suggestedUseOptions(row, row.action);
+  return { options: guess.length ? guess : ["paragraph"], inferred: true };
 }
 
-/** How the query is used on the page. Falls back to a guess when the backend left it empty. */
-function usageOf(row: Pick<ClusterGscQuery, "action" | "usage" | "query">): { usage: QueryUsage; inferred: boolean } | null {
-  if (!USED.has(row.action)) return null;
-  return row.usage ? { usage: row.usage, inferred: false } : { usage: inferUsage(row.query), inferred: true };
+/** The legacy single usage that matches a set of options (older readers still use it). */
+function legacyUsage(options: QueryUseOption[]): QueryUsage {
+  if (options.includes("h2")) return "h2";
+  if (options.includes("faq")) return "faq";
+  return "body";
+}
+
+function joinWords(parts: string[]): string {
+  if (parts.length <= 1) return parts[0] ?? "";
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
 }
 
 function posTone(p: number): string {
@@ -162,9 +211,10 @@ function posTone(p: number): string {
 
 function sortRows(rows: ClusterGscQuery[], sort: Sort): ClusterGscQuery[] {
   const m = sort.dir === "asc" ? 1 : -1;
+  const val = (x: ClusterGscQuery) => (sort.key === "gain" ? x.gain?.clicks ?? 0 : sort.key === "query" ? 0 : x[sort.key]);
   return [...rows].sort((a, b) => {
     if (sort.key === "query") return a.query.localeCompare(b.query) * m;
-    return (a[sort.key] - b[sort.key]) * m || b.impressions - a.impressions;
+    return (val(a) - val(b)) * m || b.impressions - a.impressions;
   });
 }
 
@@ -186,6 +236,7 @@ function approveBlock(row: Pick<ClusterGscQuery, "action" | "itemId">): string |
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const ellipsize = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s);
 
 /** Tracks an element's width (React 19 ref callbacks may return a cleanup). */
 function useWidth() {
@@ -207,63 +258,78 @@ function Quote({ children }: { children: ReactNode }) {
 
 /** One plain sentence: what to do with this query. */
 function WhatToDo({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: Map<string, string>; hub: Hub }) {
-  const use = usageOf(row);
-  const as = use ? USAGE_AS[use.usage] : "";
+  const how = joinWords(usesOf(row).options.filter((o) => o !== "link_text").map((o) => USE_AS[o]));
   const post = row.itemId ? postTitle.get(row.itemId) : undefined;
-  const rank = rankOf(row);
-  const ranksOnPost = !!post && row.rankingPageInfo?.source === "cluster" && row.rankingPageInfo.title === post;
 
   if (row.action === "assign") {
     if (!post) return <>Pick which post in this cluster should use <Quote>{row.query}</Quote> (click Edit).</>;
-    return (
-      <>
-        Add <Quote>{row.query}</Quote> to <Quote>{post}</Quote> {as}.
-        {row.rankingPage && (ranksOnPost
-          ? <> That post already shows up <b>#{rank}</b> on Google for it.</>
-          : <> Right now Google shows our page <Quote>{pageTitleOf(row)}</Quote> at <b>#{rank}</b> for it.</>)}
-      </>
-    );
+    return <>Add <Quote>{row.query}</Quote> to the post <Quote>{post}</Quote>{how && ` ${how}`}.</>;
   }
-  if (row.action === "hub") {
-    return <>Add <Quote>{row.query}</Quote> to the hub page <Quote>{hubNameOf(hub)}</Quote> {as}. Posts in this cluster will also use it as link text when they link up to the hub.</>;
-  }
-  if (row.action === "update_existing") {
-    return (
-      <>
-        Improve our existing page <Quote>{pageTitleOf(row)}</Quote> with <Quote>{row.query}</Quote> (add it {as}).
-        {" "}It already shows up <b>#{rank}</b> on Google, so we improve it instead of writing a new page that would compete with it.
-      </>
-    );
-  }
+  if (row.action === "hub") return <>Add <Quote>{row.query}</Quote> to the hub page <Quote>{hubNameOf(hub)}</Quote>{how && ` ${how}`}.</>;
+  if (row.action === "update_existing") return <>Improve our existing page <Quote>{pageTitleOf(row)}</Quote> for <Quote>{row.query}</Quote>{how && ` ${how}`}.</>;
   if (row.action === "ignore") return <>Skip <Quote>{row.query}</Quote>: it isn&apos;t relevant to this cluster. Nothing gets added anywhere.</>;
   if (row.action === "new_post") return <>Write a new post for <Quote>{row.query}</Quote>.</>;
   return <>Nobody has decided what to do with <Quote>{row.query}</Quote> yet. Click Edit to choose.</>;
 }
 
+/** Plain words: why this page and not a new one. */
+function whyThisPage(row: ClusterGscQuery, post: string | undefined): string {
+  if (row.action === "update_existing") return `We already show up #${rankOf(row)} on Google for this search with "${pageTitleOf(row)}". Improving that page is faster than starting a new one, and it stops two of our pages competing for the same search.`;
+  if (row.action === "assign") return post ? `"${post}" is the post in this cluster that's closest to this search, so adding it there makes that post more complete instead of creating a thin new page.` : "It fits one of this cluster's posts; pick which one.";
+  if (row.action === "hub") return "It's a broad search that sums up the whole topic, which is what the hub page is for.";
+  if (row.action === "ignore") return "It doesn't match what this cluster is about, so it would pull the pages off-topic.";
+  return "No decision yet.";
+}
+
+/** One line per chosen option, saying what gets added (with the draft when we have one). */
+function OptionLines({ row, options }: { row: ClusterGscQuery; options: QueryUseOption[] }) {
+  const d = row.drafts;
+  const bad = snippetProblems(d);
+  return (
+    <ul className="list-disc space-y-1 pl-5 text-foreground">
+      {options.map((o) => (
+        <li key={o}>
+          <b>{USE_OPTION_LABEL[o]}</b>
+          {o === "title_meta" && (d?.title || d?.meta
+            ? <>: title <Quote>{d?.title ?? "—"}</Quote>{bad.title && <OverNote />}, description <Quote>{d?.meta ?? "—"}</Quote>{bad.meta && <OverNote />}</>
+            : <span className="text-muted-foreground"> (no draft yet)</span>)}
+          {o === "template" && (d?.template ? <>: {d.template}</> : <span className="text-muted-foreground"> (no draft yet)</span>)}
+          {o === "h2" && (d?.h2 ? <>: <Quote>{d.h2}</Quote></> : <span className="text-muted-foreground"> (no draft yet)</span>)}
+          {o === "faq" && (d?.faqQuestion ? <>: <Quote>{d.faqQuestion}</Quote></> : <span className="text-muted-foreground"> (no draft yet)</span>)}
+          {o === "paragraph" && (d?.paragraph ? <>: <Quote>{d.paragraph}</Quote></> : <span className="text-muted-foreground"> (no draft yet)</span>)}
+          {o === "link_text" && (row.anchors.length ? <>: {row.anchors.map((a, i) => <Fragment key={a}>{i > 0 && ", "}<Quote>{a}</Quote></Fragment>)}</> : <span className="text-muted-foreground"> (uses the search term itself)</span>)}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function OverNote() {
+  return <span className="ml-1 text-error-700 dark:text-error-300">(too long for phones)</span>;
+}
+
 /** Plain-words explanation of what approving this one query does. */
-function approveText({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: Map<string, string>; hub: Hub }) {
-  const use = usageOf(row);
-  const as = use ? USAGE_AS[use.usage] : "";
+function approveText(row: ClusterGscQuery, postTitle: Map<string, string>, hub: Hub) {
   const post = row.itemId ? postTitle.get(row.itemId) : undefined;
+  const { options } = usesOf(row);
+  const lines = options.length ? <OptionLines row={row} options={options} /> : null;
 
   if (row.action === "assign") {
     return {
-      summary: <>We&apos;ll add <Quote>{row.query}</Quote> to the brief of <Quote>{post ?? "the chosen post"}</Quote> {as}. Writers will see it in Copy details and in the export.</>,
-      details: row.anchors.length
-        ? <p>Other posts and the hub will be able to link to this post using: <AnchorList anchors={row.anchors} /></p>
-        : null,
+      summary: <>We&apos;ll add <Quote>{row.query}</Quote> to the brief of <Quote>{post ?? "the chosen post"}</Quote>. Writers will see it in Copy details and in the export.</>,
+      details: lines && <><p>The brief will ask for:</p>{lines}</>,
     };
   }
   if (row.action === "hub") {
     return {
-      summary: <>We&apos;ll add <Quote>{row.query}</Quote> to the plan for the hub page <Quote>{hubNameOf(hub)}</Quote> {as}.</>,
-      details: <p>Posts in this cluster will use <Quote>{row.anchors[0] || row.query}</Quote> as link text when they link up to the hub page.</p>,
+      summary: <>We&apos;ll add <Quote>{row.query}</Quote> to the plan for the hub page <Quote>{hubNameOf(hub)}</Quote>. Posts in this cluster will use <Quote>{row.anchors[0] || row.query}</Quote> as link text when they link up to it.</>,
+      details: lines && <><p>The hub page plan will ask for:</p>{lines}</>,
     };
   }
   if (row.action === "update_existing") {
     return {
-      summary: <>We&apos;ll mark <Quote>{row.query}</Quote> as approved for <Quote>{pageTitleOf(row)}</Quote>. Nothing in this cluster&apos;s posts changes: it&apos;s a to-do to add it to that page {as}.</>,
-      details: row.rankingPage ? <PageFacts row={row} /> : null,
+      summary: <>We&apos;ll mark <Quote>{row.query}</Quote> as approved for <Quote>{pageTitleOf(row)}</Quote>. Nothing in this cluster&apos;s posts changes: it&apos;s a to-do for that page.</>,
+      details: <>{row.rankingPage && <PageFacts row={row} />}{lines && <><p>The to-do:</p>{lines}</>}</>,
     };
   }
   if (row.action === "ignore") {
@@ -272,38 +338,22 @@ function approveText({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle:
   return { summary: <>We&apos;ll mark <Quote>{row.query}</Quote> as approved.</>, details: null };
 }
 
-function AnchorList({ anchors }: { anchors: string[] }) {
-  return (
-    <span className="mt-1 flex flex-wrap gap-1">
-      {anchors.map((a) => <span key={a} className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[11.5px] text-foreground">{a}</span>)}
-    </span>
-  );
-}
-
 // ------------------------------------------------------------- page naming
 
-/** Link to the page a query ranks on, named by its title. */
+/** Link to the page a query ranks on, named by its title. Wraps; never truncates. */
 function PageLink({ row, className }: { row: Pick<ClusterGscQuery, "rankingPage" | "rankingPageInfo">; className?: string }) {
   if (!row.rankingPage) return <span className="text-muted-foreground">—</span>;
-  const info = row.rankingPageInfo;
-  const name = pageTitleOf(row);
-  const tip = [
-    info?.source === "url" ? `${name} (title from URL)` : name,
-    info?.primaryKeyword && `Keyword: ${info.primaryKeyword}`,
-    info?.clusterName && `Cluster: ${info.clusterName}`,
-    row.rankingPage,
-  ].filter(Boolean).join("\n");
   return (
-    <a href={toExternalUrl(row.rankingPage) ?? row.rankingPage} target="_blank" rel="noopener noreferrer" title={tip}
-      className={cn("inline-flex min-w-0 max-w-full items-center gap-1 hover:underline", className ?? "text-muted-foreground hover:text-foreground")}>
-      <span className="truncate">{name}</span>
-      <ExternalLink className="size-3 shrink-0 opacity-70" aria-hidden />
+    <a href={toExternalUrl(row.rankingPage) ?? row.rankingPage} target="_blank" rel="noopener noreferrer" title={row.rankingPage}
+      className={cn("break-words hover:underline", className ?? "text-foreground")}>
+      {pageTitleOf(row)}
+      <ExternalLink className="ml-1 inline size-3 align-[-1px] opacity-60" aria-hidden />
       <span className="sr-only">(opens in a new tab)</span>
     </a>
   );
 }
 
-/** Page title + link, keyword, cluster and URL - for details and modals. */
+/** Page title + link, keyword, cluster and URL - for modals. */
 function PageFacts({ row }: { row: ClusterGscQuery }) {
   const info = row.rankingPageInfo;
   if (!row.rankingPage) return null;
@@ -311,7 +361,7 @@ function PageFacts({ row }: { row: ClusterGscQuery }) {
     <div className="min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/30 px-2.5 py-2 text-[12px]">
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
         <PageLink row={row} className="font-medium text-foreground" />
-        {info?.source === "url" && <span className="text-muted-foreground">(title from URL)</span>}
+        {titleIsGuess(row) && <span className="text-muted-foreground">(title from URL)</span>}
         <span className="text-muted-foreground">· shows up #{rankOf(row)} on Google</span>
       </div>
       {(info?.primaryKeyword || info?.clusterName) && (
@@ -321,7 +371,7 @@ function PageFacts({ row }: { row: ClusterGscQuery }) {
           {info?.clusterName && <>Cluster: <span className="text-foreground">{info.clusterName}</span></>}
         </div>
       )}
-      <div className="mt-0.5 truncate text-[11px] text-muted-foreground" title={row.rankingPage}>{row.rankingPage}</div>
+      <div className="mt-0.5 break-all text-[11px] text-muted-foreground">{row.rankingPage}</div>
     </div>
   );
 }
@@ -344,11 +394,10 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>({ key: "impressions", dir: "desc" });
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
-  const [tableRef, width] = useWidth();
+  // The visible width of the scroll box: the open-row card is pinned to it.
+  const [boxRef, boxWidth] = useWidth();
 
-  // Fixed columns total ~930px without Link text; Query keeps the rest and stays the widest column.
-  const cols: Cols = { clicks: width >= 990, useAs: width >= 990, ranks: width >= 1120, anchors: width >= 1340 };
-  const colCount = 6 + (canManage ? 2 : 0) + Object.values(cols).filter(Boolean).length;
+  const colCount = 12 + (canManage ? 2 : 0);
 
   const queries = useMemo(() => data.queries.filter((x) => x.action !== "new_post"), [data.queries]);
   const postTitle = useMemo(() => new Map(posts.map((p) => [p.id, p.title])), [posts]);
@@ -405,12 +454,12 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
       let failed = 0;
       // One at a time: each update rebuilds the cluster's post plans on the server.
       for (const x of rows) {
-        const r = await updateClusterGscQuery({ project_id: projectId, id: x.id, status }).catch(() => ({ ok: false }));
+        const r = await saveQuery({ project_id: projectId, id: x.id, status }).catch(() => ({ ok: false }));
         if (!r.ok) failed++;
       }
       const done = rows.length - failed;
       if (failed) toast.error(`${verb} ${done}, ${failed} failed - try again.`);
-      else toast.success(`${verb} ${plural(done, "query", "queries")}.`);
+      else toast.success(`${verb} ${plural(done, "search", "searches")}.`);
       startBulk(() => { setBulkConfirm(null); setSelected(new Set()); router.refresh(); });
     });
   };
@@ -447,9 +496,10 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
     );
   }
 
-  const totals = shown.reduce((t, x) => ({ impressions: t.impressions + x.impressions, clicks: t.clicks + x.clicks }), { impressions: 0, clicks: 0 });
+  const totals = shown.reduce((t, x) => ({ impressions: t.impressions + x.impressions, clicks: t.clicks + x.clicks, gain: t.gain + (x.status !== "rejected" ? x.gain?.clicks ?? 0 : 0) }), { impressions: 0, clicks: 0, gain: 0 });
   const allShownSelected = shown.length > 0 && shownSelected === shown.length;
   const onSort = (k: SortKey) => setSort((s) => nextSort(s, k));
+  const pinLeft = canManage ? "left-12" : "left-0";
 
   return (
     <section className="space-y-4" aria-labelledby="gsc-queries-title">
@@ -483,7 +533,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
                   {busy === "refresh" ? "Refreshing..." : "Refresh GSC queries"}
                 </Button>
                 <InfoTip label="About Refresh GSC queries" side="bottom">
-                  Pulls the last {LOOKBACK_DAYS} days of Google searches for this cluster&apos;s keywords (anything we showed up for {MIN_IMPRESSIONS}+ times), then Claude suggests what to do with each one. Rows a person edited stay as they are. Can take a minute.
+                  Pulls the last {LOOKBACK_DAYS} days of Google searches for this cluster&apos;s keywords (anything we showed up for {MIN_IMPRESSIONS}+ times), then Claude suggests what to do with each one and drafts the wording. Rows a person edited stay as they are. Can take a minute.
                 </InfoTip>
               </span>
               <span className="inline-flex items-center gap-1">
@@ -492,7 +542,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
                   Apply all suggestions{toApply ? ` (${toApply})` : ""}
                 </Button>
                 <InfoTip label="About Apply all suggestions" side="bottom">
-                  Approves every row that is still <b>To review</b> and has a decision (add to a post, hub page or improve an existing page), and adds them, with their link text, to each post&apos;s brief. Rejected and skipped rows are left alone.
+                  Approves every row that is still <b>To review</b> and has a decision (add to a post, hub page or improve an existing page), and adds them, with Claude&apos;s wording and link text, to each page&apos;s brief. Rejected and skipped rows are left alone.
                 </InfoTip>
               </span>
             </>
@@ -564,6 +614,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
           <div className="tabular-nums" aria-live="polite">
             {filtered ? <>Showing <b className="font-semibold text-foreground">{shown.length}</b> of {queries.length}</> : <><b className="font-semibold text-foreground">{queries.length}</b> searches</>}
             {" · "}{COMPACT.format(totals.impressions)} impressions · {COMPACT.format(totals.clicks)} clicks
+            {totals.gain > 0 && <> · <span className="text-foreground">≈ +{COMPACT.format(totals.gain)} clicks possible</span> (estimate)</>}
           </div>
         )}
       </div>
@@ -571,69 +622,64 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
       {/* ------------------------------------------------------------- table */}
       <div className="relative">
         {busy === "refresh" && (
-          <div className="absolute inset-0 z-20 flex items-start justify-center rounded-xl bg-background/60 pt-16 backdrop-blur-[1px]" role="status">
+          <div className="absolute inset-0 z-40 flex items-start justify-center rounded-xl bg-background/60 pt-16 backdrop-blur-[1px]" role="status">
             <span className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-[12.5px] text-foreground shadow-sm">
               <Loader2 className="size-3.5 animate-spin text-[#5B45E0]" /> Pulling searches from Search Console. This can take a minute.
             </span>
           </div>
         )}
-        <div ref={tableRef} className="max-h-[60vh] overflow-auto rounded-xl border border-border">
-          <table className="w-full min-w-[760px] table-fixed text-[12.5px]">
-            <caption className="sr-only">Google searches for this cluster. Select a search to see details.</caption>
+        <div ref={boxRef} className="max-h-[65vh] overflow-auto overscroll-x-contain rounded-xl border border-border">
+          <table className="w-max min-w-full border-separate border-spacing-0 text-[12.5px]">
+            <caption className="sr-only">Google searches for this cluster. Scroll sideways for more columns. Select a search to see details and drafts.</caption>
             <thead>
               <tr>
                 {canManage && (
-                  <th scope="col" className={cn(TH, "w-9 pl-3 pr-1")}>
+                  <th scope="col" className={cn(TH, "left-0 z-30 w-12 min-w-12 px-0 pl-4")}>
                     <Checkbox aria-label={allShownSelected ? "Deselect all rows in view" : "Select all rows in view"}
                       checked={allShownSelected} indeterminate={shownSelected > 0 && !allShownSelected}
                       disabled={!shown.length} onCheckedChange={(c) => toggleShown(!!c)} />
                   </th>
                 )}
-                <SortTh label="Search term" k="query" sort={sort} onSort={onSort} className={canManage ? "pl-1" : "pl-3"}
-                  info="What people typed into Google. Click a row to see what to do with it." />
-                <SortTh label="Impr." k="impressions" sort={sort} onSort={onSort} align="right" className="w-[80px]"
-                  info={<><b>Impressions</b>: how many times we showed up in Google for this search (last {LOOKBACK_DAYS} days).</>} />
-                {cols.clicks && (
-                  <SortTh label="Clicks" k="clicks" sort={sort} onSort={onSort} align="right" className="w-[86px]"
-                    info="How many people clicked through to us from Google, and the click rate (the share of people who saw us and clicked)." />
-                )}
-                <SortTh label="Rank" k="position" sort={sort} onSort={onSort} align="right" className="w-[76px]"
+                <SortTh label="Search term" k="query" sort={sort} onSort={onSort} className={cn(PIN_TH, pinLeft, "z-30")}
+                  info="What people typed into Google. Click a row to see what's wrong, what to do and Claude's ready-to-use wording." />
+                <SortTh label="Impressions" k="impressions" sort={sort} onSort={onSort} align="right"
+                  info={<>How many times we showed up in Google for this search (last {LOOKBACK_DAYS} days).</>} />
+                <SortTh label="Clicks" k="clicks" sort={sort} onSort={onSort} align="right"
+                  info="How many people clicked through to us from Google, and the click rate (the share of people who saw us and clicked)." />
+                <SortTh label="Rank" k="position" sort={sort} onSort={onSort} align="right"
                   info={<>Our average spot in Google for this search (1 = top of the page). <Tone c="text-success-700 dark:text-success-300">Top 3</Tone>, <Tone c="text-info-700 dark:text-info-300">first page</Tone>, <Tone c="text-warning-700 dark:text-warning-300">second page</Tone>, grey after that.</>} />
-                {cols.ranks && (
-                  <Th className="w-[114px]" info={<>The we360.ai page Google shows for this search, and its spot (#). If it&apos;s outside this cluster and in the top {UPDATE_EXISTING_MAX_POSITION}, we suggest <b>Improve existing page</b>.</>}>Our page</Th>
-                )}
-                <Th className="w-[130px]" info={<ActionLegend />}>What to do</Th>
-                <Th className="w-[134px]" info={<>Which page gets it: a post in this cluster, the hub page, or the existing page that already shows up for it.</>}>Where</Th>
-                {cols.useAs && (
-                  <Th className="w-[84px]" info={<UsageLegend />}>Add as</Th>
-                )}
-                {cols.anchors && (
-                  <Th className="w-[150px]" info="Other wordings our posts and hub can use when they link to this post, so the links don't all use the exact same words (that looks unnatural to Google).">Link text</Th>
-                )}
-                <Th className="w-[100px]" info={<StatusLegend />}>Status</Th>
-                {canManage && (
-                  <Th className="w-[92px] pr-3 text-right" info={<><b>Approve</b> (✓) adds the search to the page&apos;s brief; you&apos;ll see exactly what happens before it&apos;s saved. <b>Reject</b> (✕) means it won&apos;t be used. <b>Edit</b> changes what to do with it.</>}>Review</Th>
-                )}
+                <Th info={<DiagnosisLegend />}>What&apos;s wrong</Th>
+                <SortTh label="Est. gain" k="gain" sort={sort} onSort={onSort} align="right"
+                  info="An estimate of extra clicks over 90 days: for first-page searches, by getting a normal click rate at the current rank; otherwise, if the page climbed to #5. Rough guide, not a promise." />
+                <Th info={<>The we360.ai page Google shows for this search, with its full address and spot (#). If it&apos;s outside this cluster and in the top {UPDATE_EXISTING_MAX_POSITION}, we suggest <b>Improve existing page</b>.</>}>Our page</Th>
+                <Th info={<ActionLegend />}>What to do</Th>
+                <Th info="Which page gets it: a post in this cluster, the hub page, or the existing page that already shows up for it.">Where</Th>
+                <Th info={<UseLegend />}>How to use</Th>
+                <Th info="Other wordings our posts and hub can use when they link to this page, so the links don't all use the exact same words (that looks unnatural to Google).">Link text</Th>
+                <Th info={<StatusLegend />}>Status</Th>
+                {canManage && <Th className="pr-5">Review</Th>}
               </tr>
             </thead>
             <tbody>
               {shown.length === 0 && (
                 <tr>
-                  <td colSpan={colCount} className="px-3 py-12">
-                    <EmptyState
-                      icon={queries.length ? SearchX : Search}
-                      title={queries.length ? "Nothing matches these filters" : "No Search Console searches yet"}
-                      body={queries.length ? "Try another filter or search word." : `Refresh to pull searches we showed up for ${MIN_IMPRESSIONS}+ times for this cluster's keywords.`}
-                      action={queries.length
-                        ? <Button size="sm" variant="outline" onClick={clearFilters}>Clear filters</Button>
-                        : canManage && <Button size="sm" variant="brand" className="gap-1.5" onClick={refresh} disabled={!!busy}><RefreshCw className="size-3.5" /> Refresh GSC queries</Button>}
-                    />
+                  <td colSpan={colCount} className="p-0">
+                    <div className="sticky left-0 px-4 py-12" style={Number.isFinite(boxWidth) ? { width: boxWidth } : undefined}>
+                      <EmptyState
+                        icon={queries.length ? SearchX : Search}
+                        title={queries.length ? "Nothing matches these filters" : "No Search Console searches yet"}
+                        body={queries.length ? "Try another filter or search word." : `Refresh to pull searches we showed up for ${MIN_IMPRESSIONS}+ times for this cluster's keywords.`}
+                        action={queries.length
+                          ? <Button size="sm" variant="outline" onClick={clearFilters}>Clear filters</Button>
+                          : canManage && <Button size="sm" variant="brand" className="gap-1.5" onClick={refresh} disabled={!!busy}><RefreshCw className="size-3.5" /> Refresh GSC queries</Button>}
+                      />
+                    </div>
                   </td>
                 </tr>
               )}
               {shown.map((row) => (
                 <QueryRow key={row.id} row={row} projectId={projectId} posts={posts} postTitle={postTitle} hub={data.hub}
-                  canManage={canManage} cols={cols} colCount={colCount} locked={bulkPending}
+                  canManage={canManage} colCount={colCount} cardWidth={boxWidth} pinLeft={pinLeft} locked={bulkPending}
                   selected={selected.has(row.id)} onSelect={(on) => toggleOne(row.id, on)} />
               ))}
             </tbody>
@@ -655,7 +701,7 @@ export function ClusterGscPanel({ projectId, clusterId, data, posts, canManage }
         onConfirm={() => runBulk(plan.reject, "rejected", "Rejected")}
       >
         {plan.reject.some((x) => x.status === "accepted") && (
-          <p>{plural(plan.reject.filter((x) => x.status === "accepted").length, "of them is", "of them are")} approved right now; rejecting takes {plan.reject.filter((x) => x.status === "accepted").length === 1 ? "it" : "them"} back out of the post briefs.</p>
+          <p>{plural(plan.reject.filter((x) => x.status === "accepted").length, "of them is", "of them are")} approved right now; rejecting takes {plan.reject.filter((x) => x.status === "accepted").length === 1 ? "it" : "them"} back out of the briefs.</p>
         )}
         {selectedRows.length > plan.reject.length && <p>{plural(selectedRows.length - plan.reject.length, "selected search is", "selected searches are")} already rejected and will be left as is.</p>}
         {!plan.reject.length && <p>Everything you selected is already rejected.</p>}
@@ -677,6 +723,7 @@ function BulkApproveDialog({ open, selected, rows, pending, onOpenChange, onConf
   const already = rest.filter((x) => x.status === "accepted").length;
   const needPost = rest.filter((x) => x.status !== "accepted" && x.action === "assign" && !x.itemId).length;
   const undecided = rest.filter((x) => x.status !== "accepted" && x.action === "unassigned").length;
+  const longSnippets = rows.filter((x) => { const p = snippetProblems(x.drafts); return p.title || p.meta; }).length;
 
   const lines: ReactNode[] = [];
   if (toPosts.length) lines.push(<>{plural(toPosts.length, "search", "searches")} added to the briefs of {plural(postCount, "post")}</>);
@@ -701,7 +748,8 @@ function BulkApproveDialog({ open, selected, rows, pending, onOpenChange, onConf
           ].filter(Boolean).join(", ")}.
         </p>
       )}
-      {toPosts.length > 0 && <p>Writers will see the added searches in Copy details and in the export.</p>}
+      {rows.length > 0 && <p>Each one carries its chosen uses and Claude&apos;s drafts (title, description, heading, FAQ...). Writers see them in Copy details and in the export.</p>}
+      {longSnippets > 0 && <p className="text-error-700 dark:text-error-300">{plural(longSnippets, "draft title or description is", "draft titles or descriptions are")} too long for phones. You can fix them with Edit first.</p>}
     </ConfirmDialog>
   );
 }
@@ -715,7 +763,7 @@ function Tone({ c, children }: { c: string; children: ReactNode }) {
 function Th({ children, info, className }: { children: ReactNode; info?: ReactNode; className?: string }) {
   return (
     <th scope="col" className={cn(TH, className)}>
-      <span className={cn("inline-flex items-center gap-1", className?.includes("text-right") && "flex-row-reverse")}>
+      <span className="inline-flex items-center gap-1">
         {children}
         {info && <InfoTip label={`About the ${typeof children === "string" ? children : ""} column`}>{info}</InfoTip>}
       </span>
@@ -744,11 +792,52 @@ function SortTh({ label, k, sort, onSort, align, className, info }: {
   );
 }
 
-function ActionPill({ action, className }: { action: QueryAction; className?: string }) {
+function Pill({ tone, children, title, className }: { tone: string; children: ReactNode; title?: string; className?: string }) {
   return (
-    <span title={ACTION_FULL[action]} className={cn("inline-flex h-5 max-w-full items-center rounded-full border px-2 text-[11px] font-medium whitespace-nowrap", ACTION_TONE[action], className)}>
-      <span className="truncate">{ACTION_SHORT[action]}</span>
+    <span title={title} className={cn("inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-medium whitespace-nowrap", tone, className)}>
+      {children}
     </span>
+  );
+}
+
+function ActionPill({ action, className }: { action: QueryAction; className?: string }) {
+  return <Pill tone={ACTION_TONE[action]} title={ACTION_FULL[action]} className={className}>{ACTION_SHORT[action]}</Pill>;
+}
+
+function DiagnosisPill({ diagnosis }: { diagnosis: QueryDiagnosis }) {
+  return <Pill tone={DIAGNOSIS_TONE[diagnosis]} title={DIAGNOSIS_EXPLAIN[diagnosis]}>{DIAGNOSIS_LABEL[diagnosis]}</Pill>;
+}
+
+function StatusPill({ status }: { status: QueryStatus }) {
+  return (
+    <Pill tone={STATUS_TONE[status]}>
+      <span className={cn("size-1.5 rounded-full", STATUS_DOT[status])} aria-hidden />
+      {STATUS_LABEL[status]}
+    </Pill>
+  );
+}
+
+/** A "How to use" chip that explains itself on hover or tap. */
+function UseChip({ option, inferred }: { option: QueryUseOption; inferred?: boolean }) {
+  return (
+    <Popover>
+      <PopoverTrigger openOnHover delay={150} closeDelay={80}
+        render={
+          <button type="button" aria-label={`${USE_OPTION_LABEL[option]}: what this means`}
+            className={cn("inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[11.5px] font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B45E0]/40",
+              option === "title_meta" ? "border-warning-200 bg-warning-50 text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/15 dark:text-warning-300"
+                : "border-border bg-background text-foreground hover:border-[#5B45E0]/40",
+              inferred && "border-dashed italic")} />
+        }
+      >
+        {USE_OPTION_LABEL[option]}
+        <Info className="size-3 opacity-50" aria-hidden />
+      </PopoverTrigger>
+      <PopoverContent side="top" className="w-auto max-w-72 p-3 text-[12px] leading-relaxed">
+        <p><b>{USE_OPTION_LABEL[option]}</b>: {USE_OPTION_HINT[option]}</p>
+        {inferred && <p className="text-muted-foreground">Not chosen yet: this is the default suggestion.</p>}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -762,12 +851,19 @@ function ActionLegend() {
   );
 }
 
-function UsageLegend() {
+function DiagnosisLegend() {
   return (
-    <div className="space-y-1">
-      <p>How the search gets worked into the page:</p>
-      {(Object.keys(USAGE_FULL) as QueryUsage[]).map((u) => <p key={u}><b>{USAGE_SHORT[u]}</b>: {USAGE_FULL[u].toLowerCase()}.</p>)}
-      <p className="text-muted-foreground">In italics when nobody has chosen yet: questions default to FAQ, everything else to Paragraph.</p>
+    <div className="space-y-1.5">
+      {(Object.keys(DIAGNOSIS_LABEL) as QueryDiagnosis[]).map((d) => <p key={d}><b>{DIAGNOSIS_LABEL[d]}</b>: {DIAGNOSIS_EXPLAIN[d]}</p>)}
+    </div>
+  );
+}
+
+function UseLegend() {
+  return (
+    <div className="space-y-1.5">
+      <p>How to work the search term into the page. There can be more than one.</p>
+      {USE_OPTIONS.map((o) => <p key={o}><b>{USE_OPTION_LABEL[o]}</b>: {USE_OPTION_HINT[o]}</p>)}
     </div>
   );
 }
@@ -778,50 +874,25 @@ function StatusLegend() {
       <p><b>To review</b>: suggested by Claude or a rule; nobody has approved it yet.</p>
       <p><b>Approved</b>: added to the page&apos;s brief (or a to-do for an existing page).</p>
       <p><b>Rejected</b>: won&apos;t be used and won&apos;t come back. Restore it from the Skipped filter.</p>
-      <p className="text-muted-foreground">The small icon shows who decided: Claude, an automatic rule, keyword matching, or a person.</p>
     </div>
   );
 }
 
-function StatusPill({ status, assignedBy }: { status: QueryStatus; assignedBy: AssignedBy | null }) {
-  const src = assignedBy ? SOURCE[assignedBy] : null;
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={cn("inline-flex h-5 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium whitespace-nowrap", STATUS_TONE[status])}>
-        <span className={cn("size-1.5 rounded-full", STATUS_DOT[status])} aria-hidden />
-        {STATUS_LABEL[status]}
-      </span>
-      {src && (
-        <Tooltip>
-          <TooltipTrigger render={<span className="inline-flex text-muted-foreground" />}>
-            <src.Icon className="size-3.5" aria-hidden />
-            <span className="sr-only">{src.label}</span>
-          </TooltipTrigger>
-          <TooltipContent>{src.label}</TooltipContent>
-        </Tooltip>
-      )}
-    </span>
-  );
-}
-
-function IconAction({ label, onClick, disabledReason, className, children }: {
-  label: string; onClick: () => void; disabledReason?: string | null; className?: string; children: ReactNode;
+/** A labelled row button; stays hoverable when blocked so its tooltip can say why. */
+function RowButton({ label, icon, onClick, blockedReason, tone, active }: {
+  label: string; icon: ReactNode; onClick: () => void; blockedReason?: string | null; tone: "approve" | "reject" | "neutral"; active?: boolean;
 }) {
-  const disabled = !!disabledReason;
+  const blocked = !!blockedReason;
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button type="button" aria-label={label} aria-disabled={disabled || undefined}
-            onClick={() => { if (!disabled) onClick(); }}
-            className={cn("inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B45E0]/40",
-              disabled ? "cursor-not-allowed opacity-40" : className)} />
-        }
-      >
-        {children}
-      </TooltipTrigger>
-      <TooltipContent>{disabledReason ?? label}</TooltipContent>
-    </Tooltip>
+    <button type="button" aria-disabled={blocked || undefined} title={blockedReason ?? undefined}
+      onClick={() => { if (!blocked) onClick(); }}
+      className={cn("inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B45E0]/40 [&_svg]:size-3.5",
+        blocked ? "cursor-not-allowed border-border text-muted-foreground opacity-50"
+          : tone === "approve" ? "border-success-300 bg-success-50 text-success-700 hover:bg-success-100 dark:border-success-500/40 dark:bg-success-500/15 dark:text-success-300"
+          : tone === "reject" ? "border-border bg-background text-error-strong hover:border-error-300 hover:bg-error-50 dark:hover:bg-error-500/15"
+          : cn("border-border bg-background text-foreground hover:border-[#5B45E0]/40 hover:text-[#5B45E0] dark:hover:text-[#7B62FF]", active && CHIP_ON))}>
+      {icon}{label}
+    </button>
   );
 }
 
@@ -836,17 +907,72 @@ function EmptyState({ icon: Icon, title, body, action }: { icon: typeof Search; 
   );
 }
 
+function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [done, setDone] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setDone(true);
+      toast.success("Copied.");
+      setTimeout(() => setDone(false), 1500);
+    } catch { toast.error("Couldn't copy - select the text instead."); }
+  };
+  return (
+    <Button type="button" size="xs" variant="outline" className="shrink-0 gap-1" onClick={copy} aria-label={`${label}: ${text.slice(0, 60)}`}>
+      {done ? <Check /> : <Copy />} {done ? "Copied" : label}
+    </Button>
+  );
+}
+
+function Counter({ n, max }: { n: number; max: number }) {
+  const over = n > max;
+  return (
+    <span className={cn("inline-flex items-center gap-1 font-mono text-[11px] tabular-nums", over ? "font-semibold text-error-700 dark:text-error-300" : "text-muted-foreground")}>
+      {over && <AlertTriangle className="size-3" aria-hidden />}{n}/{max}
+      {over && <span className="font-sans font-normal">too long for phones</span>}
+    </span>
+  );
+}
+
+/** Roughly how the result looks on a phone's Google page, cut where a phone cuts it. */
+function SerpPreview({ title, meta, url }: { title: string; meta: string; url: string | null }) {
+  let host = "we360.ai";
+  let crumbs = "";
+  try {
+    if (url) {
+      const u = new URL(url);
+      host = u.hostname.replace(/^www\./, "");
+      crumbs = u.pathname.split("/").filter(Boolean).join(" › ");
+    }
+  } catch { /* keep defaults */ }
+  return (
+    <figure className="w-full max-w-[360px] rounded-xl border border-border bg-white p-3 font-sans shadow-sm dark:bg-white" aria-label="Mobile Google result preview">
+      <div className="flex items-center gap-2">
+        <span className="flex size-6 items-center justify-center rounded-full bg-[#F1F3F4] text-[10px] font-bold text-[#5B45E0]">W</span>
+        <div className="min-w-0 leading-tight">
+          <div className="text-[12px] text-[#202124]">We360.ai</div>
+          <div className="truncate text-[11px] text-[#4d5156]">{host}{crumbs && ` › ${crumbs}`}</div>
+        </div>
+      </div>
+      <div className="mt-1.5 text-[16px] leading-snug text-[#1a0dab]">{title ? ellipsize(title, TITLE_MAX) : <span className="italic text-[#70757a]">No title draft</span>}</div>
+      <p className="mt-1 text-[12.5px] leading-snug text-[#4d5156]">{meta ? ellipsize(meta, META_MAX) : <span className="italic text-[#70757a]">No description draft</span>}</p>
+      <figcaption className="mt-2 text-[10px] text-[#70757a]">Phone preview (approximate)</figcaption>
+    </figure>
+  );
+}
+
 // ------------------------------------------------------------------ the row
 
-function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colCount, locked, selected, onSelect }: {
+function QueryRow({ row, projectId, posts, postTitle, hub, canManage, colCount, cardWidth, pinLeft, locked, selected, onSelect }: {
   row: ClusterGscQuery;
   projectId: string;
   posts: Post[];
   postTitle: Map<string, string>;
   hub: Hub;
   canManage: boolean;
-  cols: Cols;
   colCount: number;
+  cardWidth: number;
+  pinLeft: string;
   locked: boolean;
   selected: boolean;
   onSelect: (on: boolean) => void;
@@ -858,25 +984,25 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
   const [pending, start] = useTransition();
   const busy = pending || locked;
   const detailId = `gsc-q-${row.id}`;
-  const use = usageOf(row);
-  const hasAnchors = row.action === "assign" || row.action === "hub";
+  const uses = usesOf(row);
   const blocked = approveBlock(row);
   const lockReason = locked ? "Busy..." : null;
+  const tinted = open || selected;
 
   const commit = (patch: Patch, onDone?: () => void) => start(async () => {
-    const r = await updateClusterGscQuery({ project_id: projectId, id: row.id, ...patch })
+    const r = await saveQuery({ project_id: projectId, id: row.id, ...patch })
       .catch(() => ({ ok: false, error: "Could not save - try again." }));
     if (!r.ok) { toast.error(r.error ?? "Could not save."); return; }
     start(() => { onDone?.(); router.refresh(); });
   });
 
   const startEdit = () => { setOpen(true); setEditing(true); };
-  const approve = approveText({ row, postTitle, hub });
+  const approve = approveText(row, postTitle, hub);
 
-  const target = (() => {
+  const where = (() => {
     if (row.action === "assign") {
       const title = row.itemId ? postTitle.get(row.itemId) : null;
-      if (title) return <span className="block truncate text-foreground" title={title}>{title}</span>;
+      if (title) return <span className="text-foreground">{title}</span>;
       return (
         <button type="button" onClick={canManage ? startEdit : undefined} disabled={!canManage}
           className="inline-flex items-center gap-1 rounded text-warning-700 enabled:hover:underline dark:text-warning-300">
@@ -884,112 +1010,105 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
         </button>
       );
     }
-    if (row.action === "hub") return <span className="block truncate text-foreground" title={hub.slug ?? undefined}>Hub page</span>;
-    if (row.action === "update_existing") return row.rankingPage ? <PageLink row={row} className="text-foreground" /> : <span className="text-muted-foreground">Its current page</span>;
+    if (row.action === "hub") return <span className="text-foreground">Hub page: {hubNameOf(hub)}</span>;
+    if (row.action === "update_existing") return row.rankingPage ? <PageLink row={row} /> : <span className="text-muted-foreground">Its current page</span>;
     return <span className="text-muted-foreground">—</span>;
   })();
 
   return (
     <Fragment>
-      <tr className={cn("h-10 border-b border-border/60 transition-colors hover:bg-muted/30",
-        (open || selected) && "bg-muted/30", row.status === "rejected" && "text-muted-foreground [&_.row-q]:line-through [&_.row-q]:decoration-muted-foreground/50",
-        busy && "opacity-70")}>
+      <tr className={cn("group/row transition-colors", tinted ? ROW_TINT : "hover:bg-[color-mix(in_oklab,var(--muted)_70%,var(--background))]",
+        row.status === "rejected" && "text-muted-foreground", busy && "opacity-70",
+        "[&>td]:border-b [&>td]:border-border/60")}>
         {canManage && (
-          <td className={cn(TD, "pl-3 pr-1")}>
-            <Checkbox checked={selected} onCheckedChange={(c) => onSelect(!!c)} aria-label={`Select "${row.query}"`} />
+          <td className={cn(TD, PIN, "left-0 z-10 w-12 min-w-12 px-0 pl-4 shadow-none", tinted ? ROW_TINT : "bg-background group-hover/row:bg-[color-mix(in_oklab,var(--muted)_70%,var(--background))]")}>
+            <div className="pt-0.5"><Checkbox checked={selected} onCheckedChange={(c) => onSelect(!!c)} aria-label={`Select "${row.query}"`} /></div>
           </td>
         )}
-        <td className={cn(TD, canManage ? "pl-1" : "pl-3")}>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={detailId}
-                  className="group/q flex w-full min-w-0 items-center gap-1 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B45E0]/40" />
-              }
-            >
-              <ChevronRight className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", open && "rotate-90")} aria-hidden />
-              <span className="row-q truncate font-medium text-foreground group-hover/q:text-[#5B45E0] dark:group-hover/q:text-[#7B62FF]">{row.query}</span>
-            </TooltipTrigger>
-            <TooltipContent side="top" align="start" className="max-w-sm">
-              <span>{row.query}<span className="mt-1 block opacity-75">Click to see what to do with it.</span></span>
-            </TooltipContent>
-          </Tooltip>
+        <td className={cn(TD, PIN, pinLeft, "z-10", tinted ? ROW_TINT : "bg-background group-hover/row:bg-[color-mix(in_oklab,var(--muted)_70%,var(--background))]")}>
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={detailId}
+            title={open ? "Hide details" : "Show what to do"}
+            className="group/q flex w-[280px] items-start gap-1.5 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B45E0]/40">
+            <ChevronRight className={cn("mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", open && "rotate-90")} aria-hidden />
+            <span className={cn("break-words font-medium leading-snug text-foreground group-hover/q:text-[#5B45E0] dark:group-hover/q:text-[#7B62FF]",
+              row.status === "rejected" && "text-muted-foreground line-through decoration-muted-foreground/50")}>{row.query}</span>
+          </button>
         </td>
-        <td className={cn(TD, "text-right font-mono tabular-nums")}>{NUM.format(row.impressions)}</td>
-        {cols.clicks && (
-          <td className={cn(TD, "text-right font-mono tabular-nums")} title={`${(row.ctr * 100).toFixed(1)}% click rate`}>
-            {NUM.format(row.clicks)}
-            <span className="ml-1 text-[10.5px] text-muted-foreground">{(row.ctr * 100).toFixed(1)}%</span>
-          </td>
-        )}
+        <td className={cn(TD, "text-right font-mono tabular-nums whitespace-nowrap")}>{NUM.format(row.impressions)}</td>
+        <td className={cn(TD, "text-right font-mono tabular-nums whitespace-nowrap")}>
+          {NUM.format(row.clicks)}
+          <span className="ml-1.5 text-[11px] text-muted-foreground">{(row.ctr * 100).toFixed(1)}%</span>
+        </td>
         <td className={cn(TD, "text-right")}>
-          <span className={cn("inline-flex h-5 min-w-9 items-center justify-center rounded-md px-1.5 font-mono text-[11.5px] tabular-nums", posTone(row.position))}
-            title={`Average Google rank ${row.position.toFixed(1)}`}>
+          <span className={cn("inline-flex h-6 min-w-10 items-center justify-center rounded-md px-1.5 font-mono text-[11.5px] tabular-nums", posTone(row.position))}>
             {row.position.toFixed(1)}
           </span>
         </td>
-        {cols.ranks && (
-          <td className={TD}>
-            {row.rankingPage ? (
-              <span className="flex min-w-0 items-center gap-1.5">
-                <PageLink row={row} />
-                {row.rankingPagePosition != null && <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-muted-foreground">#{row.rankingPagePosition}</span>}
-              </span>
-            ) : <span className="text-muted-foreground">—</span>}
-          </td>
-        )}
+        <td className={TD}><DiagnosisPill diagnosis={row.diagnosis} /></td>
+        <td className={cn(TD, "text-right whitespace-nowrap")}>
+          {row.gain ? (
+            <span className="inline-flex items-center gap-1">
+              <span className="font-medium text-foreground">≈ +{NUM.format(row.gain.clicks)}</span>
+              <span className="text-[11px] text-muted-foreground">clicks</span>
+              <InfoTip label="About this estimate">
+                Estimated extra clicks in {LOOKBACK_DAYS} days {row.gain.basis === "now" ? "at the current rank, by getting a normal click rate (better title and description)." : "if it reaches #5 on Google."} A rough guide, not a promise.
+              </InfoTip>
+            </span>
+          ) : <span className="text-muted-foreground">—</span>}
+        </td>
+        <td className={TD}>
+          {row.rankingPage ? (
+            <div className="w-[260px] space-y-0.5">
+              <div className="flex items-start gap-1.5">
+                <PageLink row={row} className="leading-snug text-foreground" />
+                {row.rankingPagePosition != null && <span className="mt-px shrink-0 rounded bg-muted px-1 font-mono text-[10.5px] tabular-nums text-muted-foreground">#{row.rankingPagePosition}</span>}
+              </div>
+              <div className="break-all font-mono text-[11px] text-muted-foreground">{pathOf(row.rankingPage)}</div>
+              {titleIsGuess(row) && <div className="text-[10.5px] text-muted-foreground">(title from URL)</div>}
+            </div>
+          ) : <span className="text-muted-foreground">—</span>}
+        </td>
         <td className={TD}><ActionPill action={row.action} /></td>
-        <td className={TD}>{target}</td>
-        {cols.useAs && (
-          <td className={TD}>
-            {use ? (
-              <span className={cn("text-foreground", use.inferred && "italic text-muted-foreground")}
-                title={use.inferred ? `Not chosen yet: defaults to ${USAGE_FULL[use.usage]}` : USAGE_FULL[use.usage]}>
-                {USAGE_SHORT[use.usage]}
-              </span>
-            ) : <span className="text-muted-foreground">—</span>}
-          </td>
-        )}
-        {cols.anchors && (
-          <td className={TD}>
-            {hasAnchors && row.anchors.length ? (
-              <span className="flex min-w-0 items-center gap-1" title={row.anchors.join("\n")}>
-                <span className="truncate text-foreground">{row.anchors[0]}</span>
-                {row.anchors.length > 1 && <span className="shrink-0 rounded bg-muted px-1 text-[10.5px] text-muted-foreground">+{row.anchors.length - 1}</span>}
-              </span>
-            ) : <span className="text-muted-foreground">—</span>}
-          </td>
-        )}
-        <td className={TD}><StatusPill status={row.status} assignedBy={row.assignedBy} /></td>
+        <td className={TD}><div className="w-[200px] break-words leading-snug">{where}</div></td>
+        <td className={TD}>
+          {uses.options.length ? (
+            <div className="flex w-[230px] flex-wrap gap-1.5">
+              {uses.options.map((o) => <UseChip key={o} option={o} inferred={uses.inferred} />)}
+            </div>
+          ) : <span className="text-muted-foreground">—</span>}
+        </td>
+        <td className={TD}>
+          {(row.action === "assign" || row.action === "hub") && row.anchors.length ? (
+            <div className="flex w-[220px] flex-wrap gap-1">
+              {row.anchors.map((a) => <span key={a} className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[11.5px] leading-snug">{a}</span>)}
+            </div>
+          ) : <span className="text-muted-foreground">—</span>}
+        </td>
+        <td className={TD}><StatusPill status={row.status} /></td>
         {canManage && (
-          <td className={cn(TD, "pr-3")}>
-            <div className="flex items-center justify-end gap-0.5">
+          <td className={cn(TD, "pr-5")}>
+            <div className="flex items-center gap-1.5">
               {pending ? (
-                <Loader2 className="mr-1.5 size-3.5 animate-spin text-muted-foreground" aria-label="Saving" />
+                <span className="inline-flex h-7 items-center gap-1.5 text-[12px] text-muted-foreground"><Loader2 className="size-3.5 animate-spin" /> Saving...</span>
               ) : (
                 <>
                   {row.status === "rejected" && (
-                    <IconAction label="Restore to To review" disabledReason={lockReason}
-                      onClick={() => commit({ status: "suggested" })} className="hover:bg-muted hover:text-foreground">
-                      <RotateCcw className="size-3.5" aria-hidden />
-                    </IconAction>
+                    <RowButton label="Restore" icon={<RotateCcw aria-hidden />} tone="neutral" blockedReason={lockReason}
+                      onClick={() => commit({ status: "suggested" })} />
                   )}
                   {row.status !== "accepted" && (
-                    <IconAction label={row.status === "rejected" ? "Restore and approve" : "Approve"} disabledReason={lockReason ?? blocked}
-                      onClick={() => setConfirm("approve")} className="hover:bg-success-50 hover:text-success-700 dark:hover:bg-success-500/15 dark:hover:text-success-300">
-                      <Check className="size-3.5" aria-hidden />
-                    </IconAction>
+                    <span className="inline-flex items-center gap-0.5">
+                      <RowButton label="Approve" icon={<Check aria-hidden />} tone="approve" blockedReason={lockReason ?? blocked} onClick={() => setConfirm("approve")} />
+                      <InfoTip label="What approving does">{APPROVE_TIP}</InfoTip>
+                    </span>
                   )}
                   {row.status !== "rejected" && (
-                    <IconAction label="Reject" disabledReason={lockReason}
-                      onClick={() => setConfirm("reject")} className="hover:bg-error-50 hover:text-error-strong dark:hover:bg-error-500/15">
-                      <X className="size-3.5" aria-hidden />
-                    </IconAction>
+                    <span className="inline-flex items-center gap-0.5">
+                      <RowButton label="Reject" icon={<X aria-hidden />} tone="reject" blockedReason={lockReason} onClick={() => setConfirm("reject")} />
+                      <InfoTip label="What rejecting does">{REJECT_TIP}</InfoTip>
+                    </span>
                   )}
-                  <IconAction label={editing ? "Editing below" : "Edit"} disabledReason={lockReason}
-                    onClick={startEdit} className={cn("hover:bg-[#5B45E0]/10 hover:text-[#5B45E0] dark:hover:text-[#7B62FF]", editing && "bg-[#5B45E0]/10 text-[#5B45E0]")}>
-                    <Pencil className="size-3.5" aria-hidden />
-                  </IconAction>
+                  <RowButton label="Edit" icon={<Pencil aria-hidden />} tone="neutral" active={editing} blockedReason={lockReason} onClick={startEdit} />
                 </>
               )}
             </div>
@@ -1003,7 +1122,7 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
               onConfirm={() => commit({ status: "accepted" }, () => setConfirm(null))}
             >
               {approve.details}
-              <p>Not right? Cancel and use Edit to change what to do with it first.</p>
+              <p>Not right? Cancel and use Edit to change it first.</p>
             </ConfirmDialog>
             <ConfirmDialog
               open={confirm === "reject"}
@@ -1021,15 +1140,18 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
         )}
       </tr>
       {open && (
-        <tr id={detailId} className="border-b border-border/60 bg-muted/20">
-          <td colSpan={colCount} className="px-3 py-3 sm:pl-10">
-            {editing ? (
-              <QueryEditor row={row} posts={posts} hub={hub} saving={pending}
-                onCancel={() => setEditing(false)}
-                onSave={(patch) => commit(patch, () => setEditing(false))} />
-            ) : (
-              <QueryDetail row={row} postTitle={postTitle} hub={hub} />
-            )}
+        <tr id={detailId}>
+          <td colSpan={colCount} className="border-b border-border/60 bg-muted/20 p-0">
+            {/* Pinned to the visible width, so the card never needs sideways scrolling. */}
+            <div className="sticky left-0 p-4" style={Number.isFinite(cardWidth) ? { width: cardWidth } : undefined}>
+              {editing ? (
+                <QueryEditor row={row} posts={posts} hub={hub} saving={pending}
+                  onCancel={() => setEditing(false)}
+                  onSave={(patch) => commit(patch, () => setEditing(false))} />
+              ) : (
+                <QueryCard row={row} postTitle={postTitle} hub={hub} />
+              )}
+            </div>
           </td>
         </tr>
       )}
@@ -1037,100 +1159,257 @@ function QueryRow({ row, projectId, posts, postTitle, hub, canManage, cols, colC
   );
 }
 
-function Fact({ label, children }: { label: string; children: ReactNode }) {
+// ------------------------------------------------------------ the open card
+
+function CardSection({ n, title, children, className }: { n: number; title: string; children: ReactNode; className?: string }) {
   return (
-    <div className="flex min-w-0 items-baseline gap-1.5">
-      <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-foreground">{children}</dd>
+    <section className={cn("min-w-0 space-y-2", className)}>
+      <h4 className={cn(SECTION_LABEL, "flex items-center gap-1.5")}>
+        <span className="flex size-4 items-center justify-center rounded-full bg-muted text-[9.5px] text-muted-foreground">{n}</span>{title}
+      </h4>
+      {children}
+    </section>
+  );
+}
+
+function Stat({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="font-mono text-[14px] font-semibold tabular-nums text-foreground">{children}</div>
     </div>
   );
 }
 
-/** The expanded row: one plain sentence of what to do, then compact facts. */
-function QueryDetail({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: Map<string, string>; hub: Hub }) {
-  const src = row.assignedBy ? SOURCE[row.assignedBy] : null;
+/** The open row: data, page, what's wrong, what to do (with drafts), why this page, benefit. */
+function QueryCard({ row, postTitle, hub }: { row: ClusterGscQuery; postTitle: Map<string, string>; hub: Hub }) {
   const info = row.rankingPageInfo;
+  const post = row.itemId ? postTitle.get(row.itemId) : undefined;
+  const { options, inferred } = usesOf(row);
+  const h1Differs = !!info?.liveH1 && info.liveH1.trim().toLowerCase() !== pageTitleOf(row).trim().toLowerCase();
+
   return (
-    <div className="max-w-5xl space-y-2">
-      <div className="flex items-start gap-2">
-        <ActionPill action={row.action} className="mt-0.5 shrink-0" />
-        <p className="text-[13px] leading-relaxed text-muted-foreground"><WhatToDo row={row} postTitle={postTitle} hub={hub} /></p>
+    <div className="space-y-5 rounded-xl border border-border bg-background p-5 shadow-sm">
+      <div className="grid gap-5 lg:grid-cols-3">
+        <CardSection n={1} title="Search term">
+          <p className="break-words text-[15px] font-semibold leading-snug text-foreground">{row.query}</p>
+          <div className="grid grid-cols-4 gap-3">
+            <Stat label="Impressions">{NUM.format(row.impressions)}</Stat>
+            <Stat label="Google rank">{row.position.toFixed(1)}</Stat>
+            <Stat label="Clicks">{NUM.format(row.clicks)}</Stat>
+            <Stat label="Click rate">{(row.ctr * 100).toFixed(1)}%</Stat>
+          </div>
+        </CardSection>
+
+        <CardSection n={2} title="Our page in Google">
+          {row.rankingPage ? (
+            <div className="space-y-1 text-[12.5px]">
+              <div className="flex flex-wrap items-baseline gap-x-1.5">
+                <PageLink row={row} className="font-medium text-foreground" />
+                <span className="text-muted-foreground">#{rankOf(row)}</span>
+                {titleIsGuess(row) && <span className="text-muted-foreground">(title from URL)</span>}
+              </div>
+              {h1Differs && <div className="text-muted-foreground">Heading on the page (H1): <span className="text-foreground">{info?.liveH1}</span></div>}
+              <div className="break-all font-mono text-[11.5px] text-muted-foreground">{row.rankingPage}</div>
+              {(info?.clusterName || info?.primaryKeyword) && (
+                <div className="text-muted-foreground">
+                  {info?.clusterName && <>Cluster: <span className="text-foreground">{info.clusterName}</span></>}
+                  {info?.clusterName && info?.primaryKeyword && " · "}
+                  {info?.primaryKeyword && <>Keyword: <span className="text-foreground">{info.primaryKeyword}</span></>}
+                </div>
+              )}
+              {!info?.liveTitle && <div className="text-[11px] text-muted-foreground">The live title and heading are checked at the next refresh.</div>}
+            </div>
+          ) : <p className="text-[12.5px] text-muted-foreground">None of our pages shows up for this search yet.</p>}
+        </CardSection>
+
+        <CardSection n={3} title="What's wrong">
+          <DiagnosisPill diagnosis={row.diagnosis} />
+          <p className="text-[12.5px] leading-relaxed text-foreground">{DIAGNOSIS_EXPLAIN[row.diagnosis]}</p>
+        </CardSection>
       </div>
-      {row.reason && <p className="text-[12px] text-muted-foreground"><span className="font-medium text-foreground">Why: </span>{row.reason}</p>}
-      <dl className="flex flex-wrap gap-x-5 gap-y-1 text-[12px]">
-        <Fact label="Impressions"><span className="font-mono tabular-nums">{NUM.format(row.impressions)}</span></Fact>
-        <Fact label="Clicks"><span className="font-mono tabular-nums">{NUM.format(row.clicks)}</span> <span className="text-muted-foreground">({(row.ctr * 100).toFixed(1)}% click rate)</span></Fact>
-        <Fact label="Google rank"><span className="font-mono tabular-nums">{row.position.toFixed(1)}</span></Fact>
-        {row.rankingPage && (
-          <Fact label="Shows up on">
-            <span className="inline-flex min-w-0 max-w-[28rem] flex-wrap items-baseline gap-x-1">
-              <PageLink row={row} className="text-foreground" />
-              <span className="text-muted-foreground">#{rankOf(row)}</span>
-              {info?.source === "url" && <span className="text-muted-foreground">(title from URL)</span>}
-              {info?.clusterName && <span className="text-muted-foreground">· {info.clusterName} cluster</span>}
-            </span>
-          </Fact>
-        )}
-        {row.matchedKeyword && <Fact label="Found through keyword">{row.matchedKeyword}</Fact>}
-        {src && <Fact label="Decided by">{src.short}</Fact>}
-      </dl>
-      {(row.action === "assign" || row.action === "hub") && row.anchors.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
-          <span className="text-muted-foreground">Link text:</span>
-          {row.anchors.map((a) => <span key={a} className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[11.5px]">{a}</span>)}
+
+      <CardSection n={4} title="What to do" className="border-t border-border pt-5">
+        <div className="flex items-start gap-2">
+          <ActionPill action={row.action} className="shrink-0" />
+          <p className="pt-0.5 text-[13px] leading-relaxed text-muted-foreground"><WhatToDo row={row} postTitle={postTitle} hub={hub} /></p>
         </div>
-      )}
+        {options.length > 0 && (
+          <>
+            {inferred && <p className="text-[11.5px] text-muted-foreground">Nobody has chosen how to use it yet; these are the default suggestions.</p>}
+            {!row.drafts && (
+              <p className="flex items-center gap-1.5 rounded-md border border-dashed border-border px-3 py-2 text-[12px] text-muted-foreground">
+                <Sparkles className="size-3.5 text-[#5B45E0]" aria-hidden /> Claude&apos;s ready-to-use wording appears after the next refresh. You can also write it yourself with Edit.
+              </p>
+            )}
+            <ol className="space-y-3">
+              {options.map((o, i) => <DraftStep key={o} n={i + 1} option={o} row={row} />)}
+            </ol>
+          </>
+        )}
+      </CardSection>
+
+      <div className="grid gap-5 border-t border-border pt-5 lg:grid-cols-2">
+        <CardSection n={5} title={row.action === "update_existing" ? "Why this page (not a new one)" : "Why here"}>
+          <p className="text-[12.5px] leading-relaxed text-foreground">{whyThisPage(row, post)}</p>
+          {row.reason && <p className="text-[12px] leading-relaxed text-muted-foreground">Claude&apos;s note: {row.reason}</p>}
+          <p className="text-[11.5px] text-muted-foreground">
+            {row.matchedKeyword && <>Found through the keyword <span className="text-foreground">{row.matchedKeyword}</span>. </>}
+            {row.assignedBy && <>Suggested by {SUGGESTED_BY[row.assignedBy]}.</>}
+          </p>
+        </CardSection>
+        <CardSection n={6} title="Estimated benefit">
+          {row.gain ? (
+            <p className="text-[12.5px] leading-relaxed text-foreground">
+              <span className="text-[15px] font-semibold">≈ +{NUM.format(row.gain.clicks)} clicks</span> in {LOOKBACK_DAYS} days{" "}
+              <span className="text-muted-foreground">
+                {row.gain.basis === "now" ? "at the current rank, if the click rate becomes normal for that spot." : "if the page climbs to #5 on Google."} This is an estimate, not a promise.
+              </span>
+            </p>
+          ) : <p className="text-[12.5px] text-muted-foreground">No clear extra clicks to estimate: it&apos;s already doing about as well as its rank allows.</p>}
+        </CardSection>
+      </div>
     </div>
   );
 }
+
+function DraftText({ text, children }: { text: string | null | undefined; children?: ReactNode }) {
+  if (!text) return <p className="text-[12px] italic text-muted-foreground">No draft yet - write your own, or add it with Edit.</p>;
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
+      <div className="min-w-0 break-words text-[13px] leading-relaxed text-foreground">{children ?? text}</div>
+      <CopyButton text={text} />
+    </div>
+  );
+}
+
+/** One numbered "what to do" item with Claude's draft. */
+function DraftStep({ n, option, row }: { n: number; option: QueryUseOption; row: ClusterGscQuery }) {
+  const d = row.drafts;
+  return (
+    <li className="flex gap-3">
+      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-[#5B45E0]/10 text-[11px] font-semibold text-[#5B45E0] dark:text-[#7B62FF]">{n}</span>
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+          {USE_OPTION_LABEL[option]}
+          <InfoTip label={`About ${USE_OPTION_LABEL[option]}`}>{USE_OPTION_HINT[option]}</InfoTip>
+        </div>
+        {option === "title_meta" && (
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-start">
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[11.5px] text-muted-foreground">New page title <Counter n={d?.title?.length ?? 0} max={TITLE_MAX} /></div>
+                <DraftText text={d?.title} />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[11.5px] text-muted-foreground">New meta description <Counter n={d?.meta?.length ?? 0} max={META_MAX} /></div>
+                <DraftText text={d?.meta} />
+              </div>
+            </div>
+            {(d?.title || d?.meta) && <SerpPreview title={d?.title ?? ""} meta={d?.meta ?? ""} url={row.rankingPage} />}
+          </div>
+        )}
+        {option === "template" && <DraftText text={d?.template}><span className="whitespace-pre-line">{d?.template}</span></DraftText>}
+        {option === "h2" && <DraftText text={d?.h2}><span className="font-semibold">{d?.h2}</span></DraftText>}
+        {option === "faq" && (
+          d?.faqQuestion ? (
+            <div className="space-y-1.5">
+              <DraftText text={d.faqQuestion}><span className="font-semibold">Q: {d.faqQuestion}</span></DraftText>
+              <DraftText text={d.faqAnswer}><span>A: {d.faqAnswer}</span></DraftText>
+            </div>
+          ) : <DraftText text={null} />
+        )}
+        {option === "paragraph" && <DraftText text={d?.paragraph} />}
+        {option === "link_text" && (
+          row.anchors.length ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {row.anchors.map((a) => <span key={a} className="rounded-md border border-border bg-muted/20 px-2 py-1 text-[12.5px] text-foreground">{a}</span>)}
+              <CopyButton text={row.anchors.join("\n")} label="Copy all" />
+            </div>
+          ) : <p className="text-[12px] text-muted-foreground">Links can use the search term itself. Add other wordings with Edit.</p>
+        )}
+      </div>
+    </li>
+  );
+}
+
+// ---------------------------------------------------------------- the editor
+
+type DraftForm = Required<{ [K in keyof QueryDrafts]: string }>;
 
 function QueryEditor({ row, posts, hub, saving, onCancel, onSave }: {
   row: ClusterGscQuery; posts: Post[]; hub: Hub; saving: boolean;
   onCancel: () => void; onSave: (patch: Patch) => void;
 }) {
+  const initialUses = usesOf(row).options;
   const [action, setAction] = useState<QueryAction>(row.action);
   const [itemId, setItemId] = useState(row.itemId ?? "");
-  const [usage, setUsage] = useState<QueryUsage>(row.usage ?? inferUsage(row.query));
+  const [uses, setUses] = useState<QueryUseOption[]>(initialUses);
   const [anchors, setAnchors] = useState(row.anchors.join("; "));
+  const [draft, setDraft] = useState<DraftForm>({
+    title: row.drafts?.title ?? "", meta: row.drafts?.meta ?? "", h2: row.drafts?.h2 ?? "",
+    faqQuestion: row.drafts?.faqQuestion ?? "", faqAnswer: row.drafts?.faqAnswer ?? "",
+    paragraph: row.drafts?.paragraph ?? "", template: row.drafts?.template ?? "",
+  });
 
   const usesPost = action === "assign";
-  const usesUsage = USED.has(action);
-  const usesAnchors = action === "assign" || action === "hub";
+  const usesOptions = USED.has(action);
+  const usesAnchors = action === "assign" || action === "hub" || uses.includes("link_text");
   const parsed = parseAnchors(anchors);
   const missingPost = usesPost && !itemId;
+  const missingUse = usesOptions && uses.length === 0;
   const fieldId = (f: string) => `gsc-edit-${row.id}-${f}`;
+  const set = (k: keyof DraftForm) => (e: { target: { value: string } }) => setDraft((p) => ({ ...p, [k]: e.target.value }));
+  const has = (o: QueryUseOption) => usesOptions && uses.includes(o);
+
+  const changeAction = (a: QueryAction) => {
+    setAction(a);
+    // Moving a row into use with nothing chosen: start from the suggested options.
+    if (USED.has(a) && uses.length === 0) setUses(suggestedUseOptions(row, a));
+  };
+  const toggleUse = (o: QueryUseOption) => setUses((prev) => (prev.includes(o) ? prev.filter((x) => x !== o) : USE_OPTIONS.filter((x) => x === o || prev.includes(x))));
 
   const submit = () => {
-    if (missingPost || saving) return;
+    if (missingPost || missingUse || saving) return;
     const patch: Patch = { action };
     if (usesPost) patch.item_id = itemId;
-    if (usesUsage) patch.usage = usage;
+    if (usesOptions) {
+      patch.usages = uses;
+      patch.usage = legacyUsage(uses);
+      const clean = (s: string) => s.trim() || null;
+      patch.drafts = {
+        title: clean(draft.title), meta: clean(draft.meta), h2: clean(draft.h2),
+        faqQuestion: clean(draft.faqQuestion), faqAnswer: clean(draft.faqAnswer),
+        paragraph: clean(draft.paragraph), template: clean(draft.template),
+      };
+    }
     if (usesAnchors) patch.anchors = parsed.slice(0, 5);
     onSave(patch);
   };
 
+  const label = "flex items-center gap-1 text-[11.5px] font-semibold text-muted-foreground";
+
   return (
-    <form className="space-y-3" aria-label={`Edit "${row.query}"`}
+    <form className="space-y-5 rounded-xl border border-[#5B45E0]/30 bg-background p-5 shadow-sm" aria-label={`Edit "${row.query}"`}
       onSubmit={(e) => { e.preventDefault(); submit(); }}
       onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); onCancel(); } }}>
-      <div className="flex flex-wrap items-baseline gap-x-2 text-[12.5px]">
-        <span className="font-semibold text-foreground">{row.query}</span>
-        {row.reason && <span className="text-[11.5px] text-muted-foreground">{row.reason}</span>}
+      <div className="space-y-0.5">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-[#5B45E0] dark:text-[#7B62FF]">Editing</div>
+        <div className="break-words text-[15px] font-semibold text-foreground">{row.query}</div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[190px_minmax(200px,1fr)_auto_minmax(220px,1.2fr)]">
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <div className="space-y-1">
-          <label htmlFor={fieldId("action")} className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-            What to do <InfoTip label="About What to do"><ActionLegend /></InfoTip>
-          </label>
+          <label htmlFor={fieldId("action")} className={label}>What to do <InfoTip label="About What to do"><ActionLegend /></InfoTip></label>
           <select id={fieldId("action")} className={SELECT} value={action} autoFocus disabled={saving}
-            onChange={(e) => setAction(e.target.value as QueryAction)}>
+            onChange={(e) => changeAction(e.target.value as QueryAction)}>
             {ACTION_ORDER.map((a) => <option key={a} value={a}>{ACTION_FULL[a]}</option>)}
           </select>
-          <p className="text-[11px] leading-snug text-muted-foreground">{ACTION_HELP[action]}</p>
+          <p className="text-[11.5px] leading-snug text-muted-foreground">{ACTION_HELP[action]}</p>
         </div>
 
         <div className="space-y-1">
-          <label htmlFor={usesPost ? fieldId("post") : undefined} className="block text-[11px] font-semibold text-muted-foreground">{usesPost ? "Which post" : "Where"}</label>
+          <label htmlFor={usesPost ? fieldId("post") : undefined} className={label}>{usesPost ? "Which post" : "Where"}</label>
           {usesPost ? (
             <>
               <select id={fieldId("post")} className={cn(SELECT, missingPost && "border-warning-400")} value={itemId} disabled={saving}
@@ -1138,58 +1417,112 @@ function QueryEditor({ row, posts, hub, saving, onCancel, onSave }: {
                 <option value="">Pick a post...</option>
                 {posts.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
-              {missingPost && <p className="text-[11px] text-warning-700 dark:text-warning-300">Choose which post should use this search.</p>}
+              {missingPost && <p className="text-[11.5px] text-warning-700 dark:text-warning-300">Choose which post should use this search.</p>}
             </>
           ) : (
-            <div className="flex min-h-8 items-center text-[12.5px] text-foreground">
-              {action === "hub" ? <>Hub page{hub.slug && <span className="ml-1 truncate text-muted-foreground">· {hub.slug}</span>}</>
-                : action === "update_existing" ? (row.rankingPage
-                  ? <span className="flex min-w-0 flex-wrap items-baseline gap-x-1"><PageLink row={row} className="text-foreground" /><span className="text-muted-foreground">#{rankOf(row)}</span></span>
-                  : "The page it already shows up on")
+            <div className="min-h-8 pt-1.5 text-[12.5px] text-foreground">
+              {action === "hub" ? <>Hub page: {hubNameOf(hub)}</>
+                : action === "update_existing" ? (row.rankingPage ? <><PageLink row={row} /> <span className="text-muted-foreground">#{rankOf(row)}</span></> : "The page it already shows up on")
                 : <span className="text-muted-foreground">—</span>}
             </div>
           )}
         </div>
 
         <div className="space-y-1">
-          <span id={fieldId("usage")} className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-            Add as <InfoTip label="About Add as"><UsageLegend /></InfoTip>
-          </span>
-          {usesUsage ? (
-            <div role="radiogroup" aria-labelledby={fieldId("usage")} className="inline-flex h-8 rounded-md border border-border bg-background p-0.5">
-              {(Object.keys(USAGE_FULL) as QueryUsage[]).map((u) => (
-                <button key={u} type="button" role="radio" aria-checked={usage === u} disabled={saving} onClick={() => setUsage(u)}
-                  title={USAGE_FULL[u]}
-                  className={cn("whitespace-nowrap rounded px-2.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B45E0]/40",
-                    usage === u ? "bg-[#5B45E0]/10 text-[#5B45E0] dark:text-[#7B62FF]" : "text-muted-foreground hover:text-foreground")}>
-                  {u === "body" ? "Paragraph" : USAGE_FULL[u]}
-                </button>
-              ))}
-            </div>
-          ) : <div className="flex h-8 items-center text-muted-foreground">—</div>}
-        </div>
-
-        <div className="space-y-1">
-          <label htmlFor={usesAnchors ? fieldId("anchors") : undefined} className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-            Link text <InfoTip label="About link text">Other wordings our posts and hub can use when they link to this post, so the links don&apos;t all use the exact same words. Separate with semicolons, up to 5.</InfoTip>
+          <label htmlFor={usesAnchors ? fieldId("anchors") : undefined} className={label}>
+            Link text <InfoTip label="About link text">Other wordings our posts and hub can use when they link to this page, so the links don&apos;t all use the exact same words. Separate with semicolons, up to 5.</InfoTip>
           </label>
           {usesAnchors ? (
             <>
               <Input id={fieldId("anchors")} value={anchors} disabled={saving} onChange={(e) => setAnchors(e.target.value)}
                 placeholder="wording 1; wording 2" className="h-8 text-[12.5px]" aria-describedby={fieldId("anchors-hint")} />
-              <p id={fieldId("anchors-hint")} className={cn("text-[11px] text-muted-foreground", parsed.length > 5 && "text-warning-700 dark:text-warning-300")}>
+              <p id={fieldId("anchors-hint")} className={cn("text-[11.5px] text-muted-foreground", parsed.length > 5 && "text-warning-700 dark:text-warning-300")}>
                 {parsed.length > 5 ? `Only the first 5 of ${parsed.length} will be kept.` : `${parsed.length} of 5 · separate with ;`}
               </p>
             </>
-          ) : <div className="flex h-8 items-center text-[12px] text-muted-foreground">Only for posts and the hub page.</div>}
+          ) : <div className="pt-1.5 text-[12px] text-muted-foreground">Only for posts, the hub page, or when Link text is chosen below.</div>}
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" size="sm" variant="brand" className="gap-1.5" disabled={saving || missingPost}>
+
+      <div className="space-y-2">
+        <div id={fieldId("uses")} className={label}>How to use <span className="font-normal">(pick one or more)</span> <InfoTip label="About How to use"><UseLegend /></InfoTip></div>
+        {usesOptions ? (
+          <>
+            <div role="group" aria-labelledby={fieldId("uses")} className="flex flex-wrap gap-1.5">
+              {USE_OPTIONS.map((o) => {
+                const on = uses.includes(o);
+                return (
+                  <button key={o} type="button" aria-pressed={on} disabled={saving} onClick={() => toggleUse(o)} title={USE_OPTION_HINT[o]}
+                    className={cn("inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B45E0]/40",
+                      on ? CHIP_ON : CHIP_OFF)}>
+                    {on ? <Check className="size-3.5" aria-hidden /> : <Plus className="size-3.5 opacity-60" aria-hidden />}
+                    {USE_OPTION_LABEL[o]}
+                  </button>
+                );
+              })}
+            </div>
+            {missingUse && <p className="text-[11.5px] text-warning-700 dark:text-warning-300">Pick at least one way to use this search.</p>}
+          </>
+        ) : <p className="text-[12px] text-muted-foreground">Not needed: this search won&apos;t be added to a page.</p>}
+      </div>
+
+      {usesOptions && uses.some((o) => o !== "link_text") && (
+        <div className="space-y-4 border-t border-border pt-4">
+          <div className={label}>Wording <span className="font-normal">(Claude&apos;s drafts; change anything)</span></div>
+          {has("title_meta") && (
+            <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between"><label htmlFor={fieldId("title")} className={label}>Page title</label><Counter n={draft.title.length} max={TITLE_MAX} /></div>
+                  <Input id={fieldId("title")} value={draft.title} onChange={set("title")} disabled={saving} aria-invalid={draft.title.length > TITLE_MAX || undefined} className="h-8 text-[12.5px]" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between"><label htmlFor={fieldId("meta")} className={label}>Meta description</label><Counter n={draft.meta.length} max={META_MAX} /></div>
+                  <Textarea id={fieldId("meta")} value={draft.meta} onChange={set("meta")} disabled={saving} rows={2} aria-invalid={draft.meta.length > META_MAX || undefined} className="text-[12.5px]" />
+                </div>
+              </div>
+              <SerpPreview title={draft.title} meta={draft.meta} url={row.rankingPage} />
+            </div>
+          )}
+          {has("h2") && (
+            <div className="space-y-1">
+              <label htmlFor={fieldId("h2")} className={label}>Section heading</label>
+              <Input id={fieldId("h2")} value={draft.h2} onChange={set("h2")} disabled={saving} className="h-8 text-[12.5px]" />
+            </div>
+          )}
+          {has("faq") && (
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1">
+                <label htmlFor={fieldId("faqq")} className={label}>FAQ question</label>
+                <Input id={fieldId("faqq")} value={draft.faqQuestion} onChange={set("faqQuestion")} disabled={saving} className="h-8 text-[12.5px]" />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor={fieldId("faqa")} className={label}>FAQ answer</label>
+                <Textarea id={fieldId("faqa")} value={draft.faqAnswer} onChange={set("faqAnswer")} disabled={saving} rows={3} className="text-[12.5px]" />
+              </div>
+            </div>
+          )}
+          {has("paragraph") && (
+            <div className="space-y-1">
+              <label htmlFor={fieldId("para")} className={label}>Sentence for a paragraph</label>
+              <Textarea id={fieldId("para")} value={draft.paragraph} onChange={set("paragraph")} disabled={saving} rows={2} className="text-[12.5px]" />
+            </div>
+          )}
+          {has("template") && (
+            <div className="space-y-1">
+              <label htmlFor={fieldId("tpl")} className={label}>What the template / tool should include</label>
+              <Textarea id={fieldId("tpl")} value={draft.template} onChange={set("template")} disabled={saving} rows={3} className="text-[12.5px]" />
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+        <Button type="submit" size="sm" variant="brand" className="gap-1.5" disabled={saving || missingPost || missingUse}>
           {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Save
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onCancel} disabled={saving}>Cancel</Button>
-        <span className="text-[11px] text-muted-foreground">Your change is kept when the list is refreshed. {row.status === "accepted" && "It stays approved and the brief updates."}</span>
+        <span className="text-[11.5px] text-muted-foreground">Your change is kept when the list is refreshed. {row.status === "accepted" && "It stays approved and the brief updates."}</span>
       </div>
     </form>
   );
@@ -1204,7 +1537,7 @@ function NewPostSuggestions({ rows, projectId, canManage }: { rows: ClusterGscQu
   const dismissed = rows.length - active.length;
   const shown = sortRows(showDismissed ? rows : active, sort);
   const onSort = (k: SortKey) => setSort((s) => nextSort(s, k));
-  const colCount = 4 + (canManage ? 1 : 0);
+  const colCount = 6 + (canManage ? 1 : 0);
 
   return (
     <div className="space-y-2 pt-2">
@@ -1229,22 +1562,23 @@ function NewPostSuggestions({ rows, projectId, canManage }: { rows: ClusterGscQu
         )}
       </div>
       <div className="max-h-[50vh] overflow-auto rounded-xl border border-border">
-        <table className="w-full min-w-[640px] table-fixed text-[12.5px]">
+        <table className="w-max min-w-full border-separate border-spacing-0 text-[12.5px]">
           <caption className="sr-only">New page suggestions</caption>
           <thead>
             <tr>
-              <SortTh label="Search term" k="query" sort={sort} onSort={onSort} className="w-[30%] pl-3" />
-              <SortTh label="Impr." k="impressions" sort={sort} onSort={onSort} align="right" className="w-[80px]"
-                info={<><b>Impressions</b>: how many times we showed up in Google for this search (last {LOOKBACK_DAYS} days).</>} />
-              <SortTh label="Rank" k="position" sort={sort} onSort={onSort} align="right" className="w-[76px]"
-                info="Our average spot in Google for this search (1 = top of the page)." />
-              <Th info="Why Claude thinks this deserves its own page, and which of our pages shows up for it today.">Why</Th>
-              {canManage && <th scope="col" className={cn(TH, "w-[210px] pr-3")}><span className="sr-only">Actions</span></th>}
+              <SortTh label="Search term" k="query" sort={sort} onSort={onSort} className={cn(PIN_TH, "left-0 z-30")} />
+              <SortTh label="Impressions" k="impressions" sort={sort} onSort={onSort} align="right"
+                info={<>How many times we showed up in Google for this search (last {LOOKBACK_DAYS} days).</>} />
+              <SortTh label="Rank" k="position" sort={sort} onSort={onSort} align="right" info="Our average spot in Google for this search (1 = top of the page)." />
+              <SortTh label="Est. gain" k="gain" sort={sort} onSort={onSort} align="right" info="Estimated extra clicks over 90 days if a page for it reached #5. A rough guide, not a promise." />
+              <Th info="The we360.ai page Google shows for this search today, if any.">Our page</Th>
+              <Th info="Why Claude thinks this deserves its own page.">Why</Th>
+              {canManage && <th scope="col" className={cn(TH, "pr-5")}><span className="sr-only">Actions</span></th>}
             </tr>
           </thead>
           <tbody>
             {shown.length === 0 && (
-              <tr><td colSpan={colCount} className="px-3 py-8">
+              <tr><td colSpan={colCount} className="px-4 py-8">
                 <EmptyState icon={Plus} title="No new-page suggestions right now" body={`Searches seen ${NEW_POST_MIN_IMPRESSIONS}+ times that no post covers will show up here after a refresh.`} />
               </td></tr>
             )}
@@ -1276,7 +1610,7 @@ function NewPostRow({ row, projectId, canManage }: { row: ClusterGscQuery; proje
   const setStatus = async (status: "rejected" | "suggested") => {
     setBusy("status");
     try {
-      const r = await updateClusterGscQuery({ project_id: projectId, id: row.id, status });
+      const r = await saveQuery({ project_id: projectId, id: row.id, status });
       if (!r.ok) { toast.error(r.error ?? "Could not save."); return; }
       start(() => router.refresh());
     } catch { toast.error("Could not save - try again."); }
@@ -1284,27 +1618,28 @@ function NewPostRow({ row, projectId, canManage }: { row: ClusterGscQuery; proje
   };
 
   return (
-    <tr className={cn("h-10 border-b border-border/60 hover:bg-muted/30", isDismissed && "text-muted-foreground")}>
-      <td className={cn(TD, "pl-3")}>
-        <span className={cn("block truncate font-medium text-foreground", isDismissed && "text-muted-foreground line-through")} title={row.query}>{row.query}</span>
+    <tr className={cn("group/row hover:bg-[color-mix(in_oklab,var(--muted)_70%,var(--background))] [&>td]:border-b [&>td]:border-border/60", isDismissed && "text-muted-foreground")}>
+      <td className={cn(TD, PIN, "left-0 z-10 bg-background group-hover/row:bg-[color-mix(in_oklab,var(--muted)_70%,var(--background))]")}>
+        <div className={cn("w-[260px] break-words font-medium leading-snug text-foreground", isDismissed && "text-muted-foreground line-through")}>{row.query}</div>
       </td>
       <td className={cn(TD, "text-right font-mono tabular-nums")}>{NUM.format(row.impressions)}</td>
       <td className={cn(TD, "text-right")}>
-        <span className={cn("inline-flex h-5 min-w-9 items-center justify-center rounded-md px-1.5 font-mono text-[11.5px] tabular-nums", posTone(row.position))}>{row.position.toFixed(1)}</span>
+        <span className={cn("inline-flex h-6 min-w-10 items-center justify-center rounded-md px-1.5 font-mono text-[11.5px] tabular-nums", posTone(row.position))}>{row.position.toFixed(1)}</span>
+      </td>
+      <td className={cn(TD, "text-right whitespace-nowrap")}>
+        {row.gain ? <span className="font-medium text-foreground">≈ +{NUM.format(row.gain.clicks)} <span className="text-[11px] font-normal text-muted-foreground">clicks</span></span> : <span className="text-muted-foreground">—</span>}
       </td>
       <td className={TD}>
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-muted-foreground" title={row.reason ?? undefined}>{row.reason ?? "—"}</span>
-          {row.rankingPage && (
-            <span className="hidden max-w-[40%] shrink-0 items-center gap-1 text-[11px] lg:inline-flex">
-              <PageLink row={row} />
-              {row.rankingPagePosition != null && <span className="font-mono text-muted-foreground">#{row.rankingPagePosition}</span>}
-            </span>
-          )}
-        </span>
+        {row.rankingPage ? (
+          <div className="w-[240px] space-y-0.5">
+            <div className="flex items-start gap-1.5"><PageLink row={row} className="leading-snug text-foreground" />{row.rankingPagePosition != null && <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">#{row.rankingPagePosition}</span>}</div>
+            <div className="break-all font-mono text-[11px] text-muted-foreground">{pathOf(row.rankingPage)}</div>
+          </div>
+        ) : <span className="text-muted-foreground">—</span>}
       </td>
+      <td className={TD}><div className="w-[320px] leading-relaxed text-muted-foreground">{row.reason ?? "—"}</div></td>
       {canManage && (
-        <td className={cn(TD, "pr-3")}>
+        <td className={cn(TD, "pr-5")}>
           <div className="flex justify-end gap-1.5">
             {isDismissed ? (
               <Button size="sm" variant="ghost" className="gap-1" onClick={() => setStatus("suggested")} disabled={!!busy}>
