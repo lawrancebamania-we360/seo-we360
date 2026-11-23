@@ -281,3 +281,78 @@ export async function fetchSerpTop(
   }
   return out;
 }
+
+// ---- Async runs: start now, collect on a later call (no wasted run-sync timeouts) ----
+
+type SerpItems = Array<{
+  searchQuery?: { term?: string };
+  organicResults?: Array<{ url?: string; title?: string; description?: string; position?: number }>;
+  peopleAlsoAsk?: Array<{ question?: string }>;
+}>;
+
+/** Parse google-search-scraper dataset items into top-N per term. Pure. */
+export function parseSerpItems(items: SerpItems, topN = 3): Map<string, SerpTop> {
+  const out = new Map<string, SerpTop>();
+  const isOurs = (u: string) => {
+    try { return new URL(u).hostname.replace(/^www\./, "").endsWith(PROJECT_DOMAIN); } catch { return false; }
+  };
+  for (const item of items) {
+    const term = item.searchQuery?.term?.trim().toLowerCase();
+    if (!term || out.has(term)) continue;
+    const organic = (item.organicResults ?? []).filter((r) => r.url && r.title);
+    const ours = organic.find((r) => isOurs(r.url!));
+    out.set(term, {
+      term,
+      top: organic.filter((r) => !isOurs(r.url!)).slice(0, topN).map((r, i) => ({
+        position: r.position ?? i + 1, url: r.url!, title: r.title!.trim(), description: r.description?.trim() || null,
+      })),
+      ourPosition: ours?.position ?? null,
+      paa: (item.peopleAlsoAsk ?? []).map((q) => q.question?.trim()).filter((q): q is string => !!q).slice(0, 6),
+    });
+  }
+  return out;
+}
+
+/** Start a google-search-scraper run (US mobile by default) and return its id. */
+export async function startSerpRun(terms: string[], opts: { country?: string; mobile?: boolean } = {}): Promise<string> {
+  const token = process.env.APIFY_TOKEN;
+  if (!token) throw new Error("APIFY_TOKEN missing");
+  const res = await fetch("https://api.apify.com/v2/acts/apify~google-search-scraper/runs", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      queries: terms.join("\n"),
+      countryCode: opts.country ?? "us",
+      languageCode: "en",
+      mobileResults: opts.mobile ?? true,
+      resultsPerPage: 10,
+      maxPagesPerQuery: 1,
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw new Error(`Apify start HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`);
+  const body = await res.json() as { data?: { id?: string } };
+  if (!body.data?.id) throw new Error("Apify start returned no run id");
+  return body.data.id;
+}
+
+export type SerpRunState =
+  | { state: "running" }
+  | { state: "failed"; error: string }
+  | { state: "done"; results: Map<string, SerpTop> };
+
+/** Check a run; when it has finished, read its results. */
+export async function collectSerpRun(runId: string, topN = 3): Promise<SerpRunState> {
+  const token = process.env.APIFY_TOKEN;
+  if (!token) throw new Error("APIFY_TOKEN missing");
+  const headers = { authorization: `Bearer ${token}` };
+  const res = await fetch(`https://api.apify.com/v2/actor-runs/${runId}`, { headers, signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) return { state: "failed", error: `Apify run HTTP ${res.status}` };
+  const run = (await res.json() as { data?: { status?: string; defaultDatasetId?: string } }).data;
+  const status = run?.status ?? "";
+  if (status === "READY" || status === "RUNNING") return { state: "running" };
+  if (status !== "SUCCEEDED" || !run?.defaultDatasetId) return { state: "failed", error: `Apify run ${status.toLowerCase() || "unknown"}` };
+  const items = await fetch(`https://api.apify.com/v2/datasets/${run.defaultDatasetId}/items?clean=true`, { headers, signal: AbortSignal.timeout(30_000) });
+  if (!items.ok) return { state: "failed", error: `Apify dataset HTTP ${items.status}` };
+  return { state: "done", results: parseSerpItems(await items.json() as SerpItems, topN) };
+}

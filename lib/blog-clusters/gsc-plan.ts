@@ -10,7 +10,7 @@
 // Never touches approved terms or wording a person edited. Server only.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchSerpTop } from "@/lib/apify/serp";
+import { collectSerpRun, startSerpRun, type SerpTop } from "@/lib/apify/serp";
 import { getPageScans } from "@/lib/seo/page-scan";
 import { planPageWithClaude, type PlanTerm } from "@/lib/blog-clusters/plan-pages-ai";
 import { hubOf, loadCluster, type ItemRow } from "@/lib/blog-clusters/gsc-refresh";
@@ -29,13 +29,15 @@ const SERP_RETRY_AFTER_FAIL = 20 * 60_000; // a failed Google check is retried o
 const OUR_SCAN_MAX_AGE = 6 * DAY;
 const THEIR_SCAN_MAX_AGE = 30 * DAY;
 const REPLAN_UNPLANNED_AFTER = 6 * DAY;
-const SERP_BATCH = 4;       // search terms per Apify run (10 timed out)
-const SERP_PARALLEL = 5;    // Apify runs in flight
+const SERP_BATCH = 4;       // search terms per Apify run
+const SERP_PARALLEL = 4;    // Apify runs in flight per cluster (account allows 5 at once)
+const SERP_RUN_GIVE_UP = 15 * 60_000; // a run still going after this is treated as failed
 const PLAN_PARALLEL = 3;    // pages planned at once
 const PAGE_TERMS = 25;      // terms per Claude call (bigger pages are chunked)
 const USED: QueryAction[] = ["assign", "hub", "update_existing"];
 
 type Db = SupabaseClient;
+type PendingRun = { runId: string; terms: string[]; startedAt: string };
 
 interface Row {
   id: string; query: string; impressions: number; clicks: number; position: number | string;
@@ -154,33 +156,63 @@ export async function planClusterGscPages(
     await db.from("topic_cluster_gsc_queries").update({ target_url: url || null, planned_at: null }).in("id", ids);
   }
 
-  // 2. Google's top 3 (US, mobile), for terms not checked in 30 days.
-  const needSerp = rows.filter((r) => target.has(r.id) && (!r.serp_at || Date.now() - Date.parse(r.serp_at) > SERP_MAX_AGE));
-  while (needSerp.length && Date.now() < args.deadline - 170_000) {
-    const round = needSerp.splice(0, SERP_BATCH * SERP_PARALLEL);
-    const batches: Row[][] = [];
-    for (let i = 0; i < round.length; i += SERP_BATCH) batches.push(round.slice(i, i + SERP_BATCH));
-    await Promise.all(batches.map(async (batch) => {
-      const now = new Date().toISOString();
-      const retryAt = new Date(Date.now() - SERP_MAX_AGE + SERP_RETRY_AFTER_FAIL).toISOString();
-      let found: Awaited<ReturnType<typeof fetchSerpTop>> | null = null;
-      try {
-        found = await fetchSerpTop(batch.map((r) => r.query), {
-          country: "us", mobile: true, topN: 3, timeoutMs: Math.max(60_000, Math.min(170_000, args.deadline - Date.now() - 50_000)),
-        });
-      } catch (e) {
-        result.errors.push(`Google check: ${e instanceof Error ? e.message.slice(0, 160) : "failed"}`);
+  // 2. Google's top 3 (US, mobile), for terms not checked in 30 days. Runs are
+  //    started now and collected on this or a later call (kept in gsc_plan.pending),
+  //    so a slow run is never thrown away.
+  const { data: planRow } = await db.from("topic_clusters").select("gsc_plan").eq("id", args.clusterId).maybeSingle();
+  const planState = ((planRow as { gsc_plan: Record<string, unknown> | null } | null)?.gsc_plan) ?? {};
+  let pending = (Array.isArray(planState.pending) ? planState.pending : []) as PendingRun[];
+  const savePending = () => db.from("topic_clusters").update({ gsc_plan: { ...planState, pending } }).eq("id", args.clusterId);
+  const rowByQuery = new Map(rows.map((r) => [r.query.trim().toLowerCase(), r]));
+  const applySerp = async (terms: string[], found: Map<string, SerpTop> | null) => {
+    const now = new Date().toISOString();
+    const retryAt = new Date(Date.now() - SERP_MAX_AGE + SERP_RETRY_AFTER_FAIL).toISOString();
+    await inChunks(terms, 10, async (term) => {
+      const r = rowByQuery.get(term);
+      if (!r) return;
+      const hit = found?.get(term);
+      r.serp = hit ? { country: "us", device: "mobile", at: now, top: hit.top.map((t) => ({ ...t, scan: null })), ourPosition: hit.ourPosition, paa: hit.paa } : r.serp;
+      r.serp_at = hit ? now : retryAt; // a miss is retried on the next pass
+      if (hit) result.serpChecked++;
+      await db.from("topic_cluster_gsc_queries").update({ serp: r.serp, serp_at: r.serp_at }).eq("id", r.id);
+    });
+  };
+  const collect = async () => {
+    const still: PendingRun[] = [];
+    for (const run of pending) {
+      let st: Awaited<ReturnType<typeof collectSerpRun>>;
+      try { st = await collectSerpRun(run.runId); } catch (e) { st = { state: "failed", error: e instanceof Error ? e.message : "failed" }; }
+      if (st.state === "running" && Date.now() - Date.parse(run.startedAt) < SERP_RUN_GIVE_UP) { still.push(run); continue; }
+      if (st.state === "done") await applySerp(run.terms, st.results);
+      else {
+        result.errors.push(`Google check: ${st.state === "failed" ? st.error : "run took too long"}`);
+        await applySerp(run.terms, null);
       }
-      await inChunks(batch, 10, async (r) => {
-        const hit = found?.get(r.query.trim().toLowerCase());
-        r.serp = hit ? { country: "us", device: "mobile", at: now, top: hit.top.map((t) => ({ ...t, scan: null })), ourPosition: hit.ourPosition, paa: hit.paa } : r.serp;
-        r.serp_at = hit ? now : retryAt; // a miss is retried on the next pass
-        if (hit) result.serpChecked++;
-        await db.from("topic_cluster_gsc_queries").update({ serp: r.serp, serp_at: r.serp_at }).eq("id", r.id);
-      });
-    }));
+    }
+    pending = still;
+  };
+
+  if (pending.length) { await collect(); await savePending(); }
+  const inFlight = new Set(pending.flatMap((p) => p.terms));
+  const needSerp = rows.filter((r) => target.has(r.id) && !inFlight.has(r.query.trim().toLowerCase())
+    && (!r.serp_at || Date.now() - Date.parse(r.serp_at) > SERP_MAX_AGE));
+  while (needSerp.length && pending.length < SERP_PARALLEL) {
+    const batch = needSerp.splice(0, SERP_BATCH).map((r) => r.query.trim().toLowerCase());
+    try {
+      pending.push({ runId: await startSerpRun(batch, { country: "us", mobile: true }), terms: batch, startedAt: new Date().toISOString() });
+    } catch (e) {
+      result.errors.push(`Google check: ${e instanceof Error ? e.message.slice(0, 160) : "could not start"}`);
+      await applySerp(batch, null);
+    }
   }
-  const serpPending = needSerp.length > 0;
+  await savePending();
+  // Wait for the runs while there's time, collecting as they finish.
+  while (pending.length && Date.now() < args.deadline - 150_000) {
+    await new Promise((res) => setTimeout(res, 10_000));
+    await collect();
+    await savePending();
+  }
+  const serpPending = needSerp.length > 0 || pending.length > 0;
   // Finish every Google check first; plan on a later call with time to spare.
   if (serpPending) return { ...result, done: false };
   if (result.serpChecked > 0 && args.deadline - Date.now() < 140_000) return { ...result, done: false };
@@ -214,11 +246,23 @@ export async function planClusterGscPages(
     r.serp = { ...r.serp, top: r.serp.top.map((t) => ({ ...t, scan: theirScans.get(t.url)?.scan ?? t.scan ?? null })) };
   }
 
-  // A title already approved (or planned and not being redone) for a page is kept.
-  const fixedTitle = (key: string, planning: Set<string>): { title: string | null; meta: string | null } => {
-    const others = rows.filter((r) => target.get(r.id)?.key === key && !planning.has(r.id) && r.drafts?.title
-      && (r.usages ?? []).includes("title_meta"));
-    const pick = others.find((r) => r.status === "accepted") ?? others[0];
+  // A title already approved (or planned and not being redone) for a page is kept -
+  // looked up across ALL clusters, since one page can be the target in several.
+  const planningIds = new Set(toPlan.map((r) => r.id));
+  const liveUrls = [...pages.values()].map((p) => p.target.url).filter((u): u is string => !!u);
+  type TitleRow = { id: string; target_url: string; status: string; usages: string[] | null; drafts: QueryDrafts | null; planned_at: string | null };
+  const titleRows: TitleRow[] = [];
+  for (let i = 0; i < liveUrls.length; i += 100) {
+    const { data: tr } = await db.from("topic_cluster_gsc_queries").select("id, target_url, status, usages, drafts, planned_at")
+      .eq("project_id", args.projectId).in("target_url", liveUrls.slice(i, i + 100)).neq("status", "rejected");
+    titleRows.push(...((tr ?? []) as TitleRow[]));
+  }
+  const fixedTitle = (page: { target: Target; terms: Row[] }): { title: string | null; meta: string | null } => {
+    const others = page.target.url
+      ? titleRows.filter((r) => r.target_url === page.target.url && !planningIds.has(r.id) && r.drafts?.title && (r.usages ?? []).includes("title_meta"))
+      : rows.filter((r) => target.get(r.id)?.key === page.target.key && !planningIds.has(r.id) && r.drafts?.title && (r.usages ?? []).includes("title_meta"));
+    const pick = others.find((r) => r.status === "accepted")
+      ?? [...others].sort((x, y) => (y.planned_at ?? "").localeCompare(x.planned_at ?? ""))[0];
     return { title: pick?.drafts?.title ?? null, meta: pick?.drafts?.meta ?? null };
   };
 
@@ -229,8 +273,7 @@ export async function planClusterGscPages(
   const planOne = async ([key, page]: [string, { target: Target; terms: Row[] }]) => {
     // Our page wasn't read in time - plan it on the next call rather than blind.
     if (page.target.url && !ourScans.has(page.target.url)) { skipped = true; return; }
-    const planning = new Set(page.terms.map((r) => r.id));
-    let { title: keepTitle, meta: keepMeta } = fixedTitle(key, planning);
+    let { title: keepTitle, meta: keepMeta } = fixedTitle(page);
     const scan: PageScan | null = page.target.url ? ourScans.get(page.target.url)?.scan ?? null : null;
     for (let i = 0; i < page.terms.length; i += PAGE_TERMS) {
       const chunk = page.terms.slice(i, i + PAGE_TERMS);

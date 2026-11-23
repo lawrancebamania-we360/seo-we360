@@ -100,10 +100,14 @@ Plain text only in every field - no JSON, no quotes around values, no markdown. 
 /** True when the title keeps the main keyword's important words. */
 export function keepsPrimary(title: string | null, primary: string | null): boolean {
   if (!title || !primary) return true;
-  const stem = (w: string) => w.replace(/(ies)$/, "y").replace(/(es|s)$/, "");
+  // Plural -> singular: policies->policy, boxes->box, templates->template (not "analysis"/"business").
+  const stem = (w: string) => /ies$/.test(w) ? w.replace(/ies$/, "y")
+    : /(sses|xes|zes|ches|shes)$/.test(w) ? w.replace(/es$/, "")
+      : /[^su]s$/.test(w) ? w.slice(0, -1) : w;
   const stop = new Set(["the", "and", "for", "with", "how", "what", "your", "you", "are", "best", "top", "guide", "from", "into", "that", "this"]);
-  const t = new Set(normalizeKeyword(title).split(" ").map(stem));
-  const words = normalizeKeyword(primary).split(" ").filter((w) => w.length > 2 && !stop.has(w)).map(stem);
+  const tokens = (x: string) => normalizeKeyword(x).split(/[^a-z0-9]+/).filter(Boolean); // drop ":", "&", "|"...
+  const t = new Set(tokens(title).map(stem));
+  const words = tokens(primary).filter((w) => w.length > 2 && !stop.has(w)).map(stem);
   if (!words.length) return true;
   const hit = words.filter((w) => t.has(w)).length;
   return hit / words.length >= 0.75;
@@ -177,20 +181,24 @@ export async function planPageWithClaude(input: PlanPageInput): Promise<PlanPage
 
     let title = input.approvedTitle ?? plain(parsed.page_title, 200);
     let meta = input.approvedMeta ?? plain(parsed.page_meta, 400);
-    // Mobile limits: one shorten retry.
-    if (!input.approvedTitle && ((title && title.length > TITLE_MAX) || (meta && meta.length > META_MAX))) {
+    // One fix-up retry when the title/meta is over the mobile limits or the title
+    // dropped the page's main keyword. Each fixed field is only taken if it now passes.
+    const titleBad = (t: string | null) => !!t && (t.length > TITLE_MAX || !keepsPrimary(t, input.primaryKeyword));
+    if (!input.approvedTitle && (titleBad(title) || (meta && meta.length > META_MAX))) {
+      const kw = input.primaryKeyword ? ` It MUST contain the page's main keyword "${input.primaryKeyword}" (exact words, or a very close form such as a plural).` : "";
       const res = await client.beta.messages.parse({
         model: MODEL,
         max_tokens: 2000,
         betas: ["server-side-fallback-2026-07-01"],
         fallbacks: "default",
         output_config: { effort: "low", format: betaZodOutputFormat(ShortenSchema) },
-        system: `Shorten the title to at most ${TITLE_MAX} characters and the meta description to at most ${META_MAX} characters. Keep the main keyword "${input.primaryKeyword ?? ""}" in the title and keep the meaning. Return null for a field that was null. Count characters carefully.`,
-        messages: [{ role: "user", content: JSON.stringify({ title, meta }) }],
+        system: `Fix this page title and meta description for Google on mobile. Title: at most ${TITLE_MAX} characters, front-loaded.${kw} Meta description: at most ${META_MAX} characters. Keep the meaning and the search intent they were written for. Return null for a field that was null. Plain text only. Count characters carefully.`,
+        messages: [{ role: "user", content: JSON.stringify({ title, meta, main_keyword: input.primaryKeyword }) }],
       });
       if (res.stop_reason !== "refusal" && res.parsed_output) {
         const t = plain(res.parsed_output.title, 200), m = plain(res.parsed_output.meta, 400);
-        if (t && t.length <= TITLE_MAX) title = t;
+        if (t && !titleBad(t)) title = t;
+        else if (t && t.length <= TITLE_MAX && title && title.length > TITLE_MAX) title = t; // at least fits on mobile
         if (m && m.length <= META_MAX) meta = m;
       }
     }
