@@ -111,6 +111,14 @@ export function CalculatorsTable({ projectId, tools }: { projectId: string; tool
                           <Detail label="Inputs">{t.inputs || <Dash />}</Detail>
                           <Detail label="Output">{t.output || <Dash />}</Detail>
                           <Detail label="Formula">{t.formula || <Dash />}</Detail>
+                          {toExternalUrl(t.embedUrl) && (
+                            <Detail label="View artifact">
+                              <a href={toExternalUrl(t.embedUrl)} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex max-w-full items-center gap-1.5 text-[#5B45E0] hover:underline" title="Open the artifact in a new tab">
+                                <ExternalLink className="size-3.5 shrink-0" /><span className="break-all">{t.embedUrl}</span>
+                              </a>
+                            </Detail>
+                          )}
                           <Detail label="Used on">
                             {t.usedOn.length === 0 ? <Dash text="Not attached to any post yet." /> : (
                               <ul className="space-y-1">
@@ -155,7 +163,7 @@ function Dash({ text }: { text?: string }) {
 
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[88px_1fr] gap-2 text-[13px] sm:gap-3">
+    <div className="grid grid-cols-[112px_1fr] gap-2 text-[13px] sm:gap-3">
       <div className="pt-px text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="min-w-0 whitespace-pre-wrap break-words text-foreground">{children}</div>
     </div>
