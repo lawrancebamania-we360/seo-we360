@@ -47,7 +47,7 @@ export default async function TeamTargetsPage({
     <div className="flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-10 space-y-5 max-w-[1800px] w-full mx-auto">
       <PageHeader
         title="Team Targets"
-        description="What each person owns, and how much is done this period. Log your work with a link; the link is checked automatically."
+        description="What each person owns, and how much is done this period. Log your work and it counts straight away; work added on Backlinks, Backlink Submissions, Reddit Citations, Influencer Collabs and Blog Clusters counts on its own."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <DashboardFilters period={period.key} start={sp.start ?? ""} end={sp.end ?? ""} person={person ?? "all"} people={memberOptions} />
