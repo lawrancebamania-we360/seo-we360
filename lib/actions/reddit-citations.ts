@@ -15,7 +15,7 @@ import { linkKey } from "@/lib/team-targets/parse";
 import { isMissingTable } from "@/lib/team-targets/db";
 import { currentMonthKey } from "@/lib/data/reddit-citations";
 import {
-  logCitationAdded, removeCitationAddedLog, logCitationPublished, removeCitationPublishedLog, logKeywordPlan,
+  removeCitationAddedLog, removeCitationPublishedLog, logKeywordPlan,
 } from "@/lib/reddit-citations/target-log";
 
 type Result = { ok: boolean; error?: string };
@@ -166,8 +166,9 @@ export async function addRedditCitation(input: z.infer<typeof AddInput>): Promis
   });
   if (error) return { ok: false, error: isMissingTable(error) ? MIGRATION_NOTICE : "Could not add that citation." };
 
-  await logCitationAdded(admin, { projectId: cluster.projectId, ownerId: owner, redditLink: link });
+  // Team Targets counts citations straight from this table (lib/team-targets/sources).
   revalidatePath(`${PAGE}/${cluster_id}`);
+  revalidatePath("/dashboard/team-targets");
   revalidatePath(PAGE);
   return { ok: true };
 }
@@ -204,10 +205,11 @@ export async function updateRedditCitation(input: z.infer<typeof UpdateInput>): 
   }).eq("id", item_id).eq("project_id", item.project_id);
   if (error) return { ok: false, error: "Could not save that citation." };
 
-  // Keep the contributor log in step with the link/owner (best-effort).
+  // Clear any old hand-off log for the previous link/owner; Team Targets now
+  // counts citations straight from this table (lib/team-targets/sources).
   await removeCitationAddedLog(admin, { projectId: item.project_id, ownerId: item.owner_id, redditLink: item.reddit_link });
-  await logCitationAdded(admin, { projectId: item.project_id, ownerId: owner, redditLink: link });
   revalidatePath(`${PAGE}/${item.cluster_id}`);
+  revalidatePath("/dashboard/team-targets");
   return { ok: true };
 }
 
@@ -233,7 +235,6 @@ export async function setCitationPublished(input: z.infer<typeof PublishInput>):
       published: true, published_url: liveUrl, published_at: new Date().toISOString(), published_by: auth.actor.userId,
     }).eq("id", item_id).eq("project_id", item.project_id);
     if (error) return { ok: false, error: "Could not mark that published." };
-    await logCitationPublished(admin, { projectId: item.project_id, link: liveUrl ?? item.reddit_link });
   } else {
     const { error } = await admin.from("reddit_citation_items").update({
       published: false, published_url: null, published_at: null, published_by: null,

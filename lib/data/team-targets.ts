@@ -20,6 +20,8 @@ import {
 } from "@/lib/team-targets/period";
 import { addDays } from "@/lib/team-targets/week";
 import { isVerified, isAwaiting } from "@/lib/team-targets/types";
+import { sourceLogs } from "@/lib/team-targets/sources";
+import { linkKey } from "@/lib/team-targets/parse";
 import type {
   TargetFrequency, LogVerification, LogMode, TargetLog, DashboardTarget,
   PersonRollup, BurnupPoint, DashboardTotals, TeamTargetsDashboard, LoggableTarget,
@@ -44,75 +46,14 @@ interface LogDb {
   id: string; target_id: string; log_date: string; link: string | null; quantity: number; note: string | null;
   verification_status: LogVerification; verification_reason: string | null; verification_kind: TargetLog["kind"];
   reported_by: string | null; reported_at: string; verified_by: string | null; verified_at: string | null;
-  auto?: boolean; // synthesized from earned_backlinks, not a team_target_logs row
+  auto?: boolean; // counted from a source page (lib/team-targets/sources), not a team_target_logs row
+  auto_source?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Backlinks -> targets. A backlink recorded on the Backlinks page
-// (earned_backlinks) counts toward its assignee's backlink targets on its own,
-// so nobody logs the same link twice. Matched by the target's task name:
-//   "Backlinks Exchange"           -> every UNPAID backlink the person landed
-//                                     (exchanges, guest posts, free links)
-//   "Paid backlinks ... (DR 70+)"  -> PAID backlinks at/above the DR in the name
-// Paid = an amount was paid, or the link type is "Paid". A paid link below the
-// DR bar counts toward neither (it still shows on Backlinks and Executive).
-// ---------------------------------------------------------------------------
-
-type BacklinkRule = { paid: boolean; minDr: number | null };
-
-export function backlinkRuleFor(task: string): BacklinkRule | null {
-  const t = task.trim();
-  if (/^backlinks?\s+exchange$/i.test(t)) return { paid: false, minDr: null };
-  if (/^paid\s+backlinks?\b/i.test(t)) {
-    const m = t.match(/DR\s*(\d{1,3})\s*\+/i);
-    return { paid: true, minDr: m ? Number(m[1]) : null };
-  }
-  return null;
-}
-
-interface BacklinkDb {
-  id: string; website: string; backlink_url: string | null; acquired_date: string;
-  domain_rating: number | null; assigned_to: string | null; amount_paid: number | string | null; link_type?: string | null;
-}
-
-async function backlinkLogs(
-  supabase: Awaited<ReturnType<typeof createClient>>, projectId: string, period: Period, targets: TargetDb[],
-): Promise<LogDb[]> {
-  const ruled = targets
-    .map((t) => ({ t, rule: backlinkRuleFor(t.task) }))
-    .filter((x): x is { t: TargetDb; rule: BacklinkRule } => x.rule !== null);
-  if (!ruled.length) return [];
-
-  const BASE = "id, website, backlink_url, acquired_date, domain_rating, assigned_to, amount_paid";
-  const sel = (cols: string) => supabase.from("earned_backlinks").select(cols)
-    .eq("project_id", projectId).gte("acquired_date", period.start).lte("acquired_date", period.end);
-  let res = await sel(`${BASE}, link_type`);
-  if (res.error && isMissingColumn(res.error.message)) res = await sel(BASE);
-  if (res.error || !res.data) return []; // no Backlinks table yet: nothing auto-counted
-  const links = res.data as unknown as BacklinkDb[];
-
-  const out: LogDb[] = [];
-  for (const { t, rule } of ruled) {
-    const people = new Set([t.owner_id, t.co_owner_id, t.co_owner_2_id].filter((x): x is string => !!x));
-    for (const b of links) {
-      if (!b.assigned_to || !people.has(b.assigned_to)) continue;
-      const paid = Number(b.amount_paid ?? 0) > 0 || /^paid$/i.test((b.link_type ?? "").trim());
-      if (paid !== rule.paid) continue;
-      if (rule.minDr !== null && (b.domain_rating ?? 0) < rule.minDr) continue;
-      out.push({
-        id: `bl-${t.id}-${b.id}`, target_id: t.id, log_date: b.acquired_date,
-        link: b.backlink_url || b.website, quantity: 1,
-        note: [b.website, b.domain_rating != null ? `DR ${b.domain_rating}` : null, b.link_type].filter(Boolean).join(" · "),
-        verification_status: "owner_verified",
-        verification_reason: "Counted automatically from the Backlinks page — edit or remove it there.",
-        verification_kind: "third_party",
-        reported_by: b.assigned_to, reported_at: b.acquired_date, verified_by: null, verified_at: null,
-        auto: true,
-      });
-    }
-  }
-  return out;
-}
+// Work recorded on other pages (Backlinks, Backlink Submissions, Reddit
+// Citations, Influencer Collabs, Blog Clusters) counts toward the matching
+// target on its own - see lib/team-targets/sources.ts.
+export { backlinkRuleFor } from "@/lib/team-targets/sources";
 
 // Order statuses worst -> best so a person's rolled-up chip shows their worst target.
 const STATUS_SEVERITY: Record<TargetStatus, number> = {
@@ -163,9 +104,13 @@ export async function getTeamTargetsDashboard(
     .gte("log_date", period.start)
     .lte("log_date", period.end)
     .order("log_date", { ascending: true });
-  const manualLogs = ((logsData ?? []) as LogDb[]).filter((l) => targetIds.has(l.target_id));
-  // Backlinks recorded on the Backlinks page count toward backlink targets too.
-  const autoLogs = await backlinkLogs(supabase, projectId, period, targets);
+  // Work recorded on other dashboard pages counts on its own (TT-1). A hand log
+  // of the same item (same link) on the same target is dropped, not double-counted.
+  const autoLogs = await sourceLogs(supabase, projectId, period, targets, now);
+  const autoKeys = new Set(autoLogs.map((l) => (l.dedupe_link ? `${l.target_id}|${linkKey(l.dedupe_link)}` : null)).filter(Boolean));
+  const manualLogs = ((logsData ?? []) as LogDb[])
+    .filter((l) => targetIds.has(l.target_id))
+    .filter((l) => !(l.link && autoKeys.has(`${l.target_id}|${linkKey(l.link)}`)));
   const logs = [...manualLogs, ...autoLogs].sort((a, b) => a.log_date.localeCompare(b.log_date));
 
   const ids = new Set<string>();
@@ -214,6 +159,7 @@ export async function getTeamTargetsDashboard(
         reportedBy: l.reported_by, reportedByName: nameOf(l.reported_by), reportedAt: l.reported_at,
         verifiedByName: nameOf(l.verified_by), verifiedAt: l.verified_at,
         auto: l.auto ?? false,
+        autoSource: l.auto_source ?? null,
       })),
     };
   });

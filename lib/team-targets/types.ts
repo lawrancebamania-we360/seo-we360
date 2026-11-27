@@ -50,9 +50,12 @@ export interface TargetLog {
   reportedAt: string;
   verifiedByName: string | null;
   verifiedAt: string | null;
-  /** Counted automatically from the Backlinks page (earned_backlinks), not a
-   *  manual log: read-only in the drawer - edit or remove it on Backlinks. */
+  /** Counted automatically from another dashboard page (Backlinks, Backlink
+   *  Submissions, Reddit Citations, Influencer Collabs, Blog Clusters), not a
+   *  manual log: read-only in the drawer - edit or remove it on that page. */
   auto?: boolean;
+  /** The page an auto log comes from ("Backlink Submissions", "Reddit Citations"...). */
+  autoSource?: string | null;
 }
 
 export interface DashboardTarget {

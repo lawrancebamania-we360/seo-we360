@@ -11,6 +11,7 @@ import { normalizeStoredUrl, urlVariants } from "@/lib/url";
 import { linkKey } from "@/lib/team-targets/parse";
 import { todayIst } from "@/lib/team-targets/week";
 import type { TargetSpec } from "@/lib/content-distribution/platforms";
+import { isProduceTarget } from "@/lib/content-pipeline/credit-live-targets";
 
 export interface IngestInput {
   projectId: string;
@@ -45,7 +46,7 @@ async function resolveTarget(admin: SupabaseClient, projectId: string, ownerId: 
   const { data } = await admin.from("team_targets").select("id, task")
     .eq("project_id", projectId).eq("owner_id", ownerId).is("removed_at", null);
   const cands = ((data as { id: string; task: string }[] | null) ?? [])
-    .filter((t) => t.task.toLowerCase().includes(spec.keyword) && !t.task.toLowerCase().includes("upload"))
+    .filter((t) => isProduceTarget(t.task, spec.keyword))
     .sort((a, b) => a.task.length - b.task.length);
   return cands[0]?.id ?? null;
 }
@@ -144,7 +145,7 @@ export async function ingestDetectedPostsBatch(
     let id: string | null;
     if (spec.type === "task") id = targets.find((t) => t.task === spec.task)?.id ?? null;
     else if (!ownerId) id = null;
-    else id = targets.filter((t) => t.owner_id === ownerId && t.task.toLowerCase().includes(spec.keyword) && !t.task.toLowerCase().includes("upload"))
+    else id = targets.filter((t) => t.owner_id === ownerId && isProduceTarget(t.task, spec.keyword))
       .sort((a, b) => a.task.length - b.task.length)[0]?.id ?? null;
     targetCache.set(cacheKey, id);
     return id;

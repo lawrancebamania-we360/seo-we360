@@ -118,7 +118,7 @@ function LogRow({
 }) {
   const href = log.link ? toExternalUrl(log.link) : null;
   const busy = busyId === log.id;
-  // Backlink-page entries are read-only here: they're edited/removed on Backlinks.
+  // Auto entries are read-only here: they're edited/removed on the page they come from.
   const canRecheck = !log.auto && canLog && target.logMode === "link" && !!log.link;
   const canOwnerVerify = !log.auto && isOwner && log.reportedBy !== currentUserId && !isVerified(log.status);
   const canDelete = !log.auto && canLog && (log.reportedBy === currentUserId || isOwner || canLog);
@@ -138,9 +138,10 @@ function LogRow({
             {formatDay(log.logDate)}{log.reportedByName ? ` · ${log.reportedByName}` : ""}{target.logMode === "count" ? ` · ${log.quantity.toLocaleString()}` : ""}
           </div>
         </div>
-        {log.auto ? (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-success-300/60 bg-success-500/10 px-2 py-0.5 text-[10.5px] font-semibold text-success-700 dark:text-success-400">
-            <Link2 className="size-3" /> From Backlinks
+        {log.auto && isVerified(log.status) ? (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-success-300/60 bg-success-500/10 px-2 py-0.5 text-[10.5px] font-semibold text-success-700 dark:text-success-400"
+            title="Counted automatically - edit or remove it on that page">
+            <Link2 className="size-3" /> From {log.autoSource ?? "Backlinks"}
           </span>
         ) : (
           <VerificationBadge status={log.status} />

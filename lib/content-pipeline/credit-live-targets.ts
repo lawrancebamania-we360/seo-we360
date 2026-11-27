@@ -37,8 +37,22 @@ async function findTargetByTask(admin: SupabaseClient, projectId: string, task: 
   return (data[0] as { id: string }).id;
 }
 
-// The writer's own target for this kind: one they OWN whose task name contains
-// the kind word but not "upload" (that is the uploader's job, not producing).
+/**
+ * Is this task a person's PRODUCE target for the kind word ("blog", "guide",
+ * "listicle")? It must contain the word, and must not be the uploader's job
+ * ("Upload Blogs to website") - but "Write & Upload Blogs or Guides" IS a
+ * writer's target. Cluster tasks ("Update & rank blog clusters", "Plan & write
+ * 1 new blog cluster") are never produce targets for a single post.
+ */
+export function isProduceTarget(task: string, kw: string): boolean {
+  const t = task.toLowerCase();
+  if (!t.includes(kw)) return false;
+  if (/\bclusters?\b/.test(t)) return false;
+  if (t.includes("upload") && !/^\s*write\b/.test(t)) return false;
+  return true;
+}
+
+// The writer's own target for this kind: one they OWN that is a produce target.
 async function findWriterTarget(admin: SupabaseClient, projectId: string, writerId: string, kind: ContentKind): Promise<string | null> {
   const kw = WRITER_KEYWORD[kind];
   if (!kw) return null;
@@ -47,7 +61,7 @@ async function findWriterTarget(admin: SupabaseClient, projectId: string, writer
     .eq("project_id", projectId).eq("owner_id", writerId).is("removed_at", null);
   if (error || !data?.length) return null;
   const cands = (data as { id: string; task: string }[])
-    .filter((t) => t.task.toLowerCase().includes(kw) && !t.task.toLowerCase().includes("upload"))
+    .filter((t) => isProduceTarget(t.task, kw))
     .sort((a, b) => a.task.length - b.task.length);
   return cands[0]?.id ?? null;
 }

@@ -1,7 +1,10 @@
-// Reddit Citations -> Team Targets bridge. Adding a citation feeds the row
-// owner's "Reddit citations" target (5/month each for Namrata/Lokesh/Naveen);
-// marking one published feeds Leena's "Publish Reddit citations" target
-// (15/month); setting the month's keyword plan feeds the one keyword-plan target.
+// Reddit Citations -> Team Targets bridge. NOTE: "Reddit citations" and
+// "Publish Reddit citations" are now counted straight from the citations table
+// (lib/team-targets/sources.ts); the add/publish loggers below are no longer
+// called - only the removers (to clear old logs) and the keyword-plan logger are.
+// Originally: adding a citation fed the row owner's "Reddit citations" target;
+// marking one published fed Leena's "Publish Reddit citations" target; setting
+// the month's keyword plan feeds the one keyword-plan target.
 //
 // A Reddit thread/comment is a THIRD-PARTY link, so logs go in as third_party /
 // pending and are confirmed through the existing Team Targets verify flow (AI or
