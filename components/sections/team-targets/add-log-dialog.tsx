@@ -150,7 +150,7 @@ export function AddLogDialog({
                 <Field label="Note (optional)">
                   <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={1000} />
                 </Field>
-                {isCount && <p className="text-[11px] text-muted-foreground">Counts can&apos;t be checked by AI, so the owner verifies this one.</p>}
+                <p className="text-[11px] text-muted-foreground">Counts toward the target as soon as you log it.</p>
                 {error && <p className="text-xs text-error-600">{error}</p>}
               </div>
               <DialogFooter className={allowBulk ? "sm:justify-between" : undefined}>

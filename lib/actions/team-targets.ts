@@ -28,6 +28,9 @@ type Result = { ok: boolean; error?: string };
 interface Actor { userId: string; isAdmin: boolean; isOwner: boolean }
 
 const PAGE = "/dashboard/team-targets";
+
+/** TT-8: every logged task counts as soon as it is logged. */
+const LOGGED_REASON = "Counted when logged.";
 const FREQUENCIES = ["daily", "weekly", "monthly"] as const;
 
 // Input comes from the browser, so a bad value must come back as a sentence the
@@ -382,15 +385,18 @@ export async function addTeamTargetLog(input: z.infer<typeof AddLogInput>): Prom
     if (dup) return { ok: false, error: "That link is already logged for this target.", duplicate: true };
   }
 
+  // TT-8: a logged task counts straight away - no "awaiting" step. (Re-check
+  // stays available on the log for anyone who wants an AI look at a link.)
+  const nowIso = new Date().toISOString();
   const { data: created, error } = await admin.from("team_target_logs").insert({
     target_id, project_id, log_date: date, link: storedLink, link_key: key, quantity: qty,
-    note: note || null, verification_status: "pending", verification_kind: kind, reported_by: actor.userId,
+    note: note || null, verification_status: "owner_verified", verification_kind: kind,
+    verification_reason: LOGGED_REASON, verified_by: actor.userId, verified_at: nowIso, reported_by: actor.userId,
   }).select("id").single();
   if (error || !created) return { ok: false, error: "Could not save that." };
 
   revalidatePath(PAGE);
-  // A link target can be auto-checked; a count log waits for the owner.
-  return { ok: true, logId: (created as { id: string }).id, checkable: t.log_mode === "link" };
+  return { ok: true, logId: (created as { id: string }).id, checkable: false };
 }
 
 // Bulk: parse + match to targets (step 1), then commit the reviewed rows (step 2).
@@ -468,11 +474,12 @@ export async function commitTeamLogsImport(input: z.infer<typeof LogCommitInput>
     const kind = t.log_mode === "count" ? "count" : null;
     const { data: ins, error } = await admin.from("team_target_logs").insert({
       target_id: row.target_id, project_id, log_date: date, link: storedLink, link_key: key, quantity: 1,
-      note: row.note || null, verification_status: "pending", verification_kind: kind, reported_by: auth.actor.userId,
+      note: row.note || null, verification_status: "owner_verified", verification_kind: kind,
+      verification_reason: LOGGED_REASON, verified_by: auth.actor.userId, verified_at: new Date().toISOString(),
+      reported_by: auth.actor.userId,
     }).select("id").single();
     if (error || !ins) { skipped++; continue; }
-    created++;
-    if (t.log_mode === "link") logIds.push((ins as { id: string }).id);  // these can be AI-checked
+    created++;  // counts straight away (TT-8) - nothing to auto-check
   }
 
   revalidatePath(PAGE);
