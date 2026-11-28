@@ -15,7 +15,7 @@ type Props = Omit<React.ComponentProps<typeof InfluencerCollabsTable>, "attribut
 };
 
 const FAILED: InfluencerAttribution = {
-  ready: false, reason: "Couldn't load the Google Analytics numbers.", dealsReady: false, byPost: {}, totals: null, utmLinks: [],
+  ready: false, reason: "Couldn't load the Google Analytics numbers.", dealsReady: false, byPost: {}, totals: null,
 };
 
 export function InfluencerCollabsTableLive({ attributionPromise, ...props }: Props) {

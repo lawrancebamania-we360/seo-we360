@@ -8,7 +8,8 @@
 //     can still correct them by hand.
 //   - METRICS, DAILY: from the post date to day METRIC_DAYS, read reactions /
 //     comments / reposts (no comments fetched) and save one row per day. A day
-//     someone already entered by hand (source='manual') is never overwritten.
+//     LinkedIn's live numbers always win over a hand entry (IC-5); hand entries
+//     stand only for posts LinkedIn can't read.
 // Posts that aren't public get a readable scrape_error instead of silent blanks.
 // Safe to run more than once a day: the day's auto row is just refreshed.
 
@@ -94,14 +95,9 @@ export async function runInfluencerPostSync(admin: SupabaseClient, opts: { proje
   summary.checked = withLinks.length + metricsOnly.length;
   if (!summary.checked) return summary;
 
-  // Existing rows for today, so a manual entry is never overwritten.
-  const ids = [...withLinks, ...metricsOnly].map((r) => r.id);
-  const manualToday = new Set<string>();
-  const ex = await admin.from("influencer_post_metrics").select("collab_id, source").in("collab_id", ids).eq("captured_on", today);
-  if (ex.error) {
-    if (isMissingColumn(ex.error.message) || isMissingTable(ex.error.message)) return { ...summary, ok: false, note: "Apply migration 20261118000001 first." };
-  }
-  for (const m of (ex.data ?? []) as { collab_id: string; source: string }[]) if (m.source === "manual") manualToday.add(m.collab_id);
+  // IC-5: a live LinkedIn reading always wins - it replaces a hand entry for
+  // today and, being the newest reading, is what the table shows. Hand entries
+  // only stand for posts LinkedIn can't read (not public / no post link).
 
   const handle = async (r: CollabRow, s: ScrapedPost | undefined, lookUpLinks: boolean) => {
     if (!s) { summary.errors++; summary.skipped.push({ name: r.influencer_name, reason: "LinkedIn returned nothing for it" }); return; }
@@ -111,15 +107,12 @@ export async function runInfluencerPostSync(admin: SupabaseClient, opts: { proje
     // Metrics (any post that came back with counts; after day 30 this is just
     // the one reading taken during the link lookup for an older post).
     if (s.ok) {
-      if (manualToday.has(r.id)) summary.keptManual++;
-      else {
-        const up = await admin.from("influencer_post_metrics").upsert({
-          project_id: r.project_id, collab_id: r.id, captured_on: today,
-          reactions: s.reactions, comments: s.comments, reposts: s.reposts,
-          source: "auto", updated_by: null, updated_at: new Date().toISOString(),
-        }, { onConflict: "collab_id,captured_on" });
-        if (up.error) summary.errors++; else summary.metricsSaved++;
-      }
+      const up = await admin.from("influencer_post_metrics").upsert({
+        project_id: r.project_id, collab_id: r.id, captured_on: today,
+        reactions: s.reactions, comments: s.comments, reposts: s.reposts,
+        source: "auto", updated_by: null, updated_at: new Date().toISOString(),
+      }, { onConflict: "collab_id,captured_on" });
+      if (up.error) summary.errors++; else summary.metricsSaved++;
     } else summary.errors++;
 
     // Links, once. A transport failure retries tomorrow; a post that simply

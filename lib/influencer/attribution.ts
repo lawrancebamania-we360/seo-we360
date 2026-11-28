@@ -11,8 +11,9 @@
 //   WINDOW    a post owns the page's LinkedIn traffic from its post date until
 //             the next post to the same page (or 30 days / today). Two posts to
 //             the same page on the same day split it evenly.
-//   BUCKET    the influencer total counts every influencer-UTM session in range
-//             (including UTMs that match no post) plus all the estimates.
+//   TOTAL     the influencer total is the sum of the listed collabs (exact +
+//             estimate). A UTM that matches no collab (e.g. a removed one) is
+//             not counted anywhere (IC-6).
 
 export const ATTRIBUTION_DAYS = 30;
 /** IC-3: UTM visits count on any day (before the first date GA4 has). */
@@ -189,17 +190,16 @@ export function attributeInfluencerPosts(
     };
   }
 
-  // Influencer total: every influencer-UTM session from the first post on (the
-  // bucket - includes UTMs that match no post), plus all the estimates.
+  // Influencer total: only the listed collabs (IC-6).
   const from = posts.length ? posts.reduce((a, p) => (p.postDate < a ? p.postDate : a), posts[0].postDate) : today;
-  const est = Object.values(byPost);
-  const visitsEst = est.reduce((a, x) => a + x.visitsEst, 0);
-  const demosEst = est.reduce((a, x) => a + x.demosEst, 0);
+  const all = Object.values(byPost);
+  const visitsEst = all.reduce((a, x) => a + x.visitsEst, 0);
+  const demosEst = all.reduce((a, x) => a + x.demosEst, 0);
   return {
     byPost,
     totals: {
-      visits: sum(visits, isInfluencerUtm, ALL_TIME, today) + visitsEst,
-      demos: sum(demos, isInfluencerUtm, ALL_TIME, today) + demosEst,
+      visits: all.reduce((a, x) => a + x.visitsExact, 0) + visitsEst,
+      demos: all.reduce((a, x) => a + x.demosExact, 0) + demosEst,
       deals: 0, dealsEst: 0, // filled in by the data layer (HubSpot match)
       visitsEst, demosEst, from, to: today,
     },
@@ -227,7 +227,7 @@ export function labelBookings(byPost: Record<string, PostAttribution>, rows: Boo
       const hit = posts
         .filter(([, a]) => a.utmContents.includes(c))
         .sort(([, x], [, y]) => (x.postDate <= date) === (y.postDate <= date) ? y.postDate.localeCompare(x.postDate) : x.postDate <= date ? -1 : 1)[0];
-      label = hit ? `${hit[0]}|exact` : "bucket|exact";
+      label = hit ? `${hit[0]}|exact` : null; // a UTM of no listed collab isn't counted (IC-6)
     } else if (/linkedin|lnkd/i.test(r.source)) {
       const p = normPath(r.landingPage);
       const hit = posts.find(([, a]) => a.estPath === p && date >= a.postDate && date <= a.windowEnd);
@@ -236,60 +236,4 @@ export function labelBookings(byPost: Record<string, PostAttribution>, rows: Boo
     if (label) out.push({ channel: label, time: r.time, landingPage: r.landingPage, device: r.device, location: r.location });
   }
   return out;
-}
-
-// ---------------------------------------------------------------------------
-// IC-1: every UTM link GA4 has seen from LinkedIn (or with medium=influencer),
-// one row per utm_content (else per campaign), with the collab it belongs to.
-// ---------------------------------------------------------------------------
-
-export interface UtmLinkRow {
-  key: string;                // utm_content, or "campaign:<name>" when no content
-  content: string | null;
-  campaign: string | null;
-  source: string;
-  medium: string;
-  visits: number;
-  demos: number;
-  firstDate: string;
-  lastDate: string;
-  topLanding: string | null;
-  collabId: string | null;    // the collab this UTM is counted for, if any
-}
-
-export function summarizeUtmLinks(
-  visits: AttributionRow[], demos: AttributionRow[], byPost: Record<string, PostAttribution>, from: string, to: string,
-): UtmLinkRow[] {
-  const isUtm = (r: AttributionRow) =>
-    (isLinkedIn(r) || isInfluencerUtm(r)) && (hasContent(r.content) || hasContent(r.campaign));
-  const keyOf = (r: AttributionRow) => (hasContent(r.content) ? normContent(r.content) : `campaign:${normContent(r.campaign)}`);
-  const rows = new Map<string, UtmLinkRow & { landing: Map<string, number> }>();
-  for (const r of visits) {
-    if (!isUtm(r) || r.date < from || r.date > to) continue;
-    const k = keyOf(r);
-    const row = rows.get(k) ?? {
-      key: k, content: hasContent(r.content) ? normContent(r.content) : null,
-      campaign: hasContent(r.campaign) ? r.campaign.trim() : null, source: r.source, medium: r.medium,
-      visits: 0, demos: 0, firstDate: r.date, lastDate: r.date, topLanding: null, collabId: null, landing: new Map<string, number>(),
-    };
-    row.visits += r.sessions;
-    if (r.date < row.firstDate) row.firstDate = r.date;
-    if (r.date > row.lastDate) row.lastDate = r.date;
-    const lp = normPath(r.landingPage);
-    row.landing.set(lp, (row.landing.get(lp) ?? 0) + r.sessions);
-    rows.set(k, row);
-  }
-  for (const r of demos) {
-    if (!isUtm(r) || r.date < from || r.date > to) continue;
-    const row = rows.get(keyOf(r));
-    if (row) row.demos += r.sessions;
-  }
-  const owners = Object.entries(byPost);
-  return [...rows.values()]
-    .map(({ landing, ...row }) => ({
-      ...row,
-      topLanding: [...landing.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null,
-      collabId: row.content ? owners.find(([, a]) => a.utmContents.includes(row.content!))?.[0] ?? null : null,
-    }))
-    .sort((a, b) => b.visits - a.visits || b.lastDate.localeCompare(a.lastDate));
 }

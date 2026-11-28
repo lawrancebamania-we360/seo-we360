@@ -3,7 +3,7 @@
 // Influencer Collabs: one post's tracking - the we360.ai links found in the
 // post and the influencer's comment (scraped once; editable), and the daily
 // reactions / comments / reposts for its first 30 days (scraped daily;
-// anyone can add or correct a day - a hand entry is never overwritten).
+// anyone can add or correct a day - LinkedIn's live numbers replace it on the next read).
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -88,7 +88,7 @@ export function PostTrackingDialog({ collab, projectId, onClose }: { collab: Inf
           <DialogTitle>{collab.influencerName} · post tracking</DialogTitle>
           <DialogDescription>
             Read from LinkedIn every day for the first {METRIC_DAYS} days after the post ({collab.postDate} → {lastDay}).
-            Anyone can add or correct a day — a hand entry is never overwritten.
+            Anyone can add or correct a day; when LinkedIn can be read, its live numbers replace a hand entry.
           </DialogDescription>
         </DialogHeader>
 

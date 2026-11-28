@@ -158,7 +158,6 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage,
         <RefreshButton projectId={projectId} />
         <SearchBox value={q} onChange={setQ} placeholder="Search influencers, platform..." className="w-full sm:w-72" />
       </div>
-      <UnmatchedUtms attribution={attribution} />
       {shown.length === 0 ? (
         <Card className="border-dashed p-10 text-center text-sm text-muted-foreground">
           No collabs match &ldquo;{q}&rdquo;.
@@ -557,27 +556,6 @@ function RefreshButton({ projectId }: { projectId: string }) {
   );
 }
 
-/** Influencer UTM links that got visits but match no collab (wrong name, or the collab was never added). */
-function UnmatchedUtms({ attribution }: { attribution: InfluencerAttribution | null }) {
-  const links = (attribution?.utmLinks ?? []).filter((l) => !l.collabId && l.content && /influencer/i.test(l.medium));
-  if (!links.length) return null;
-  return (
-    <div className="flex items-start gap-2 rounded-lg border border-warning-300/60 bg-warning-500/10 px-3 py-2 text-[12.5px] text-warning-800 dark:text-warning-300">
-      <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-      <span>
-        {links.length === 1 ? "1 influencer UTM link isn't" : `${links.length} influencer UTM links aren't`} tied to a collab:{" "}
-        {links.map((l, i) => (
-          <span key={l.key}>
-            {i > 0 && ", "}
-            <span className="font-mono">{l.content}</span> ({num(l.visits)} visit{l.visits === 1 ? "" : "s"})
-          </span>
-        ))}
-        . Add the collab, or fix the influencer&apos;s name so it matches the link.
-      </span>
-    </div>
-  );
-}
-
 function InfluencerTotal({ attribution }: { attribution: InfluencerAttribution | null }) {
   if (!attribution) {
     return <span className="text-[12px] text-muted-foreground">Influencer total · loading…</span>;
@@ -593,7 +571,7 @@ function InfluencerTotal({ attribution }: { attribution: InfluencerAttribution |
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2.5 py-1 text-[12px] text-muted-foreground"
-      title={`Since ${t.from}: every visit / demo through an influencer UTM link (including ones that match no post) plus the estimated LinkedIn traffic from posts without one.`}
+      title="All time: the visits / demos / deals of the collabs listed below (their UTM links, plus the estimate for posts with a plain link). Links of collabs not in the list aren't counted."
     >
       <span className="font-semibold text-foreground">Influencer total</span>
       <span className="font-mono tabular-nums text-foreground">{num(t.visits)}</span> visits ·
