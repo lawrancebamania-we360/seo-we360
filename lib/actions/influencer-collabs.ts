@@ -452,7 +452,7 @@ export async function saveInfluencerPostMetric(input: z.infer<typeof MetricInput
 const RefreshInput = z.object({ project_id: z.string().uuid() });
 
 /** Run today's sync now for this project (the same job the daily cron runs):
- *  engagement for posts in their first 15 days + the one-time link lookup. */
+ *  engagement for posts up to 30 days old + the one-time link lookup. */
 export async function refreshInfluencerPosts(input: z.infer<typeof RefreshInput>): Promise<{ ok: boolean; error?: string; message?: string }> {
   const parsed = RefreshInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Bad request." };
@@ -465,14 +465,16 @@ export async function refreshInfluencerPosts(input: z.infer<typeof RefreshInput>
 
   const { runInfluencerPostSync } = await import("@/lib/cron/influencer-posts");
   const admin = createAdminClient();
-  // IC-4: the button reads every post with a link, whatever its age.
-  const s = await runInfluencerPostSync(admin, { projectId: parsed.data.project_id, allPosts: true });
+  // Reads every post up to 30 days old (same as the daily run) and says which it skipped.
+  const s = await runInfluencerPostSync(admin, { projectId: parsed.data.project_id, reportOld: true });
   if (!s.ok) return { ok: false, error: s.note ?? "Refresh failed." };
 
   // Posts with no LinkedIn post link can't be read at all - say so by name.
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const oldest = new Date(Date.parse(`${today}T00:00:00Z`) - 30 * 86_400_000).toISOString().slice(0, 10);
   const { data: noLink } = await admin.from("influencer_collabs").select("influencer_name, post_date")
-    .eq("project_id", parsed.data.project_id).eq("platform", "LinkedIn").is("post_link", null).lte("post_date", today);
+    .eq("project_id", parsed.data.project_id).eq("platform", "LinkedIn").is("post_link", null)
+    .lte("post_date", today).gte("post_date", oldest);
   const skipped = [...s.skipped, ...((noLink ?? []) as { influencer_name: string }[]).map((c) => ({ name: c.influencer_name, reason: "no post link saved" }))];
 
   // Group names by reason: "Couldn't read: A, B (no post link saved); C (the post isn't public)".

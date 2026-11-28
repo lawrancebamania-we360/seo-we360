@@ -2,7 +2,7 @@
 
 // Influencer Collabs: one post's tracking - the we360.ai links found in the
 // post and the influencer's comment (scraped once; editable), and the daily
-// reactions / comments / reposts for its first 15 days (scraped daily;
+// reactions / comments / reposts for its first 30 days (scraped daily;
 // anyone can add or correct a day - a hand entry is never overwritten).
 
 import { useState } from "react";
@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { saveInfluencerPostLink, saveInfluencerPostLinks, saveInfluencerPostMetric } from "@/lib/actions/influencer-collabs";
 import type { InfluencerCollabRow } from "@/lib/data/influencer-collabs";
 
-export const METRIC_DAYS = 15;
+export const METRIC_DAYS = 30;
 
 const todayIst = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());

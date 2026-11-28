@@ -17,7 +17,7 @@ import { env } from "@/lib/env";
 import { isMissingColumn, isMissingTable } from "@/lib/ai-citation/run-state";
 import { activityIdOf, extractPostLinks, isLinkedInPostUrl, scrapeLinkedInPosts, type ScrapedPost } from "@/lib/influencer/linkedin";
 
-export const METRIC_DAYS = 15;
+export const METRIC_DAYS = 30; // read daily (and on Refresh) until a post is 30 days old
 
 export interface InfluencerSyncSummary {
   ok: boolean;
@@ -47,11 +47,11 @@ function daysBetween(a: string, b: string): number {
 const NOT_A_POST = "This link is a profile or activity page, not a single post — paste the post's own link (… → Copy link to post).";
 
 /**
- * opts.allPosts (IC-4, the "Refresh now" button): read every LinkedIn post that
- * has a single-post link, whatever its age. The daily cron keeps to each
- * post's first METRIC_DAYS days.
+ * Both the daily cron and the "Refresh now" button read posts up to
+ * METRIC_DAYS days old; older posts keep their last reading. opts.reportOld
+ * (the button) lists the older ones in `skipped` so the message can say why.
  */
-export async function runInfluencerPostSync(admin: SupabaseClient, opts: { projectId?: string; allPosts?: boolean } = {}): Promise<InfluencerSyncSummary> {
+export async function runInfluencerPostSync(admin: SupabaseClient, opts: { projectId?: string; reportOld?: boolean } = {}): Promise<InfluencerSyncSummary> {
   const summary: InfluencerSyncSummary = { ok: true, checked: 0, scraped: 0, metricsSaved: 0, keptManual: 0, linksFound: 0, errors: 0, skipped: [] };
   const token = env().APIFY_TOKEN;
   if (!token) return { ...summary, ok: false, note: "APIFY_TOKEN is not set." };
@@ -86,9 +86,10 @@ export async function runInfluencerPostSync(admin: SupabaseClient, opts: { proje
       continue;
     }
     const day = daysBetween(r.post_date, today);
-    const inWindow = day >= 0 && (opts.allPosts || day <= METRIC_DAYS);
+    const inWindow = day >= 0 && day <= METRIC_DAYS;
     if (!r.links_scraped_at) withLinks.push(r);
     else if (inWindow) metricsOnly.push(r);
+    else if (opts.reportOld && day > METRIC_DAYS) summary.skipped.push({ name: r.influencer_name, reason: `older than ${METRIC_DAYS} days, so its numbers are final` });
   }
   summary.checked = withLinks.length + metricsOnly.length;
   if (!summary.checked) return summary;
@@ -107,7 +108,7 @@ export async function runInfluencerPostSync(admin: SupabaseClient, opts: { proje
     if (!s.ok) summary.skipped.push({ name: r.influencer_name, reason: /public|removed/i.test(s.error ?? "") ? "the post isn't public (or was removed)" : (s.error ?? "it couldn't be read") });
     const transportFailure = !!s.error && s.error.startsWith("Scraper failed");
 
-    // Metrics (any post that came back with counts; after day 15 this is just
+    // Metrics (any post that came back with counts; after day 30 this is just
     // the one reading taken during the link lookup for an older post).
     if (s.ok) {
       if (manualToday.has(r.id)) summary.keptManual++;

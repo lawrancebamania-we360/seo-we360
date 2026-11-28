@@ -4,7 +4,7 @@ import { isCronAuthorized } from "@/lib/auth/cron";
 import { runInfluencerPostSync } from "@/lib/cron/influencer-posts";
 
 // Daily influencer-post sync: reactions / comments / reposts for every LinkedIn
-// collab post during its first 15 days, plus a one-time lookup of the we360.ai
+// collab post during its first 30 days, plus a one-time lookup of the we360.ai
 // links in the post and the influencer's comment. See lib/cron/influencer-posts.
 export const runtime = "nodejs";
 export const maxDuration = 300;

@@ -550,7 +550,7 @@ function RefreshButton({ projectId }: { projectId: string }) {
   };
   return (
     <Button size="sm" variant="outline" className="gap-1.5" onClick={run} disabled={busy}
-      title="Read the latest LinkedIn numbers for every post now (also runs daily for posts in their first 15 days)">
+      title="Read the latest LinkedIn numbers now for every post up to 30 days old (also runs daily on its own)">
       {busy ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
       {busy ? "Reading LinkedIn…" : "Refresh now"}
     </Button>
