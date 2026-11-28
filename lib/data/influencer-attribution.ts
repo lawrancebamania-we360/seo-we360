@@ -9,7 +9,8 @@ import { getHubspotVerification } from "@/lib/hubspot/leads";
 import { hasHubspot } from "@/lib/env";
 import { buildOrganicDeals } from "@/lib/analytics/organic-deals";
 import {
-  attributeInfluencerPosts, labelBookings, BASELINE_DAYS, type AttributionTotals, type PostAttribution,
+  attributeInfluencerPosts, labelBookings, summarizeUtmLinks, BASELINE_DAYS,
+  type AttributionTotals, type PostAttribution, type UtmLinkRow,
 } from "@/lib/influencer/attribution";
 import type { InfluencerCollabRow } from "@/lib/data/influencer-collabs";
 
@@ -19,6 +20,8 @@ export interface InfluencerAttribution {
   dealsReady: boolean;          // HubSpot reachable (deal columns show "—" otherwise)
   byPost: Record<string, PostAttribution>;
   totals: AttributionTotals | null;
+  /** IC-1: every LinkedIn / influencer UTM link GA4 saw, from the first post on. */
+  utmLinks: UtmLinkRow[];
 }
 
 const istToday = () =>
@@ -29,8 +32,8 @@ export async function getInfluencerAttribution(collabs: InfluencerCollabRow[], g
   const today = istToday();
   const posts = collabs
     .filter((c) => c.platform === "LinkedIn" && c.postDate <= today)
-    .map((c) => ({ id: c.id, postDate: c.postDate, postBodyLink: c.postBodyLink, commentLink: c.commentLink }));
-  if (!posts.length) return { ready: true, reason: null, dealsReady: false, byPost: {}, totals: null };
+    .map((c) => ({ id: c.id, postDate: c.postDate, postBodyLink: c.postBodyLink, commentLink: c.commentLink, name: c.influencerName }));
+  if (!posts.length) return { ready: true, reason: null, dealsReady: false, byPost: {}, totals: null, utmLinks: [] };
 
   const earliest = posts.reduce((a, p) => (p.postDate < a ? p.postDate : a), posts[0].postDate);
   const range = { start: addDays(earliest, -BASELINE_DAYS), end: today };
@@ -40,9 +43,10 @@ export async function getInfluencerAttribution(collabs: InfluencerCollabRow[], g
     hasHubspot() ? getHubspotVerification({ start: earliest, end: today }).catch(() => null) : Promise.resolve(null),
     getGa4PropertyTimezone(ga4PropertyId),
   ]);
-  if (!ga4.connected) return { ready: false, reason: ga4.reason ?? "GA4 not connected.", dealsReady: false, byPost: {}, totals: null };
+  if (!ga4.connected) return { ready: false, reason: ga4.reason ?? "GA4 not connected.", dealsReady: false, byPost: {}, totals: null, utmLinks: [] };
 
   const { byPost, totals } = attributeInfluencerPosts(posts, ga4.visits, ga4.demos, today);
+  const utmLinks = summarizeUtmLinks(ga4.visits, ga4.demos, byPost, earliest, today);
 
   // Deals: match the attributed bookings to real HubSpot deals (+-15 min).
   const dealsReady = !!hubspot?.ok && bookings.ok;
@@ -63,5 +67,5 @@ export async function getInfluencerAttribution(collabs: InfluencerCollabRow[], g
     totals.dealsEst = dealsEst;
   }
 
-  return { ready: true, reason: null, dealsReady, byPost, totals };
+  return { ready: true, reason: null, dealsReady, byPost, totals, utmLinks };
 }

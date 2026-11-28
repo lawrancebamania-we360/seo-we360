@@ -484,7 +484,7 @@ function AttributionDetail({ c, attribution }: { c: InfluencerCollabRow; attribu
       {a.utmContent && (
         <Method
           title="Exact"
-          sub="through the UTM link"
+          sub={a.matchedBy === "name" ? "UTM link matched by the influencer's name" : "through the UTM link"}
           range={`${shortDay(a.postDate)} → ${shortDay(a.exactEnd)}`}
           keyText={`utm_content=${a.utmContent}`}
           stats={[["visits", a.visitsExact], ["demos", a.demosExact], ["deals", deals ? a.dealsExact : null]]}
@@ -646,7 +646,7 @@ type AttrKind = "visits" | "demos" | "deals";
 function explain(a: PostAttribution, kind: AttrKind): string {
   const what = kind === "visits" ? "visits" : kind === "demos" ? "demo bookings" : "deals (a HubSpot deal created within 15 min of the booking)";
   const lines = [`First 30 days, counted to ${a.windowEnd}.`];
-  if (a.utmContent) lines.push(`Exact: ${what} through the UTM link (utm_content=${a.utmContent}).`);
+  if (a.utmContent) lines.push(`Exact: ${what} through the UTM link (utm_content=${a.utmContent})${a.matchedBy === "name" ? " - matched by the influencer's name, as no link was recorded for this post" : ""}.`);
   if (a.estPath) lines.push(`Estimate: LinkedIn ${what} landing on ${a.estPath} in this post's window, minus that page's usual LinkedIn traffic. A later post to the same page takes over from its post date.`);
   if (!a.utmContent && !a.estPath) lines.push("No we360.ai link found for this post yet — open Engagement to add one.");
   return lines.join("\n");

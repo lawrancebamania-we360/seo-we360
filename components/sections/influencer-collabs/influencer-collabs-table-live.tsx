@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { InfluencerCollabsTable } from "@/components/sections/influencer-collabs/influencer-collabs-table";
+import { UtmLinksPanel } from "@/components/sections/influencer-collabs/utm-links-panel";
 import type { InfluencerAttribution } from "@/lib/data/influencer-attribution";
 
 type Props = Omit<React.ComponentProps<typeof InfluencerCollabsTable>, "attribution"> & {
@@ -15,7 +16,7 @@ type Props = Omit<React.ComponentProps<typeof InfluencerCollabsTable>, "attribut
 };
 
 const FAILED: InfluencerAttribution = {
-  ready: false, reason: "Couldn't load the Google Analytics numbers.", dealsReady: false, byPost: {}, totals: null,
+  ready: false, reason: "Couldn't load the Google Analytics numbers.", dealsReady: false, byPost: {}, totals: null, utmLinks: [],
 };
 
 export function InfluencerCollabsTableLive({ attributionPromise, ...props }: Props) {
@@ -28,5 +29,10 @@ export function InfluencerCollabsTableLive({ attributionPromise, ...props }: Pro
     );
     return () => { alive = false; };
   }, [attributionPromise]);
-  return <InfluencerCollabsTable {...props} attribution={attribution} />;
+  return (
+    <div className="space-y-8">
+      <InfluencerCollabsTable {...props} attribution={attribution} />
+      <UtmLinksPanel attribution={attribution} collabs={props.collabs} />
+    </div>
+  );
 }
