@@ -8,7 +8,6 @@
 
 import { useEffect, useState } from "react";
 import { InfluencerCollabsTable } from "@/components/sections/influencer-collabs/influencer-collabs-table";
-import { UtmLinksPanel } from "@/components/sections/influencer-collabs/utm-links-panel";
 import type { InfluencerAttribution } from "@/lib/data/influencer-attribution";
 
 type Props = Omit<React.ComponentProps<typeof InfluencerCollabsTable>, "attribution"> & {
@@ -29,10 +28,5 @@ export function InfluencerCollabsTableLive({ attributionPromise, ...props }: Pro
     );
     return () => { alive = false; };
   }, [attributionPromise]);
-  return (
-    <div className="space-y-8">
-      <InfluencerCollabsTable {...props} attribution={attribution} />
-      <UtmLinksPanel attribution={attribution} collabs={props.collabs} />
-    </div>
-  );
+  return <InfluencerCollabsTable {...props} attribution={attribution} />;
 }
