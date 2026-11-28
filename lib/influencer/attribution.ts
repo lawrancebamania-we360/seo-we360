@@ -114,7 +114,9 @@ export function matchUtmsByName(
 }
 
 const normContent = (c: string) => c.trim().toLowerCase();
-const hasContent = (c: string) => { const n = normContent(c); return !!n && n !== "(not set)"; };
+// GA4 fills empty UTM fields with placeholders like "(not set)", "(referral)",
+// "(organic)", "(direct)" - none of those is a real tag.
+const hasContent = (c: string) => { const n = normContent(c); return !!n && !/^\(.*\)$/.test(n); };
 
 export function attributeInfluencerPosts(
   posts: AttributionPost[], visits: AttributionRow[], demos: AttributionRow[], today: string,

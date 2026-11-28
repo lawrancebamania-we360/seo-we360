@@ -10,6 +10,7 @@ import { Link2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { SearchBox, matchesQuery } from "@/components/ui/search-box";
 import type { InfluencerAttribution } from "@/lib/data/influencer-attribution";
+import { matchUtmsByName } from "@/lib/influencer/attribution";
 import type { InfluencerCollabRow } from "@/lib/data/influencer-collabs";
 
 const num = (n: number) => n.toLocaleString("en-IN");
@@ -19,11 +20,23 @@ const day = (iso: string) =>
 export function UtmLinksPanel({ attribution, collabs }: { attribution: InfluencerAttribution | null; collabs: InfluencerCollabRow[] }) {
   const [q, setQ] = useState("");
   const nameById = useMemo(() => new Map(collabs.map((c) => [c.id, c.influencerName])), [collabs]);
-  const rows = attribution?.utmLinks ?? [];
+  const rows = useMemo(() => attribution?.utmLinks ?? [], [attribution]);
+  // A UTM no counted post claims, but whose utm_content carries a collab's name -
+  // usually a collab whose post date is after the visits (not counted until then).
+  const nameHint = useMemo(() => {
+    const free = rows.filter((r) => !r.collabId && r.content).map((r) => r.content!);
+    const m = matchUtmsByName(collabs.map((c) => ({ id: c.id, name: c.influencerName, utmContent: null })), free);
+    const out = new Map<string, { id: string; postDate: string }>();
+    for (const [id, contents] of m) {
+      const c = collabs.find((x) => x.id === id);
+      if (c) for (const k of contents) out.set(k, { id, postDate: c.postDate });
+    }
+    return out;
+  }, [rows, collabs]);
   const shown = rows.filter((r) => matchesQuery(q, r.content, r.campaign, r.medium, r.source, r.topLanding, r.collabId ? nameById.get(r.collabId) : null));
   const totalVisits = rows.reduce((a, r) => a + r.visits, 0);
   const totalDemos = rows.reduce((a, r) => a + r.demos, 0);
-  const unmatched = rows.filter((r) => !r.collabId && /influencer/i.test(r.medium)).length;
+  const unmatched = rows.filter((r) => !r.collabId && /influencer/i.test(r.medium) && !(r.content && nameHint.has(r.content))).length;
 
   return (
     <section className="space-y-2.5">
@@ -33,7 +46,7 @@ export function UtmLinksPanel({ attribution, collabs }: { attribution: Influence
             <Link2 className="size-4 text-[#5B45E0]" /> LinkedIn UTM links
           </h2>
           <p className="text-[12.5px] text-muted-foreground">
-            Everyone who reached we360.ai through a tagged LinkedIn link (Google Analytics), from the first post on.
+            Everyone who reached we360.ai through a tagged LinkedIn link (Google Analytics), from the first post on. The collab rows above count only each post&apos;s first 30 days.
           </p>
         </div>
         {rows.length > 0 && <SearchBox value={q} onChange={setQ} placeholder="Search UTM links..." className="w-full sm:w-60" />}
@@ -62,8 +75,8 @@ export function UtmLinksPanel({ attribution, collabs }: { attribution: Influence
                   <th className="px-4 py-2.5 font-semibold">UTM link (utm_content)</th>
                   <th className="px-4 py-2.5 font-semibold">Collab</th>
                   <th className="px-4 py-2.5 font-semibold">Campaign · medium</th>
-                  <th className="px-4 py-2.5 text-right font-semibold">Visits</th>
-                  <th className="px-4 py-2.5 text-right font-semibold">Demos</th>
+                  <th className="px-4 py-2.5 text-right font-semibold" title="All visits through this link since the first post - a collab row counts only its first 30 days">Visits (all)</th>
+                  <th className="px-4 py-2.5 text-right font-semibold">Demos (all)</th>
                   <th className="px-4 py-2.5 font-semibold">Visits seen</th>
                   <th className="px-4 py-2.5 font-semibold">Top landing page</th>
                 </tr>
@@ -75,6 +88,11 @@ export function UtmLinksPanel({ attribution, collabs }: { attribution: Influence
                     <td className="px-4 py-3 text-[13px]">
                       {r.collabId ? (
                         <span className="text-foreground">{nameById.get(r.collabId) ?? "—"}</span>
+                      ) : r.content && nameHint.has(r.content) ? (
+                        <span className="text-foreground" title="Its post date is after these visits, so they aren't counted on the post yet. Check the post date.">
+                          {nameById.get(nameHint.get(r.content)!.id)}
+                          <span className="block text-[11px] text-warning-700 dark:text-warning-400">not counted · post date {day(nameHint.get(r.content)!.postDate)} is after the first visit</span>
+                        </span>
                       ) : /influencer/i.test(r.medium) ? (
                         <span className="text-warning-700 dark:text-warning-400" title="No collab's name or recorded link matches this utm_content - check the spelling, or add the link in post tracking.">Not matched</span>
                       ) : (
