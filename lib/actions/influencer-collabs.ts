@@ -464,16 +464,27 @@ export async function refreshInfluencerPosts(input: z.infer<typeof RefreshInput>
   if (!project) return { ok: false, error: "No access to this project." };
 
   const { runInfluencerPostSync } = await import("@/lib/cron/influencer-posts");
-  const s = await runInfluencerPostSync(createAdminClient(), { projectId: parsed.data.project_id });
+  const admin = createAdminClient();
+  // IC-4: the button reads every post with a link, whatever its age.
+  const s = await runInfluencerPostSync(admin, { projectId: parsed.data.project_id, allPosts: true });
   if (!s.ok) return { ok: false, error: s.note ?? "Refresh failed." };
 
+  // Posts with no LinkedIn post link can't be read at all - say so by name.
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const { data: noLink } = await admin.from("influencer_collabs").select("influencer_name, post_date")
+    .eq("project_id", parsed.data.project_id).eq("platform", "LinkedIn").is("post_link", null).lte("post_date", today);
+  const skipped = [...s.skipped, ...((noLink ?? []) as { influencer_name: string }[]).map((c) => ({ name: c.influencer_name, reason: "no post link saved" }))];
+
+  // Group names by reason: "Couldn't read: A, B (no post link saved); C (the post isn't public)".
+  const byReason = new Map<string, string[]>();
+  for (const k of skipped) byReason.set(k.reason, [...(byReason.get(k.reason) ?? []), k.name]);
+  const why = [...byReason.entries()].map(([reason, names]) => `${names.join(", ")} (${reason})`).join("; ");
+
   revalidatePath("/dashboard/influencer-collabs");
-  return {
-    ok: true,
-    message: s.checked === 0
-      ? "Nothing to refresh — no LinkedIn post is in its first 15 days or waiting for its links."
-      : `Updated ${s.metricsSaved} post${s.metricsSaved === 1 ? "" : "s"}${s.linksFound ? ` · found links for ${s.linksFound}` : ""}${s.keptManual ? ` · kept ${s.keptManual} hand-entered` : ""}${s.errors ? ` · ${s.errors} couldn't be read` : ""}.`,
-  };
+  const updated = s.metricsSaved
+    ? `Updated ${s.metricsSaved} post${s.metricsSaved === 1 ? "" : "s"}${s.linksFound ? ` · found links for ${s.linksFound}` : ""}${s.keptManual ? ` · kept ${s.keptManual} hand-entered` : ""}.`
+    : "No post's numbers could be read.";
+  return { ok: true, message: why ? `${updated} Couldn't read: ${why}.` : updated };
 }
 
 const PostLinkInput = z.object({

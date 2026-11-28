@@ -28,10 +28,12 @@ export interface InfluencerSyncSummary {
   linksFound: number;    // posts whose links were found this run
   errors: number;
   note?: string;
+  /** IC-4: posts that couldn't be read, with a plain reason (shown after "Refresh now"). */
+  skipped: { name: string; reason: string }[];
 }
 
 type CollabRow = {
-  id: string; project_id: string; post_link: string | null; post_date: string;
+  id: string; project_id: string; influencer_name: string; post_link: string | null; post_date: string;
   links_scraped_at: string | null; post_body_link: string | null; comment_link: string | null; scrape_error: string | null;
 };
 
@@ -44,15 +46,20 @@ function daysBetween(a: string, b: string): number {
 
 const NOT_A_POST = "This link is a profile or activity page, not a single post — paste the post's own link (… → Copy link to post).";
 
-export async function runInfluencerPostSync(admin: SupabaseClient, opts: { projectId?: string } = {}): Promise<InfluencerSyncSummary> {
-  const summary: InfluencerSyncSummary = { ok: true, checked: 0, scraped: 0, metricsSaved: 0, keptManual: 0, linksFound: 0, errors: 0 };
+/**
+ * opts.allPosts (IC-4, the "Refresh now" button): read every LinkedIn post that
+ * has a single-post link, whatever its age. The daily cron keeps to each
+ * post's first METRIC_DAYS days.
+ */
+export async function runInfluencerPostSync(admin: SupabaseClient, opts: { projectId?: string; allPosts?: boolean } = {}): Promise<InfluencerSyncSummary> {
+  const summary: InfluencerSyncSummary = { ok: true, checked: 0, scraped: 0, metricsSaved: 0, keptManual: 0, linksFound: 0, errors: 0, skipped: [] };
   const token = env().APIFY_TOKEN;
   if (!token) return { ...summary, ok: false, note: "APIFY_TOKEN is not set." };
   const today = istToday();
 
   let q = admin
     .from("influencer_collabs")
-    .select("id, project_id, post_link, post_date, links_scraped_at, post_body_link, comment_link, scrape_error")
+    .select("id, project_id, influencer_name, post_link, post_date, links_scraped_at, post_body_link, comment_link, scrape_error")
     .eq("platform", "LinkedIn")
     .not("post_link", "is", null)
     .lte("post_date", today);
@@ -73,9 +80,13 @@ export async function runInfluencerPostSync(admin: SupabaseClient, opts: { proje
   const withLinks: CollabRow[] = [];   // link lookup still pending (comments fetched)
   const metricsOnly: CollabRow[] = []; // inside the 15-day window, links already done
   for (const r of rows) {
-    if (!isLinkedInPostUrl(r.post_link)) { await setError(r, NOT_A_POST); continue; }
+    if (!isLinkedInPostUrl(r.post_link)) {
+      await setError(r, NOT_A_POST);
+      summary.skipped.push({ name: r.influencer_name, reason: "the saved link is a profile or activity page, not the post" });
+      continue;
+    }
     const day = daysBetween(r.post_date, today);
-    const inWindow = day >= 0 && day <= METRIC_DAYS;
+    const inWindow = day >= 0 && (opts.allPosts || day <= METRIC_DAYS);
     if (!r.links_scraped_at) withLinks.push(r);
     else if (inWindow) metricsOnly.push(r);
   }
@@ -92,7 +103,8 @@ export async function runInfluencerPostSync(admin: SupabaseClient, opts: { proje
   for (const m of (ex.data ?? []) as { collab_id: string; source: string }[]) if (m.source === "manual") manualToday.add(m.collab_id);
 
   const handle = async (r: CollabRow, s: ScrapedPost | undefined, lookUpLinks: boolean) => {
-    if (!s) { summary.errors++; return; }
+    if (!s) { summary.errors++; summary.skipped.push({ name: r.influencer_name, reason: "LinkedIn returned nothing for it" }); return; }
+    if (!s.ok) summary.skipped.push({ name: r.influencer_name, reason: /public|removed/i.test(s.error ?? "") ? "the post isn't public (or was removed)" : (s.error ?? "it couldn't be read") });
     const transportFailure = !!s.error && s.error.startsWith("Scraper failed");
 
     // Metrics (any post that came back with counts; after day 15 this is just

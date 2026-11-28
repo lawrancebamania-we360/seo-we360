@@ -185,9 +185,9 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage,
                 <SortHeader label="Assignee" k="assigneeName" sortKey={sortKey} sortDir={sortDir} onSort={sortBy} />
                 <th scope="col" className={TH_NUM}>Cost</th>
                 <th scope="col" className={TH_NUM}>Engagement</th>
-                <th scope="col" className={TH_NUM} title="Website visits in the first 30 days after the post">Visits<ThirtyDays /></th>
-                <th scope="col" className={TH_NUM} title="Demo bookings in the first 30 days after the post">Demos<ThirtyDays /></th>
-                <th scope="col" className={TH_NUM} title="HubSpot deals created within 15 minutes of those demo bookings">Deals<ThirtyDays /></th>
+                <th scope="col" className={TH_NUM} title="Website visits through the post's link - all time">Visits</th>
+                <th scope="col" className={TH_NUM} title="Demo bookings through the post's link - all time">Demos</th>
+                <th scope="col" className={TH_NUM} title="HubSpot deals created within 15 minutes of those demo bookings - all time">Deals</th>
                 {canManage && <th scope="col" className="py-2 pl-1 pr-3"><span className="sr-only">Actions</span></th>}
               </tr>
             </thead>
@@ -221,9 +221,6 @@ export function InfluencerCollabsTable({ collabs, projectId, members, canManage,
   );
 }
 
-function ThirtyDays() {
-  return <span className="ml-1 normal-case tracking-normal opacity-60">30d</span>;
-}
 
 function SortHeader({ label, k, sortKey, sortDir, onSort }: {
   label: string; k: SortKey; sortKey: SortKey; sortDir: SortDir; onSort: (k: SortKey) => void;
@@ -353,7 +350,7 @@ function DetailPanel({ c, attribution, onTrack }: { c: InfluencerCollabRow; attr
           >
             <TrackingSummary c={c} />
           </PanelSection>
-          <PanelSection title="Visits, demos, deals · first 30 days">
+          <PanelSection title="Visits, demos, deals · all time">
             <AttributionDetail c={c} attribution={attribution} />
           </PanelSection>
         </>
@@ -476,7 +473,7 @@ function AttributionDetail({ c, attribution }: { c: InfluencerCollabRow; attribu
   if (!attribution) return <Note>Loading from Google Analytics…</Note>;
   if (!attribution.ready) return <Note>{attribution.reason ?? "Google Analytics isn't reachable here."}</Note>;
   const a = attribution.byPost[c.id];
-  if (!a) return <Note>Not posted yet. Counting starts on the post date.</Note>;
+  if (!a || (!a.utmContent && a.postDate > a.exactEnd)) return <Note>Not posted yet. Visits through its UTM link count as soon as they come in.</Note>;
   if (!a.utmContent && !a.estPath) return <Note>No we360.ai link found for this post yet. Add one in post tracking.</Note>;
   const deals = attribution.dealsReady;
   return (
@@ -485,7 +482,7 @@ function AttributionDetail({ c, attribution }: { c: InfluencerCollabRow; attribu
         <Method
           title="Exact"
           sub={a.matchedBy === "name" ? "UTM link matched by the influencer's name" : "through the UTM link"}
-          range={`${shortDay(a.postDate)} → ${shortDay(a.exactEnd)}`}
+          range="All time"
           keyText={`utm_content=${a.utmContent}`}
           stats={[["visits", a.visitsExact], ["demos", a.demosExact], ["deals", deals ? a.dealsExact : null]]}
         />
@@ -546,13 +543,13 @@ function RefreshButton({ projectId }: { projectId: string }) {
     try {
       const r = await refreshInfluencerPosts({ project_id: projectId });
       if (!r.ok) { toast.error(r.error ?? "Refresh failed."); return; }
-      toast.success(r.message ?? "Refreshed."); router.refresh();
+      toast.success(r.message ?? "Refreshed.", { duration: 12000 }); router.refresh();
     } catch { toast.error("Refresh failed."); }
     finally { setBusy(false); }
   };
   return (
     <Button size="sm" variant="outline" className="gap-1.5" onClick={run} disabled={busy}
-      title="Read today's LinkedIn numbers now (runs daily on its own)">
+      title="Read the latest LinkedIn numbers for every post now (also runs daily for posts in their first 15 days)">
       {busy ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
       {busy ? "Reading LinkedIn…" : "Refresh now"}
     </Button>
@@ -645,7 +642,7 @@ type AttrKind = "visits" | "demos" | "deals";
 
 function explain(a: PostAttribution, kind: AttrKind): string {
   const what = kind === "visits" ? "visits" : kind === "demos" ? "demo bookings" : "deals (a HubSpot deal created within 15 min of the booking)";
-  const lines = [`First 30 days, counted to ${a.windowEnd}.`];
+  const lines = [`All time, counted to ${a.windowEnd}.`];
   if (a.utmContent) lines.push(`Exact: ${what} through the UTM link (utm_content=${a.utmContent})${a.matchedBy === "name" ? " - matched by the influencer's name, as no link was recorded for this post" : ""}.`);
   if (a.estPath) lines.push(`Estimate: LinkedIn ${what} landing on ${a.estPath} in this post's window, minus that page's usual LinkedIn traffic. A later post to the same page takes over from its post date.`);
   if (!a.utmContent && !a.estPath) lines.push("No we360.ai link found for this post yet — open Engagement to add one.");
@@ -661,6 +658,8 @@ function AttrCell({ c, attribution, kind }: { c: InfluencerCollabRow; attributio
   if (kind === "deals" && !attribution.dealsReady) return <span className="text-muted-foreground" title="HubSpot isn't reachable, so deals can't be matched.">—</span>;
   const exact = kind === "visits" ? a.visitsExact : kind === "demos" ? a.demosExact : a.dealsExact;
   const est = kind === "visits" ? a.visitsEst : kind === "demos" ? a.demosEst : a.dealsEst;
+  // Not posted yet and nothing came through its link: nothing to count yet.
+  if (!a.utmContent && a.postDate > a.exactEnd) return <span className="text-muted-foreground" title="Not posted yet">—</span>;
   if (!a.utmContent && !a.estPath) return <span className="text-muted-foreground" title={explain(a, kind)}>?</span>;
   return (
     <span className="font-mono text-[12.5px] tabular-nums text-foreground" title={explain(a, kind)}>

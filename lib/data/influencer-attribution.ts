@@ -26,21 +26,26 @@ export interface InfluencerAttribution {
 
 const istToday = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const minDay = (a: string, b: string) => (a < b ? a : b);
 const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 export async function getInfluencerAttribution(collabs: InfluencerCollabRow[], ga4PropertyId: string | null): Promise<InfluencerAttribution> {
   const today = istToday();
   const posts = collabs
-    .filter((c) => c.platform === "LinkedIn" && c.postDate <= today)
+    // IC-3: future-dated posts too - their UTM visits count all time (a wrong
+    // post date shouldn't hide real visits).
+    .filter((c) => c.platform === "LinkedIn")
     .map((c) => ({ id: c.id, postDate: c.postDate, postBodyLink: c.postBodyLink, commentLink: c.commentLink, name: c.influencerName }));
   if (!posts.length) return { ready: true, reason: null, dealsReady: false, byPost: {}, totals: null, utmLinks: [] };
 
-  const earliest = posts.reduce((a, p) => (p.postDate < a ? p.postDate : a), posts[0].postDate);
-  const range = { start: addDays(earliest, -BASELINE_DAYS), end: today };
+  const earliest = minDay(posts.reduce((a, p) => (p.postDate < a ? p.postDate : a), posts[0].postDate), today);
+  // All time (IC-3): from well before the first post, so UTM visits that came
+  // in early still count; the estimate baseline needs 14 days before a post.
+  const range = { start: addDays(earliest, -Math.max(90, BASELINE_DAYS)), end: today };
   const [ga4, bookings, hubspot, tz] = await Promise.all([
     getGa4InfluencerRows(ga4PropertyId, range),
-    getGa4InfluencerBookingRows(ga4PropertyId, { start: earliest, end: today }),
-    hasHubspot() ? getHubspotVerification({ start: earliest, end: today }).catch(() => null) : Promise.resolve(null),
+    getGa4InfluencerBookingRows(ga4PropertyId, range),
+    hasHubspot() ? getHubspotVerification(range).catch(() => null) : Promise.resolve(null),
     getGa4PropertyTimezone(ga4PropertyId),
   ]);
   if (!ga4.connected) return { ready: false, reason: ga4.reason ?? "GA4 not connected.", dealsReady: false, byPost: {}, totals: null, utmLinks: [] };

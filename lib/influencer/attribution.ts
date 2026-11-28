@@ -15,6 +15,8 @@
 //             (including UTMs that match no post) plus all the estimates.
 
 export const ATTRIBUTION_DAYS = 30;
+/** IC-3: UTM visits count on any day (before the first date GA4 has). */
+const ALL_TIME = "0000-01-01";
 export const BASELINE_DAYS = 14;
 
 export interface AttributionRow {
@@ -30,7 +32,7 @@ export interface AttributionPost {
 }
 export interface PostAttribution {
   postDate: string;
-  exactEnd: string;                 // last day UTM traffic counts (30 days / today)
+  exactEnd: string;                 // last day UTM traffic counts (today - IC-3: all time)
   utmContent: string | null;        // the exact key(s) for display, when there are any
   utmContents: string[];            // every utm_content counted exactly for this post
   matchedBy: "link" | "name" | null; // how the UTM was tied to the post (IC-2)
@@ -130,21 +132,21 @@ export function attributeInfluencerPosts(
   // One name-matched UTM shared by two posts of the same influencer: a day
   // belongs to the latest of those posts on/before it (within its 30 days).
   const ownerOf = (content: string, date: string): string | null => {
-    let best: { id: string; postDate: string } | null = null;
-    for (const k of keyed) {
-      if (!byName.get(k.id)?.includes(content)) continue;
-      const last30 = minDate(addDays(k.postDate, ATTRIBUTION_DAYS - 1), today);
-      if (date < k.postDate || date > last30) continue;
-      if (!best || k.postDate > best.postDate) best = { id: k.id, postDate: k.postDate };
-    }
-    return best?.id ?? null;
+    // IC-3 (all time): the latest same-name post on/before the day; a visit
+    // before every such post goes to the earliest one.
+    const owners = keyed.filter((k) => byName.get(k.id)?.includes(content)).sort((a, b) => a.postDate.localeCompare(b.postDate));
+    if (!owners.length) return null;
+    const onOrBefore = owners.filter((k) => k.postDate <= date);
+    return (onOrBefore.length ? onOrBefore[onOrBefore.length - 1] : owners[0]).id;
   };
 
   const sum = (rows: AttributionRow[], pred: (r: AttributionRow) => boolean, from: string, to: string) =>
     rows.reduce((a, r) => (r.date >= from && r.date <= to && pred(r) ? a + r.sessions : a), 0);
 
   for (const p of keyed) {
-    const last30 = minDate(addDays(p.postDate, ATTRIBUTION_DAYS - 1), today);
+    // IC-3: all time - UTM visits on any day; a plain-link estimate runs from the
+    // post date until the next post to the same page (or today).
+    const last30 = today;
     let windowEnd = last30;
     let share = 1;
     if (p.estPath) {
@@ -162,8 +164,8 @@ export function attributeInfluencerPosts(
       if (p.utmContent) return c === p.utmContent;
       return named.includes(c) && ownerOf(c, r.date) === p.id;
     };
-    const visitsExact = contents.length ? sum(visits, exactPred, p.postDate, last30) : 0;
-    const demosExact = contents.length ? sum(demos, exactPred, p.postDate, last30) : 0;
+    const visitsExact = contents.length ? sum(visits, exactPred, ALL_TIME, today) : 0;
+    const demosExact = contents.length ? sum(demos, exactPred, ALL_TIME, today) : 0;
 
     let visitsEst = 0, demosEst = 0, demosEstRaw = 0;
     if (p.estPath && windowEnd >= p.postDate) {
@@ -196,8 +198,8 @@ export function attributeInfluencerPosts(
   return {
     byPost,
     totals: {
-      visits: sum(visits, isInfluencerUtm, from, today) + visitsEst,
-      demos: sum(demos, isInfluencerUtm, from, today) + demosEst,
+      visits: sum(visits, isInfluencerUtm, ALL_TIME, today) + visitsEst,
+      demos: sum(demos, isInfluencerUtm, ALL_TIME, today) + demosEst,
       deals: 0, dealsEst: 0, // filled in by the data layer (HubSpot match)
       visitsEst, demosEst, from, to: today,
     },
@@ -223,8 +225,8 @@ export function labelBookings(byPost: Record<string, PostAttribution>, rows: Boo
       const c = r.content.trim().toLowerCase();
       // Latest post on/before the day that counts this UTM (same-name posts share one).
       const hit = posts
-        .filter(([, a]) => a.utmContents.includes(c) && date >= a.postDate && date <= a.exactEnd)
-        .sort(([, x], [, y]) => y.postDate.localeCompare(x.postDate))[0];
+        .filter(([, a]) => a.utmContents.includes(c))
+        .sort(([, x], [, y]) => (x.postDate <= date) === (y.postDate <= date) ? y.postDate.localeCompare(x.postDate) : x.postDate <= date ? -1 : 1)[0];
       label = hit ? `${hit[0]}|exact` : "bucket|exact";
     } else if (/linkedin|lnkd/i.test(r.source)) {
       const p = normPath(r.landingPage);
